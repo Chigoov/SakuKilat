@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, ArrowRightLeft, Target, Check, X, Pencil, Trash2 } from 'lucide-react';
 import { useWalletStore, useFeedbackStore } from '@/store/StoreProvider';
 import { formatIDR } from '@/lib/format';
@@ -46,7 +46,7 @@ export function TabSaku() {
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [celebratingId, setCelebratingId] = useState<string | null>(null);
-  const celebratedRef = loadCelebrated();
+  const celebratedRef = useRef<Set<string>>(loadCelebrated());
 
   useEffect(() => { setGoals(loadGoals()); }, []);
   useEffect(() => { saveGoals(goals); }, [goals]);
@@ -54,9 +54,9 @@ export function TabSaku() {
   // Check for newly completed goals → trigger confetti
   useEffect(() => {
     for (const g of goals) {
-      if (g.saved >= g.target && !celebratedRef.has(g.id)) {
-        celebratedRef.add(g.id);
-        saveCelebrated(celebratedRef);
+      if (g.saved >= g.target && !celebratedRef.current.has(g.id)) {
+        celebratedRef.current.add(g.id);
+        saveCelebrated(celebratedRef.current);
         setCelebratingId(g.id);
         showToast(`Goal "${g.label}" tercapai! 🎉`, 'success');
         break;
@@ -65,9 +65,13 @@ export function TabSaku() {
   }, [goals]);
 
   const handleContribute = useCallback((goalId: string, amount: number, source?: string) => {
+    if (amount <= 0) {
+      showToast('Jumlah kontribusi harus lebih dari 0.', 'error');
+      return;
+    }
     setGoals((gs) => gs.map((g) => {
       if (g.id !== goalId) return g;
-      const newSaved = g.saved + amount;
+      const newSaved = Math.max(0, g.saved + amount);
       return { ...g, saved: newSaved };
     }));
     if (source) {

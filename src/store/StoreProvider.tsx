@@ -126,6 +126,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   if (initRef.current === null) {
     initRef.current = (() => {
+      if (typeof window === 'undefined') return {};
       try {
         // Clean up old keys
         for (let i = window.localStorage.length - 1; i >= 0; i--) {
@@ -235,9 +236,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (hydrated) {
       try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, ...serializedState }));
-      } catch (e) { console.warn('Gagal menyimpan auto-save SakuKilat:', e); }
+      } catch (e) {
+        console.warn('Gagal menyimpan auto-save SakuKilat:', e);
+        // Notify user if storage is full (QuotaExceededError)
+        if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+          showToast('Penyimpanan penuh! Backup data Anda lalu hapus transaksi lama.', 'error');
+        }
+      }
     }
-  }, [hydrated, serializedState]);
+  }, [hydrated, serializedState, showToast]);
 
   // Register custom categories/payments for parser
   useEffect(() => {
@@ -421,7 +428,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const desc = data.description?.trim();
     const amount = Math.round(data.amount ?? 0);
     if (!desc || !Number.isFinite(amount) || amount <= 0) { showToast('Deskripsi dan nominal harus valid.', 'error'); return; }
-    const updated: Transaction = { ...tx, description: desc, amount, isPending: false };
+    // Update all provided fields, not just description and amount
+    const updated: Transaction = {
+      ...tx,
+      description: desc,
+      amount,
+      type: data.type ?? tx.type,
+      category: data.category ?? tx.category,
+      subcategory: data.subcategory ?? tx.subcategory,
+      paymentMethod: data.paymentMethod ?? tx.paymentMethod,
+      date: data.date ?? tx.date,
+      isPending: false,
+    };
     if (wouldGoNegative(applyWalletDeltas(wallets, txDeltas(tx, -1)), updated)) {
       showToast('Perubahan ini membuat saldo saku minus.', 'error');
       return;
@@ -454,9 +472,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [showToast]);
 
   const removeCustomPayment = useCallback((id: string) => {
-    const isBuiltin = ['gopay', 'ovo', 'dana', 'shopeepay', 'bca', 'bni', 'bri', 'mandiri', 'jago', 'qris', 'kartu', 'transfer', 'tunai'].includes(id);
+    const isBuiltin = BUILTIN_WALLET_DEFAULT_BALANCES ? id in BUILTIN_WALLET_DEFAULT_BALANCES : false;
+    // Check if it's a built-in wallet by seeing if it exists in seed wallets
+    const builtinIds = ['tunai', 'bca', 'seabank', 'gopay', 'ovo', 'dana', 'shopeepay', 'tabungan'];
+    const isBuiltinWallet = builtinIds.includes(id);
     setCustomPayments((ps) => ps.filter((p) => p.id !== id));
-    if (isBuiltin) {
+    if (isBuiltinWallet) {
       setHiddenPaymentIds((ids) => ids.includes(id) ? ids : [...ids, id]);
       showToast('Metode bawaan disembunyikan.', 'success');
     } else {
