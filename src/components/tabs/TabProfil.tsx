@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Moon, Sun, Monitor, Eye, EyeOff, Download, Upload, Award, BookOpen, Bell, Sparkles } from 'lucide-react';
 import { useAuthStore, usePreferenceStore, useTransactionData, useWalletStore, useBudgetStore, useCustomizationStore, useFeedbackStore } from '@/store/StoreProvider';
 import { formatIDR } from '@/lib/format';
@@ -9,6 +9,22 @@ import { isDemoActive, deactivateDemo } from '@/lib/demo';
 import { getNotifPrefs, saveNotifPrefs, type NotifPrefs } from '@/lib/notifications';
 import { loadRecurring } from '@/lib/recurring';
 import type { ThemeMode } from '@/types';
+
+const GOALS_KEY = 'sakukilat:v2:goals';
+
+function loadGoalStats(): { total: number; completed: number } {
+  try {
+    const raw = localStorage.getItem(GOALS_KEY);
+    if (!raw) return { total: 0, completed: 0 };
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return { total: 0, completed: 0 };
+    const goals = arr.filter((g: any) => g && typeof g.target === 'number' && typeof g.saved === 'number');
+    return {
+      total: goals.length,
+      completed: goals.filter((g: any) => g.saved >= g.target).length,
+    };
+  } catch { return { total: 0, completed: 0 }; }
+}
 
 export function TabProfil() {
   const { user, updateProfile, updateProfileAvatar } = useAuthStore();
@@ -23,15 +39,22 @@ export function TabProfil() {
   const [showBadges, setShowBadges] = useState(false);
   const [showNotifSettings, setShowNotifSettings] = useState(false);
   const [notifPrefs, setNotifPrefs] = useState<NotifPrefs | null>(null);
+  const [recurringCount, setRecurringCount] = useState(0);
+  const [goalStats, setGoalStats] = useState({ total: 0, completed: 0 });
+
+  useEffect(() => {
+    setNotifPrefs(getNotifPrefs());
+    setRecurringCount(loadRecurring().filter(r => r.active).length);
+    setGoalStats(loadGoalStats());
+  }, []);
 
   const demoActive = isDemoActive();
-  const recurringCount = loadRecurring().filter(r => r.active).length;
 
   const badgeCtx = buildBadgeContext({
     transactions, wallets,
     walletsCount: wallets.length,
-    goalsTotal: 0,
-    goalsCompleted: 0,
+    goalsTotal: goalStats.total,
+    goalsCompleted: goalStats.completed,
     customCategoriesCount: customCategories.length,
   });
 
@@ -80,14 +103,24 @@ export function TabProfil() {
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result as string);
-        if (data && typeof data === 'object') {
-          localStorage.setItem('sakukilat:v2:local-state', JSON.stringify(data));
-          showToast('Import berhasil. Memuat ulang...', 'success');
-          setTimeout(() => window.location.reload(), 1000);
+        if (!data || typeof data !== 'object') {
+          showToast('File tidak valid: bukan JSON object.', 'error');
+          return;
         }
+        // Validate minimum schema fields
+        if (!Array.isArray(data.transactions) && !Array.isArray(data.wallets)) {
+          showToast('File tidak valid: tidak ada data transaksi atau wallet.', 'error');
+          return;
+        }
+        localStorage.setItem('sakukilat:v2:local-state', JSON.stringify(data));
+        showToast('Import berhasil. Memuat ulang...', 'success');
+        setTimeout(() => window.location.reload(), 1000);
       } catch {
-        showToast('File tidak valid.', 'error');
+        showToast('File tidak valid: JSON corrupt atau malformed.', 'error');
       }
+    };
+    reader.onerror = () => {
+      showToast('Gagal membaca file.', 'error');
     };
     reader.readAsText(file);
   }, [showToast]);

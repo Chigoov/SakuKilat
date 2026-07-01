@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Zap, Wallet, BarChart3, Target, Bell, Moon, Download, Award, BookOpen } from 'lucide-react';
 import { setFlag, GUIDE_OPENED_KEY } from '@/lib/badges';
 
@@ -120,8 +120,10 @@ const SECTIONS = [
 export function GuideBook({ onClose }: GuideBookProps) {
   const [openSection, setOpenSection] = useState<string | null>('catat-cepat');
 
-  // Mark guide as opened
-  if (typeof window !== 'undefined') setFlag(GUIDE_OPENED_KEY);
+  // Mark guide as opened (side effect in useEffect, not during render)
+  useEffect(() => {
+    setFlag(GUIDE_OPENED_KEY);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[90] bg-[var(--sk-bg)] overflow-y-auto">
