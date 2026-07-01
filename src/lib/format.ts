@@ -10,7 +10,12 @@ export function formatIDR(amount: number): string {
 }
 
 export function formatIDRCompact(amount: number): string {
-  return formatIDR(amount);
+  const abs = Math.abs(amount);
+  const sign = amount < 0 ? '-' : '';
+  if (abs >= 1_000_000_000) return `${sign}Rp${(abs / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (abs >= 1_000_000) return `${sign}Rp${(abs / 1_000_000).toFixed(1).replace(/\.0$/, '')}jt`;
+  if (abs >= 1_000) return `${sign}Rp${(abs / 1_000).toFixed(0)}rb`;
+  return `${sign}Rp${abs}`;
 }
 
 export function formatRelativeDate(date: Date): string {

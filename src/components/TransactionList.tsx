@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Trash2, Pencil, ArrowRightLeft } from 'lucide-react';
+import { Trash2, ArrowRightLeft } from 'lucide-react';
 import type { Transaction } from '@/types';
 import { useTransactionActions } from '@/store/StoreProvider';
 import { formatIDR, formatRelativeDate, formatTime } from '@/lib/format';

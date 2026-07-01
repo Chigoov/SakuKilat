@@ -16,7 +16,8 @@ export function Confetti({ onDone }: ConfettiProps) {
     }
     timerRef.current = setTimeout(onDone, 3200);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [onDone]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const colors = ['#34D399', '#38BDF8', '#FBBF24', '#F472B6'];
   const particles = Array.from({ length: 28 }, (_, i) => {

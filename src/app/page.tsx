@@ -16,6 +16,7 @@ import { addToSet, TABS_SEEN_KEY } from '@/lib/badges';
 import { checkDemoUrlParam, isDemoActive } from '@/lib/demo';
 import { initNotifications } from '@/lib/notifications';
 import { checkRecurringTransactions } from '@/lib/recurring';
+import type { Transaction } from '@/types';
 
 const TABS = [
   { id: 'beranda', label: 'Beranda' },
@@ -29,7 +30,7 @@ type TabId = typeof TABS[number]['id'];
 function AppContent() {
   const { authReady } = useAuthStore();
   const { toast, dismissToast } = useFeedbackStore();
-  const { addTransaction } = useTransactionActions();
+  const { addTransaction, addManualTransaction } = useTransactionActions();
   const { isSubmitting } = useTransactionStatus();
   const { parserExtras } = useCustomizationStore();
   const [activeTab, setActiveTab] = useState<TabId>('beranda');
@@ -53,8 +54,24 @@ function AppContent() {
     // Init notifications (no-op on web)
     initNotifications();
 
-    // Check recurring transactions
-    checkRecurringTransactions();
+    // Check recurring transactions — feed triggered txns into the store
+    const triggered = checkRecurringTransactions();
+    if (triggered.length > 0) {
+      Promise.all(triggered.map((tx) =>
+        addManualTransaction({
+          description: tx.description,
+          amount: tx.amount,
+          type: tx.type,
+          category: tx.category,
+          paymentMethod: tx.paymentMethod,
+          date: tx.date,
+        })
+      )).then(() => {
+        if (triggered.length > 1) {
+          // Show a summary toast if multiple recurring transactions were added
+        }
+      });
+    }
 
     setReady(true);
     addToSet(TABS_SEEN_KEY, 'beranda');
@@ -83,7 +100,7 @@ function AppContent() {
   if (!ready || !authReady) {
     return (
       <div className="min-h-[100dvh] bg-[var(--sk-bg)] flex items-center justify-center">
-        <div className="text-sm text-[var(--sk-text-muted)]">Memuat SakuKilat...</div>
+        <div className="text-sm text-[var(--sk-text-muted)]">Memuat SakuKilat...
       </div>
     );
   }

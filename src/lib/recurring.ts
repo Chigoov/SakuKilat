@@ -71,7 +71,13 @@ function shouldTriggerToday(item: RecurringTransaction, today: Date): boolean {
 
   if (item.frequency === 'daily') return true;
   if (item.frequency === 'weekly') return today.getDay() === (item.dayOfWeek ?? 1);
-  if (item.frequency === 'monthly') return today.getDate() === (item.dayOfMonth ?? 1);
+  if (item.frequency === 'monthly') {
+    const targetDay = item.dayOfMonth ?? 1;
+    // If the target day doesn't exist in the current month, trigger on the last day
+    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    if (targetDay > lastDayOfMonth) return today.getDate() === lastDayOfMonth;
+    return today.getDate() === targetDay;
+  }
   return false;
 }
 
