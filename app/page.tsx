@@ -285,8 +285,8 @@ function AppShell() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[var(--sk-bg)] flex flex-col">
-      <main className={cn('flex-1 overflow-y-auto pb-[182px] md:pb-[118px] md:mb-0')}>
+    <div className="h-[100dvh] overflow-hidden bg-[var(--sk-bg)] flex flex-col">
+      <main className={cn('min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] pb-[182px] md:pb-[118px] md:mb-0')}>
         {activeTab === 'beranda' && <TabBeranda />}
         {activeTab === 'rekapan' && <TabRekapan />}
         {activeTab === 'saku' && <TabSaku />}
