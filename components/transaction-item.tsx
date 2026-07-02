@@ -14,9 +14,10 @@ interface TransactionItemProps {
   onDelete?: (id: string) => void
   onUpdate?: (id: string, updates: TransactionUpdateInput) => void
   isNew?: boolean
+  compact?: boolean
 }
 
-export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: TransactionItemProps) {
+export function TransactionItem({ transaction, onDelete, onUpdate, isNew, compact }: TransactionItemProps) {
   const [expanded, setExpanded] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -68,7 +69,8 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
   return (
     <div
       className={cn(
-        'group relative cursor-pointer select-none rounded-[26px] border transition-all duration-300',
+        'group relative cursor-pointer select-none border transition-all duration-300',
+        compact ? 'rounded-[16px]' : 'rounded-[26px]',
         'bg-[var(--sk-surface)] border-[var(--sk-border)]',
         'hover:border-[var(--sk-border-2)] hover:bg-[var(--sk-surface-2)] hover:shadow-[0_16px_36px_rgba(2,6,23,0.16)]',
         'active:scale-[0.99]',
@@ -89,31 +91,37 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
         </div>
       )}
 
-      <div className="flex items-center gap-3.5 p-4">
+      <div className={cn('flex items-center', compact ? 'gap-2.5 p-2.5' : 'gap-3.5 p-4')}>
         {isMove ? (
-          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[var(--sk-cyan-dim)]">
-            <MoveIcon className="h-5 w-5 text-[var(--sk-cyan)]" />
+          <div className={cn(
+            'flex flex-shrink-0 items-center justify-center bg-[var(--sk-cyan-dim)]',
+            compact ? 'h-9 w-9 rounded-xl' : 'h-12 w-12 rounded-2xl'
+          )}>
+            <MoveIcon className={cn('text-[var(--sk-cyan)]', compact ? 'h-4 w-4' : 'h-5 w-5')} />
           </div>
         ) : (
-          <CategoryIcon category={transaction.category} size="md" />
+          <CategoryIcon category={transaction.category} size={compact ? 'sm' : 'md'} />
         )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="truncate text-base font-semibold leading-tight capitalize text-[var(--sk-text)]">
+            <span className={cn(
+              'truncate font-semibold leading-tight capitalize text-[var(--sk-text)]',
+              compact ? 'text-[13px]' : 'text-base'
+            )}>
               {transaction.description}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
-            <span className="shrink-0 text-[13px] text-[var(--sk-text-muted)]">
+            <span className={cn('shrink-0 text-[var(--sk-text-muted)]', compact ? 'text-[11px]' : 'text-[13px]')}>
               {isMove ? typeLabel : categoryLabel}
             </span>
             <span className="shrink-0 text-xs text-[var(--sk-text-dim)]">.</span>
-            <span className="min-w-0 break-words text-[13px] text-[var(--sk-text-muted)]">
+            <span className={cn('min-w-0 break-words text-[var(--sk-text-muted)]', compact ? 'text-[11px]' : 'text-[13px]')}>
               {isMove ? routeLabel : getPaymentLabel(transaction.paymentMethod)}
             </span>
             <span className="shrink-0 text-xs text-[var(--sk-text-dim)]">.</span>
-            <span className="shrink-0 text-[13px] text-[var(--sk-text-dim)]">
+            <span className={cn('shrink-0 text-[var(--sk-text-dim)]', compact ? 'text-[11px]' : 'text-[13px]')}>
               {formatTime(transaction.date)}
             </span>
           </div>
@@ -123,7 +131,8 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
           <div className="text-right">
             <span
               className={cn(
-                'block text-[17px] font-bold leading-tight tabular-nums',
+                'block font-bold leading-tight tabular-nums',
+                compact ? 'text-[13px]' : 'text-[17px]',
                 isMove ? 'text-[var(--sk-cyan)]' : isExpense ? 'text-[var(--sk-red)]' : 'text-[var(--sk-green)]'
               )}
               data-amount
@@ -133,7 +142,8 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
           </div>
           <ChevronRight
             className={cn(
-              'h-4 w-4 flex-shrink-0 text-[var(--sk-text-dim)] transition-transform duration-200',
+              'flex-shrink-0 text-[var(--sk-text-dim)] transition-transform duration-200',
+              compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
               expanded && 'rotate-90'
             )}
           />

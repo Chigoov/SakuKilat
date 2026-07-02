@@ -304,7 +304,7 @@ export const TabRekapan = memo(function TabRekapan() {
         </header>
 
         <div className="mb-6 overflow-x-auto pb-1">
-          <div className="inline-grid min-w-full grid-cols-3 gap-1 rounded-[28px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-1">
+          <div className="inline-grid min-w-full grid-cols-3 gap-1 rounded-[10px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-0.5 md:rounded-[28px] md:p-1">
             {([
               ['history', 'History'],
               ['calendar', 'Kalender'],
@@ -315,7 +315,7 @@ export const TabRekapan = memo(function TabRekapan() {
                 type="button"
                 onClick={() => setMode(value)}
                 className={cn(
-                  'rounded-[22px] px-4 py-3 text-base font-semibold transition-colors md:text-lg',
+                  'rounded-[8px] px-1.5 py-0.5 text-[8px] font-semibold transition-colors md:rounded-[22px] md:px-4 md:py-3 md:text-base md:lg:text-lg',
                   mode === value ? 'bg-[var(--sk-surface-3)] text-[var(--sk-text)] shadow-sm' : 'text-[var(--sk-text-muted)]'
                 )}
               >
@@ -327,7 +327,7 @@ export const TabRekapan = memo(function TabRekapan() {
 
         {(mode === 'history' || mode === 'trend') && (
           <div className="mb-4 overflow-x-auto pb-1">
-            <div className="flex w-max gap-3">
+            <div className="flex w-max gap-1 md:gap-3">
               {([
                 ['7d', '7 Hari'],
                 ['30d', '30 Hari'],
@@ -339,7 +339,7 @@ export const TabRekapan = memo(function TabRekapan() {
                   type="button"
                   onClick={() => setRangeMode(value)}
                   className={cn(
-                    'rounded-[20px] px-5 py-3 text-base font-semibold transition-colors md:text-lg',
+                    'rounded-[8px] px-2 py-0.5 text-[8px] font-semibold transition-colors md:rounded-[20px] md:px-5 md:py-3 md:text-base md:lg:text-lg',
                     rangeMode === value
                       ? 'bg-[var(--sk-cyan)] text-[#090D16]'
                       : 'bg-[var(--sk-surface)] text-[var(--sk-text-muted)]'
@@ -354,28 +354,28 @@ export const TabRekapan = memo(function TabRekapan() {
 
         {mode === 'history' && (
           <section>
-            <p className="mb-6 text-base text-[var(--sk-text-dim)] md:text-lg">History: {bounds.label}</p>
+            <p className="mb-1.5 text-[9px] text-[var(--sk-text-dim)] md:mb-6 md:text-base md:lg:text-lg">History: {bounds.label}</p>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-1.5 md:gap-4">
               <button
                 type="button"
                 onClick={() => openCategorySummary('expense', `Kategori pengeluaran ${bounds.label}`, rangeExpenseRows)}
-                className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5 text-left shadow-[0_14px_34px_rgba(2,6,23,0.22)]"
+                className="rounded-[12px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-2 text-left shadow-[0_14px_34px_rgba(2,6,23,0.22)] md:rounded-[26px] md:p-5"
               >
-                <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Total keluar</p>
-                <p className="mt-4 text-3xl font-bold text-[var(--sk-red)]">{formatIDR(rangeTotalsData.expense)}</p>
+                <p className="text-[9px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)] md:text-[13px]">Total keluar</p>
+                <p className="mt-1 text-sm font-bold text-[var(--sk-red)] md:mt-4 md:text-3xl">{formatIDR(rangeTotalsData.expense)}</p>
               </button>
               <button
                 type="button"
                 onClick={() => openCategorySummary('income', `Kategori pemasukan ${bounds.label}`, rangeIncomeRows)}
-                className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5 text-left shadow-[0_14px_34px_rgba(2,6,23,0.22)]"
+                className="rounded-[12px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-2 text-left shadow-[0_14px_34px_rgba(2,6,23,0.22)] md:rounded-[26px] md:p-5"
               >
-                <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Total masuk</p>
-                <p className="mt-4 text-3xl font-bold text-[var(--sk-green)]">{formatIDR(rangeTotalsData.income)}</p>
+                <p className="text-[9px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)] md:text-[13px]">Total masuk</p>
+                <p className="mt-1 text-sm font-bold text-[var(--sk-green)] md:mt-4 md:text-3xl">{formatIDR(rangeTotalsData.income)}</p>
               </button>
             </div>
 
-            <div className="my-6 border-t border-[var(--sk-border)] pt-6">
+            <div className="my-3 border-t border-[var(--sk-border)] pt-3">
               <FilterTabs active={filter} onChange={setFilter} counts={historyCounts} />
             </div>
 
@@ -385,46 +385,47 @@ export const TabRekapan = memo(function TabRekapan() {
               onUpdate={updateTransaction}
               newTransactionId={newTransactionId}
               className="px-0 pb-0 md:px-0"
+              compact
             />
           </section>
         )}
 
         {mode === 'calendar' && (
-          <section className="rounded-[32px] border border-[var(--sk-border)] bg-[var(--sk-surface)] px-4 py-5">
-            <div className="mb-6 flex items-center justify-between gap-3">
+          <section className="rounded-[16px] border border-[var(--sk-border)] bg-[var(--sk-surface)] px-3 py-3 md:rounded-[32px] md:px-4 md:py-5">
+            <div className="mb-3 flex items-center justify-between gap-2 md:mb-6 md:gap-3">
               <button
                 type="button"
                 onClick={() => setSelectedMonth((current) => addMonths(current, -1))}
-                className="flex h-14 w-14 items-center justify-center rounded-3xl bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] md:h-14 md:w-14 md:rounded-3xl"
               >
-                <ChevronLeft className="h-6 w-6" />
+                <ChevronLeft className="h-4 w-4 md:h-6 md:w-6" />
               </button>
               <div className="text-center">
-                <p className="text-2xl font-bold text-[var(--sk-text)]">
+                <p className="text-sm font-bold text-[var(--sk-text)] md:text-2xl">
                   {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth)}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedMonth((current) => addMonths(current, 1))}
-                className="flex h-14 w-14 items-center justify-center rounded-3xl bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] md:h-14 md:w-14 md:rounded-3xl"
               >
-                <ChevronRight className="h-6 w-6" />
+                <ChevronRight className="h-4 w-4 md:h-6 md:w-6" />
               </button>
             </div>
 
-            <div className="mb-4 grid grid-cols-7 gap-2">
+            <div className="mb-2 grid grid-cols-7 gap-1 md:mb-4 md:gap-2">
               {WEEKDAY_LABELS.map((label) => (
-                <div key={label} className="pb-2 text-center text-sm font-medium text-[var(--sk-text-dim)]">
+                <div key={label} className="pb-1 text-center text-[10px] font-medium text-[var(--sk-text-dim)] md:pb-2 md:text-sm">
                   {label}
                 </div>
               ))}
             </div>
 
-            <div className="grid grid-cols-7 gap-2">
+            <div className="grid grid-cols-7 gap-1 md:gap-2">
               {monthGrid(selectedMonth).map((cell) => {
                 if (!cell.date || cell.day === null) {
-                  return <div key={cell.key} className="h-[92px]" />
+                  return <div key={cell.key} className="h-[66px] md:h-[92px]" />
                 }
 
                 const cellDate = cell.date
@@ -444,22 +445,22 @@ export const TabRekapan = memo(function TabRekapan() {
                       )
                     }}
                     className={cn(
-                      'h-[92px] rounded-[24px] px-2 py-2 text-center transition-colors',
+                      'h-[66px] rounded-[12px] px-1 py-1 text-center transition-colors md:h-[92px] md:rounded-[24px] md:px-2 md:py-2',
                       hasActivity ? 'bg-[var(--sk-surface-2)]' : 'bg-transparent'
                     )}
                   >
-                    <p className="text-[12px] font-semibold text-[var(--sk-text)]">{cell.day}</p>
+                    <p className="text-[10px] font-semibold text-[var(--sk-text)] md:text-[12px]">{cell.day}</p>
                     {hasActivity && (
-                      <div className="mt-1 space-y-1">
+                      <div className="mt-0.5 space-y-0.5">
                         {agg?.expense ? (
-                          <div className="text-[10px] leading-tight text-[var(--sk-red)]">
-                            <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[var(--sk-red)] align-middle" />
+                          <div className="text-[8px] leading-tight text-[var(--sk-red)]">
+                            <span className="mr-0.5 inline-block h-1.5 w-1.5 rounded-full bg-[var(--sk-red)] align-middle" />
                             -{formatIDRCompact(agg.expense)}
                           </div>
                         ) : null}
                         {agg?.income ? (
-                          <div className="text-[10px] leading-tight text-[var(--sk-green)]">
-                            <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[var(--sk-green)] align-middle" />
+                          <div className="text-[8px] leading-tight text-[var(--sk-green)]">
+                            <span className="mr-0.5 inline-block h-1.5 w-1.5 rounded-full bg-[var(--sk-green)] align-middle" />
                             +{formatIDRCompact(agg.income)}
                           </div>
                         ) : null}
@@ -473,9 +474,9 @@ export const TabRekapan = memo(function TabRekapan() {
         )}
 
         {mode === 'trend' && (
-          <section className="space-y-5">
-            <div className="rounded-[32px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
-              <div className="flex items-center justify-between gap-3">
+          <section className="space-y-2 md:space-y-5">
+            <div className="rounded-[12px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-2 md:rounded-[32px] md:p-5">
+              <div className="flex items-center justify-between gap-1 md:gap-3">
                 <button
                   type="button"
                   onClick={() => setSelectedMonth((current) => addMonths(current, -1))}
@@ -484,10 +485,10 @@ export const TabRekapan = memo(function TabRekapan() {
                   <ChevronLeft className="h-6 w-6" />
                 </button>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-[var(--sk-text)]">
+                  <p className="text-sm font-bold text-[var(--sk-text)] md:text-2xl">
                     {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth)}
                   </p>
-                  <p className="mt-1 text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Alokasi Bulanan</p>
+                  <p className="mt-0.5 text-[7px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)] md:mt-1 md:text-[13px]">Alokasi Bulanan</p>
                 </div>
                 <button
                   type="button"
@@ -498,19 +499,19 @@ export const TabRekapan = memo(function TabRekapan() {
                 </button>
               </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-4">
+              <div className="mt-2.5 grid grid-cols-2 gap-1.5 md:mt-6 md:gap-4">
                 <button
                   type="button"
                   onClick={() => setAllocationType('income')}
                   className={cn(
-                    'rounded-[26px] border p-5 text-left transition-colors',
+                    'rounded-[12px] border p-2 text-left transition-colors md:rounded-[26px] md:p-5',
                     allocationType === 'income'
                       ? 'border-[rgba(52,211,153,0.4)] bg-[var(--sk-surface-2)]'
                       : 'border-[var(--sk-border)] bg-[var(--sk-surface)]'
                   )}
                 >
-                  <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pendapatan</p>
-                  <p className="mt-4 text-3xl font-bold text-[var(--sk-green)]">{formatIDR(monthlyTotalsData.income)}</p>
+                  <p className="text-[7px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)] md:text-[13px]">Pendapatan</p>
+                  <p className="mt-1 text-sm font-bold text-[var(--sk-green)] md:mt-4 md:text-3xl">{formatIDR(monthlyTotalsData.income)}</p>
                 </button>
                 <button
                   type="button"
@@ -522,19 +523,19 @@ export const TabRekapan = memo(function TabRekapan() {
                       : 'border-[var(--sk-border)] bg-[var(--sk-surface)]'
                   )}
                 >
-                  <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pengeluaran</p>
-                  <p className="mt-4 text-3xl font-bold text-[var(--sk-red)]">{formatIDR(monthlyTotalsData.expense)}</p>
+                  <p className="text-[7px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)] md:text-[13px]">Pengeluaran</p>
+                  <p className="mt-1 text-sm font-bold text-[var(--sk-red)] md:mt-4 md:text-3xl">{formatIDR(monthlyTotalsData.expense)}</p>
                 </button>
               </div>
 
-              <div className="mt-6 rounded-[28px] border border-dashed border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-4">
+              <div className="mt-2.5 rounded-[12px] border border-dashed border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-1.5 md:mt-6 md:rounded-[28px] md:p-4">
                 {allocationEmpty ? (
-                  <div className="flex h-[260px] items-center justify-center text-center text-2xl text-[var(--sk-text-dim)]">
+                  <div className="flex h-[200px] items-center justify-center text-center text-xs text-[var(--sk-text-dim)] md:h-[260px] md:text-2xl">
                     Belum ada {allocationType === 'expense' ? 'pengeluaran' : 'pemasukan'}
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="h-[240px]">
+                    <div className="h-[200px] md:h-[240px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
@@ -579,16 +580,16 @@ export const TabRekapan = memo(function TabRekapan() {
                 )}
               </div>
 
-              <div className="mt-5 rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-4">
+              <div className="mt-2 rounded-[12px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-1.5 md:mt-5 md:rounded-[26px] md:p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[18px] font-semibold text-[var(--sk-text)]">
+                    <p className="text-[11px] font-semibold text-[var(--sk-text)] md:text-[18px]">
                       Alokasi {allocationType === 'expense' ? 'pengeluaran' : 'pemasukan'}
                     </p>
-                    <p className="mt-1 text-sm text-[var(--sk-text-dim)]">{monthAllocation.length} kategori tercatat</p>
+                    <p className="mt-0.5 text-[8px] text-[var(--sk-text-dim)] md:mt-1 md:text-sm">{monthAllocation.length} kategori tercatat</p>
                   </div>
                   <p className={cn(
-                    'text-3xl font-bold',
+                    'text-sm font-bold md:text-3xl',
                     allocationType === 'expense' ? 'text-[var(--sk-red)]' : 'text-[var(--sk-green)]'
                   )}>
                     {formatIDR(
@@ -600,11 +601,11 @@ export const TabRekapan = memo(function TabRekapan() {
                 <div className="my-4 h-px bg-[var(--sk-border)]" />
 
                 {monthAllocation.length === 0 ? (
-                  <p className="text-lg text-[var(--sk-text-dim)]">
+                  <p className="text-[10px] text-[var(--sk-text-dim)] md:text-lg">
                     Belum ada {allocationType === 'expense' ? 'pengeluaran' : 'pemasukan'} di bulan ini.
                   </p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-1 md:space-y-3">
                     {monthAllocation.slice(0, 5).map((slice) => (
                       <button
                         key={slice.category}
@@ -618,7 +619,7 @@ export const TabRekapan = memo(function TabRekapan() {
                         className="flex w-full items-center gap-3 text-left"
                       >
                         <span className="h-3 w-3 rounded-full" style={{ background: getCategoryHex(slice.category) }} />
-                        <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--sk-text-muted)]">
+                        <span className="min-w-0 flex-1 truncate text-[8px] text-[var(--sk-text-muted)] md:text-[15px]">
                           {getCategoryConfig(slice.category).label}
                         </span>
                         <span className="text-sm font-semibold text-[var(--sk-text)]">
@@ -635,9 +636,9 @@ export const TabRekapan = memo(function TabRekapan() {
               <button
                 type="button"
                 onClick={() => openCategorySummary('expense', `Kategori pengeluaran ${bounds.label}`, rangeExpenseRows)}
-                className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5 text-left"
+                className="rounded-[12px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-2 text-left md:rounded-[26px] md:p-5"
               >
-                <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pengeluaran</p>
+                <p className="text-[7px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)] md:text-[13px]">Pengeluaran</p>
                 <p className="mt-4 text-3xl font-bold text-[var(--sk-red)]">{formatIDR(rangeTotalsData.expense)}</p>
               </button>
               <button
@@ -645,14 +646,14 @@ export const TabRekapan = memo(function TabRekapan() {
                 onClick={() => openCategorySummary('income', `Kategori pemasukan ${bounds.label}`, rangeIncomeRows)}
                 className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5 text-left"
               >
-                <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pemasukan</p>
+                <p className="text-[7px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)] md:text-[13px]">Pemasukan</p>
                 <p className="mt-4 text-3xl font-bold text-[var(--sk-green)]">{formatIDR(rangeTotalsData.income)}</p>
               </button>
             </div>
 
-            <div className="rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
-              <h3 className="text-2xl font-semibold text-[var(--sk-text)]">Pengeluaran vs Pemasukan</h3>
-              <div className="mt-4 h-[260px]">
+            <div className="rounded-[12px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-2 md:rounded-[30px] md:p-5">
+              <h3 className="text-xs font-semibold text-[var(--sk-text)] md:text-2xl">Pengeluaran vs Pemasukan</h3>
+              <div className="mt-1.5 h-[130px] md:mt-4 md:h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={trendSeries}>
                     <CartesianGrid stroke="var(--sk-border)" vertical={false} />
@@ -667,9 +668,9 @@ export const TabRekapan = memo(function TabRekapan() {
             </div>
 
             <div className="rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
-              <h3 className="text-2xl font-semibold text-[var(--sk-text)]">Tren Pengeluaran</h3>
-              <div className="mt-4 rounded-[20px] border border-[rgba(255,255,255,0.12)] p-3">
-                <div className="h-[260px]">
+              <h3 className="text-xs font-semibold text-[var(--sk-text)] md:text-2xl">Tren Pengeluaran</h3>
+              <div className="mt-1.5 rounded-[8px] border border-[rgba(255,255,255,0.12)] p-1 md:mt-4 md:rounded-[20px] md:p-3">
+                <div className="h-[130px] md:h-[260px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={trendSeries}>
                       <CartesianGrid stroke="var(--sk-border)" vertical={false} />
@@ -691,14 +692,14 @@ export const TabRekapan = memo(function TabRekapan() {
             </div>
 
             {savedCategory && (
-              <div className="rounded-[28px] border border-[rgba(16,185,129,0.28)] bg-[rgba(16,185,129,0.18)] p-5">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[rgba(16,185,129,0.12)]">
-                    <span className="text-3xl">🍜</span>
+              <div className="rounded-[12px] border border-[rgba(16,185,129,0.28)] bg-[rgba(16,185,129,0.18)] p-2 md:rounded-[28px] md:p-5">
+                <div className="flex items-start gap-1.5 md:gap-4">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[rgba(16,185,129,0.12)] md:h-14 md:w-14 md:rounded-2xl">
+                    <span className="text-xs md:text-3xl">🍜</span>
                   </div>
                   <div>
-                    <p className="text-2xl font-semibold text-[var(--sk-green)]">Penghematan minggu ini</p>
-                    <p className="mt-2 text-[15px] leading-relaxed text-[var(--sk-text)]">
+                    <p className="text-xs font-semibold text-[var(--sk-green)] md:text-2xl">Penghematan minggu ini</p>
+                    <p className="mt-0.5 text-[8px] leading-relaxed text-[var(--sk-text)] md:mt-2 md:text-[15px]">
                       Pengeluaran {getCategoryConfig(savedCategory).label} kamu lebih hemat dari minggu lalu. Pertahankan!
                     </p>
                   </div>
