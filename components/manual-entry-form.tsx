@@ -46,6 +46,14 @@ function dateFromInput(value: string): Date {
   return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), 0, 0)
 }
 
+function seedDescriptionValue(seedInput?: string): string {
+  const trimmed = seedInput?.trim() ?? ''
+  if (!trimmed) return ''
+  if (/^(rp|idr)$/i.test(trimmed)) return ''
+  if (parseAmountInput(trimmed) > 0) return ''
+  return trimmed
+}
+
 export const ManualEntryForm = memo(function ManualEntryForm({
   open,
   onClose,
@@ -70,7 +78,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     if (!open) return
     const from = wallets[0]?.id ?? 'tunai'
     setType('expense')
-    setDescription(seedInput?.trim() ?? '')
+    setDescription(seedDescriptionValue(seedInput))
     setAmountRaw('')
     setCategory('lainnya')
     setSubcategory('')

@@ -52,24 +52,29 @@ try {
 Write-Host "`n[5/5] Menyalin APK ke folder root..." -ForegroundColor Cyan
 $artifacts = @(
   @{
-    Source = "$root\android\app\build\outputs\apk\public\release\app-public-release.apk"
+    SourceDir = "$root\android\app\build\outputs\apk\public\release"
+    Pattern = "app-public-release*.apk"
     Destination = "$root\SakuKilat-v2.apk"
     Label = "SakuKilat-v2.apk"
   },
   @{
-    Source = "$root\android\app\build\outputs\apk\personal\release\app-personal-release.apk"
+    SourceDir = "$root\android\app\build\outputs\apk\personal\release"
+    Pattern = "app-personal-release*.apk"
     Destination = "$root\SakuKilat-Pribadi-v2.apk"
     Label = "SakuKilat-Pribadi-v2.apk"
   }
 )
 
 foreach ($artifact in $artifacts) {
-  if (-not (Test-Path $artifact.Source)) {
+  $source = Get-ChildItem -LiteralPath $artifact.SourceDir -Filter $artifact.Pattern -File |
+    Select-Object -First 1
+
+  if (-not $source) {
     Write-Host "`nGAGAL: $($artifact.Label) tidak ditemukan. Cek error build di atas." -ForegroundColor Red
     exit 1
   }
 
-  Copy-Item $artifact.Source -Destination $artifact.Destination -Force
+  Copy-Item $source.FullName -Destination $artifact.Destination -Force
 }
 
 $publicSize = [math]::Round((Get-Item "$root\SakuKilat-v2.apk").Length / 1MB, 2)

@@ -124,7 +124,7 @@ export function BudgetCard() {
             <button
               type="button"
               onClick={openBudgetSettings}
-              className="mt-2 text-xs font-semibold text-[var(--sk-cyan)]"
+              className="mt-3 inline-flex min-h-10 items-center rounded-full border border-[rgba(56,189,248,0.25)] bg-[var(--sk-cyan-dim)] px-3 py-2 text-[13px] font-semibold text-[var(--sk-cyan)]"
             >
               Atur sekarang -&gt;
             </button>

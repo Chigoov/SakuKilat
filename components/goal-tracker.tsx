@@ -263,10 +263,10 @@ const GoalCard = memo(function GoalCard({ goal, onContribute, onEdit, onRemove, 
         />
       </div>
 
-      <div className="mt-1.5 flex items-center justify-between text-[10px]">
+      <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
         <span className="tabular-nums text-[var(--sk-text-muted)] font-medium">{pct}%</span>
         {dailySuggestion && (
-          <span className="text-[var(--sk-text-dim)]">
+          <span className="text-right text-[var(--sk-text-dim)]">
             Sisihkan ~<span className="text-[var(--sk-cyan)] font-semibold">{formatIDRCompact(dailySuggestion)}</span>/hari
           </span>
         )}
@@ -282,7 +282,7 @@ const GoalCard = memo(function GoalCard({ goal, onContribute, onEdit, onRemove, 
           <button
             type="button"
             onClick={() => setExpanded(v => !v)}
-            className="mt-2.5 w-full flex items-center justify-center gap-1 py-1.5 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-[11px] font-semibold text-[var(--sk-text-muted)] hover:bg-[var(--sk-surface-3)]"
+            className="mt-3 flex min-h-10 w-full items-center justify-center gap-1 rounded-lg border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-3 py-2.5 text-[12px] font-semibold text-[var(--sk-text-muted)] hover:bg-[var(--sk-surface-3)]"
           >
             {expanded
               ? <><ChevronUp className="w-3.5 h-3.5" /> Tutup</>
@@ -305,7 +305,7 @@ const GoalCard = memo(function GoalCard({ goal, onContribute, onEdit, onRemove, 
                   onClick={handleContribute}
                   disabled={!parsedContrib || parsedContrib <= 0}
                   className={cn(
-                    'w-9 h-8 rounded-lg flex items-center justify-center transition-all flex-shrink-0',
+                    'h-10 w-10 rounded-lg flex items-center justify-center transition-all flex-shrink-0',
                     parsedContrib
                       ? 'bg-[var(--sk-cyan)] text-[#090D16] shadow-[0_0_10px_var(--sk-cyan-glow)] hover:opacity-90 active:scale-95'
                       : 'bg-[var(--sk-surface-3)] text-[var(--sk-text-dim)]'

@@ -1,22 +1,20 @@
 'use client'
 
 import { memo, useEffect, useMemo, useState } from 'react'
-import { ChevronRight, Eye, EyeOff, Flame, Lightbulb, PiggyBank, Plus, Target, TrendingDown, TrendingUp, Trophy } from 'lucide-react'
+import { ChevronRight, Eye, EyeOff, Flame, Lightbulb, TrendingDown, TrendingUp, Trophy } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { BudgetCard } from '@/components/budget-card'
 import { BottomSheet } from '@/components/bottom-sheet'
 import { FilterTabs, type FilterTab } from '@/components/filter-tabs'
 import { NotificationBell } from '@/components/notification-bell'
 import { TransactionList } from '@/components/transaction-list'
-import { contributeToGoalSnapshot, createGoalSnapshot, readGoalSnapshot, type Goal } from '@/components/goal-tracker'
+import { readGoalSnapshot, type Goal } from '@/components/goal-tracker'
 import { buildContext, evaluateBadges, BADGES } from '@/lib/achievements'
-import { formatNaturalAmountInput, parseAmountInput } from '@/lib/amount'
 import { formatIDR, formatIDRCompact } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import {
   useBudgetStore,
   useCustomizationStore,
-  useFeedbackStore,
   usePreferenceStore,
   useTransactionActions,
   useTransactionData,
@@ -90,6 +88,19 @@ function recommendationText(categoryLabel: string | null, pct: number | null, ne
   return `Sebarannya masih sehat. Tetap pantau ${categoryLabel}.`
 }
 
+function amountToneClass(label: string, variant: 'hero' | 'card'): string {
+  const compactLabel = label.replace(/\s+/g, '')
+  if (variant === 'hero') {
+    if (compactLabel.length >= 16) return 'text-[clamp(1.55rem,6.6vw,2.2rem)]'
+    if (compactLabel.length >= 13) return 'text-[clamp(1.72rem,7.2vw,2.45rem)]'
+    return 'text-[clamp(1.9rem,8.5vw,2.75rem)]'
+  }
+
+  if (compactLabel.length >= 13) return 'text-[clamp(0.68rem,3vw,1rem)]'
+  if (compactLabel.length >= 10) return 'text-[clamp(0.74rem,3.25vw,1.08rem)]'
+  return 'text-[clamp(0.78rem,3.6vw,1.2rem)]'
+}
+
 function MonthHeroChart({
   empty,
   slices,
@@ -99,8 +110,8 @@ function MonthHeroChart({
 }) {
   if (empty) {
     return (
-      <div className="animate-home-chart-spin mx-auto flex h-[190px] w-full max-w-[300px] items-center justify-center">
-        <div className="flex h-[180px] w-[180px] items-center justify-center rounded-full border-[8px] border-dashed border-[var(--sk-border-2)] text-center text-sm leading-relaxed text-[var(--sk-text-dim)]">
+      <div className="animate-home-chart-spin mx-auto flex h-[148px] w-full max-w-[240px] items-center justify-center">
+        <div className="flex h-[140px] w-[140px] items-center justify-center rounded-full border-[7px] border-dashed border-[var(--sk-border-2)] text-center text-xs leading-relaxed text-[var(--sk-text-dim)]">
           Belum
           <br />
           ada data
@@ -110,14 +121,14 @@ function MonthHeroChart({
   }
 
   return (
-    <div className="animate-home-chart-spin mx-auto h-[190px] w-full max-w-[320px]">
+    <div className="animate-home-chart-spin mx-auto h-[148px] w-full max-w-[260px]">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={slices}
             dataKey="total"
-            innerRadius={56}
-            outerRadius={84}
+            innerRadius={44}
+            outerRadius={68}
             paddingAngle={3}
             strokeWidth={0}
           >
@@ -139,14 +150,10 @@ export const TabBeranda = memo(function TabBeranda() {
   const { monthlyBudget } = useBudgetStore()
   const { customPayments, customCategories } = useCustomizationStore()
   const { zenMode, toggleZen } = usePreferenceStore()
-  const { showToast } = useFeedbackStore()
   const [filter, setFilter] = useState<FilterTab>('semua')
   const [analysisScope, setAnalysisScope] = useState<'minggu' | 'bulan'>('minggu')
   const [goals, setGoals] = useState<Goal[]>([])
   const [detailSheet, setDetailSheet] = useState<HomeDetailSheet | null>(null)
-  const [goalLabel, setGoalLabel] = useState('')
-  const [goalTargetRaw, setGoalTargetRaw] = useState('')
-  const [goalContributionRaw, setGoalContributionRaw] = useState('')
 
   useEffect(() => {
     const syncGoals = () => setGoals(readGoalSnapshot())
@@ -206,15 +213,14 @@ export const TabBeranda = memo(function TabBeranda() {
   const heroMonthLabel = appMonthLabel(now)
   const topCategoryLabel = activeInsight.topCategory ? getCategoryConfig(activeInsight.topCategory.category).label : null
   const topCategoryPct = activeInsight.topCategory ? Math.round(activeInsight.topCategory.pct * 100) : null
-  const activeGoal = useMemo(
-    () => goals.find((goal) => goal.saved < goal.target) ?? goals[0] ?? null,
-    [goals]
-  )
-  const quickGoalTarget = useMemo(() => parseAmountInput(goalTargetRaw), [goalTargetRaw])
-  const quickGoalContribution = useMemo(() => parseAmountInput(goalContributionRaw), [goalContributionRaw])
-  const activeGoalPct = activeGoal
-    ? Math.min(100, Math.round((activeGoal.saved / Math.max(1, activeGoal.target)) * 100))
-    : 0
+  const balanceLabel = monthTotals.balance < 0
+    ? `-${formatIDR(Math.abs(monthTotals.balance))}`
+    : formatIDR(monthTotals.balance)
+  const incomeLabel = formatIDRCompact(monthTotals.income)
+  const expenseLabel = formatIDRCompact(monthTotals.expense)
+  const analysisExpenseLabel = formatIDRCompact(activeInsight.expense)
+  const analysisIncomeLabel = formatIDRCompact(activeInsight.income)
+  const analysisAvgLabel = formatIDRCompact(activeInsight.avgPerDay)
 
   const openTransactions = (title: string, entries: Transaction[], subtitle?: string) => {
     setDetailSheet({
@@ -249,54 +255,22 @@ export const TabBeranda = memo(function TabBeranda() {
     )
   }
 
-  const openGoalManager = () => {
-    window.dispatchEvent(new CustomEvent('sakukilat:navigate', { detail: { tab: 'saku', section: 'goal' } }))
-  }
-
-  const handleQuickGoalCreate = () => {
-    const created = createGoalSnapshot({
-      label: goalLabel,
-      target: quickGoalTarget,
-    })
-    if (!created) {
-      showToast('Isi nama goal dan target dulu.', 'error')
-      return
-    }
-    setGoalLabel('')
-    setGoalTargetRaw('')
-    showToast('Goal baru ditambahkan dari beranda.', 'success')
-  }
-
-  const handleQuickGoalContribution = () => {
-    if (!activeGoal || !quickGoalContribution) {
-      showToast('Isi nominal kontribusinya dulu.', 'error')
-      return
-    }
-    const updated = contributeToGoalSnapshot(activeGoal.id, quickGoalContribution)
-    if (!updated) {
-      showToast('Kontribusi goal belum berhasil.', 'error')
-      return
-    }
-    setGoalContributionRaw('')
-    showToast(`+${formatIDRCompact(quickGoalContribution)} ke ${activeGoal.label}.`, 'success')
-  }
-
   return (
     <div className="flex min-h-full flex-col md:ml-[72px]">
-      <div className="mx-auto w-full max-w-[560px] px-4 pb-[182px] pt-7 md:max-w-[860px] md:px-8 md:pt-8">
-        <section className="mb-5">
+      <div className="mx-auto w-full max-w-[560px] px-4 pb-[182px] pt-5 md:max-w-[860px] md:px-8 md:pt-8">
+        <section className="mb-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--sk-cyan)] shadow-[0_12px_30px_rgba(56,189,248,0.18)]">
-                  <svg viewBox="0 0 24 24" className="h-6 w-6 fill-[#090D16]" aria-hidden>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-cyan)] shadow-[0_10px_24px_rgba(56,189,248,0.18)]">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-[#090D16]" aria-hidden>
                     <path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z" />
                   </svg>
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-2xl font-bold text-[var(--sk-text)]">SakuKilat Nova</p>
-                  <p className="mt-1 text-base text-[var(--sk-text-muted)]">{greetingLabel(now)}</p>
-                  <p className="mt-1 text-sm text-[var(--sk-text-dim)]">
+                  <p className="truncate text-[22px] font-bold text-[var(--sk-text)]">SakuKilat</p>
+                  <p className="mt-0.5 text-[15px] text-[var(--sk-text-muted)]">{greetingLabel(now)}</p>
+                  <p className="mt-0.5 truncate whitespace-nowrap text-[11px] text-[var(--sk-text-dim)]">
                     {fullDateLabel(now)} | Hari ke-{now.getDate()} dari {budgetStatus.daysInMonth}
                   </p>
                 </div>
@@ -309,7 +283,7 @@ export const TabBeranda = memo(function TabBeranda() {
                 type="button"
                 onClick={toggleZen}
                 aria-label={zenMode ? 'Matikan Zen Mode' : 'Aktifkan Zen Mode'}
-                className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface)] text-[var(--sk-text-muted)]"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface)] text-[var(--sk-text-muted)]"
               >
                 {zenMode ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
@@ -317,83 +291,116 @@ export const TabBeranda = memo(function TabBeranda() {
           </div>
         </section>
 
-        <section className="mb-5 rounded-[28px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4 shadow-[0_18px_40px_rgba(7,10,20,0.16)]">
-          <div className="flex items-start justify-between gap-3 border-b border-[var(--sk-border)] pb-3">
+        <section className="mb-4 rounded-[24px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3 shadow-[0_18px_40px_rgba(7,10,20,0.16)]">
+          <div className="flex items-start justify-between gap-3 border-b border-[var(--sk-border)] pb-2.5">
             <div className="min-w-0">
-              <p className="flex items-center gap-2 text-[13px] font-semibold text-[var(--sk-text)]">
+              <p className="flex items-center gap-2 text-xs font-semibold text-[var(--sk-text)]">
                 <span className="h-3.5 w-3.5 rounded-full bg-[var(--sk-cyan)]" />
                 {streak.loggedToday ? `${streak.current} hari beruntun` : 'Mulai catat hari ini'}
               </p>
             </div>
-            <p className="text-right text-[12px] font-semibold text-[var(--sk-green)]">
+            <p className="text-right text-[11px] font-semibold text-[var(--sk-green)]">
               {deltaHeadline(weeklyInsight.deltaPct)}
             </p>
           </div>
 
-          <p className="py-4 text-sm leading-relaxed text-[var(--sk-text-dim)]">
+          <p className="py-2.5 text-xs leading-relaxed text-[var(--sk-text-dim)]">
             {streak.loggedToday
               ? 'Hari ini sudah tercatat. Pertahankan ritmenya.'
               : 'Catat hari ini untuk mulai streak lagi.'}
           </p>
 
-          <div className="flex items-center justify-between gap-3 border-t border-[var(--sk-border)] pt-3">
+          <div className="flex items-center justify-between gap-3 border-t border-[var(--sk-border)] pt-2.5">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-[rgba(250,204,21,0.16)] px-3 py-1.5 text-sm font-semibold text-[#facc15]">
-                <Trophy className="h-4 w-4" />
-                {unlockedBadges}/{BADGES.length} lencana
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(250,204,21,0.16)] px-2.5 py-1 text-xs font-semibold text-[#facc15]">
+                  <Trophy className="h-4 w-4" />
+                  {unlockedBadges}/{BADGES.length} lencana
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-[var(--sk-surface-2)] px-2.5 py-1 text-xs font-semibold text-[var(--sk-text-muted)]">
+                  <Flame className="h-4 w-4 text-[var(--sk-amber)]" />
+                  {streak.current} hari
+                </div>
               </div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-[var(--sk-surface-2)] px-3 py-1.5 text-sm font-semibold text-[var(--sk-text-muted)]">
-                <Flame className="h-4 w-4 text-[var(--sk-amber)]" />
-                {streak.current} hari
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('sakukilat:navigate', { detail: { tab: 'profil' } }))}
-              className="text-sm text-[var(--sk-text-dim)]"
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('sakukilat:navigate', { detail: { tab: 'profil' } }))}
+              className="text-[13px] text-[var(--sk-text-dim)]"
             >
               Detail di Profil
             </button>
           </div>
         </section>
 
-        <section className="mb-5 rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
+        <section className="mb-4 rounded-[28px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
           <MonthHeroChart empty={monthTotals.income === 0 && monthTotals.expense === 0} slices={expenseSlices} />
 
-          <div className="mt-3">
-            <p className="text-[12px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">
+          {expenseSlices.length > 0 && (
+            <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
+              {expenseSlices.map((slice) => {
+                const pct = monthTotals.expense > 0 ? Math.round((slice.total / monthTotals.expense) * 1000) / 10 : 0
+                return (
+                  <div key={slice.category} className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                      style={{ background: getCategoryHex(slice.category) }}
+                    />
+                    <span className="truncate text-[11px] text-[var(--sk-text-dim)]">
+                      {getCategoryConfig(slice.category).label}
+                    </span>
+                    <span className="ml-auto flex-shrink-0 text-[11px] font-semibold tabular-nums text-[var(--sk-text-muted)]">
+                      {pct}%
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="mt-2">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--sk-text-dim)]">
               Saldo Bersih - {heroMonthLabel}
             </p>
             <p className={cn(
-              'mt-2 text-5xl font-bold tracking-tight text-[var(--sk-text)]',
+              'mt-1.5 whitespace-nowrap font-bold leading-[0.95] tracking-tight text-[var(--sk-text)]',
+              amountToneClass(balanceLabel, 'hero'),
               monthTotals.balance < 0 && 'text-[var(--sk-red)]'
             )}>
-              {monthTotals.balance < 0 ? `-${formatIDR(Math.abs(monthTotals.balance))}` : formatIDR(monthTotals.balance)}
+              {balanceLabel}
             </p>
 
-            <div className="mt-5 grid grid-cols-2 gap-4">
+            <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-green-dim)]">
-                  <TrendingUp className="h-5 w-5 text-[var(--sk-green)]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--sk-green-dim)]">
+                  <TrendingUp className="h-4.5 w-4.5 text-[var(--sk-green)]" />
                 </div>
-                <div>
-                  <p className="text-sm text-[var(--sk-text-dim)]">Masuk</p>
-                  <p className="text-xl font-bold text-[var(--sk-green)]">{formatIDRCompact(monthTotals.income)}</p>
+                <div className="min-w-0">
+                  <p className="text-[13px] text-[var(--sk-text-dim)]">Masuk</p>
+                  <p className={cn(
+                    'whitespace-nowrap font-bold leading-tight tabular-nums text-[var(--sk-green)]',
+                    amountToneClass(incomeLabel, 'card')
+                  )}>
+                    {incomeLabel}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-red-dim)]">
-                  <TrendingDown className="h-5 w-5 text-[var(--sk-red)]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--sk-red-dim)]">
+                  <TrendingDown className="h-4.5 w-4.5 text-[var(--sk-red)]" />
                 </div>
-                <div>
-                  <p className="text-sm text-[var(--sk-text-dim)]">Keluar</p>
-                  <p className="text-xl font-bold text-[var(--sk-red)]">{formatIDRCompact(monthTotals.expense)}</p>
+                <div className="min-w-0">
+                  <p className="text-[13px] text-[var(--sk-text-dim)]">Keluar</p>
+                  <p className={cn(
+                    'whitespace-nowrap font-bold leading-tight tabular-nums text-[var(--sk-red)]',
+                    amountToneClass(expenseLabel, 'card')
+                  )}>
+                    {expenseLabel}
+                  </p>
                 </div>
               </div>
             </div>
 
             {savingsRate !== null && (
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[rgba(52,211,153,0.2)] bg-[var(--sk-green-dim)] px-3 py-1.5 text-sm font-semibold text-[var(--sk-green)]">
+              <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-[rgba(52,211,153,0.2)] bg-[var(--sk-green-dim)] px-3 py-1.5 text-[13px] font-semibold text-[var(--sk-green)]">
                 <span className="h-2.5 w-2.5 rounded-full bg-current" />
                 Tingkat tabungan {savingsRate}%
               </div>
@@ -401,98 +408,9 @@ export const TabBeranda = memo(function TabBeranda() {
           </div>
         </section>
 
-        <section className="mb-5 rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-green-dim)]">
-                {activeGoal ? <PiggyBank className="h-5 w-5 text-[var(--sk-green)]" /> : <Target className="h-5 w-5 text-[var(--sk-green)]" />}
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-[var(--sk-text)]">Goal Kilat</h2>
-                <p className="mt-1 text-sm text-[var(--sk-text-dim)]">
-                  {activeGoal ? 'Isi tabungan tanpa pindah halaman.' : 'Buat goal tabungan langsung dari beranda.'}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={openGoalManager}
-              className="text-sm font-semibold text-[var(--sk-cyan)]"
-            >
-              Kelola
-            </button>
-          </div>
-
-          {activeGoal ? (
-            <div className="mt-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-lg font-semibold text-[var(--sk-text)]">{activeGoal.label}</p>
-                  <p className="mt-1 text-sm text-[var(--sk-text-dim)]">
-                    {formatIDRCompact(activeGoal.saved)} / {formatIDRCompact(activeGoal.target)}
-                  </p>
-                </div>
-                <span className="rounded-full bg-[var(--sk-surface-2)] px-3 py-1.5 text-sm font-semibold text-[var(--sk-text-muted)]">
-                  {activeGoalPct}%
-                </span>
-              </div>
-
-              <div className="mt-3 h-2 rounded-full bg-[var(--sk-surface-2)]">
-                <div
-                  className="h-full rounded-full bg-[var(--sk-green)] transition-[width] duration-500"
-                  style={{ width: `${activeGoalPct}%` }}
-                />
-              </div>
-
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <input
-                  value={goalContributionRaw}
-                  onChange={(event) => setGoalContributionRaw(formatNaturalAmountInput(event.target.value))}
-                  onKeyDown={(event) => event.key === 'Enter' && handleQuickGoalContribution()}
-                  placeholder="Tambah nominal, cth. 100rb"
-                  inputMode="decimal"
-                  className="min-w-0 flex-1 rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-4 py-3 text-sm text-[var(--sk-text)] outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleQuickGoalContribution}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--sk-green)] px-4 py-3 text-sm font-semibold text-[#090D16]"
-                >
-                  <Plus className="h-4 w-4" />
-                  Tambah
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 grid gap-2 sm:grid-cols-[1.2fr_1fr_auto]">
-              <input
-                value={goalLabel}
-                onChange={(event) => setGoalLabel(event.target.value)}
-                placeholder="Nama goal, cth. Dana darurat"
-                className="min-w-0 rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-4 py-3 text-sm text-[var(--sk-text)] outline-none"
-              />
-              <input
-                value={goalTargetRaw}
-                onChange={(event) => setGoalTargetRaw(formatNaturalAmountInput(event.target.value))}
-                onKeyDown={(event) => event.key === 'Enter' && handleQuickGoalCreate()}
-                placeholder="Target, cth. 2jt"
-                inputMode="decimal"
-                className="min-w-0 rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-4 py-3 text-sm text-[var(--sk-text)] outline-none"
-              />
-              <button
-                type="button"
-                onClick={handleQuickGoalCreate}
-                className="rounded-2xl bg-[var(--sk-green)] px-4 py-3 text-sm font-semibold text-[#090D16]"
-              >
-                Buat goal
-              </button>
-            </div>
-          )}
-        </section>
-
         <BudgetCard />
 
-        <section className="mt-5 rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
+        <section className="mt-4 rounded-[28px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-cyan-dim)]">
@@ -529,15 +447,30 @@ export const TabBeranda = memo(function TabBeranda() {
           <div className="mt-5 grid grid-cols-3 gap-3">
             <div className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--sk-text-dim)]">Keluar</p>
-              <p className="mt-2 text-xl font-bold text-[var(--sk-red)]">{formatIDRCompact(activeInsight.expense)}</p>
+              <p className={cn(
+                'mt-2 whitespace-nowrap font-bold leading-tight tabular-nums text-[var(--sk-red)]',
+                amountToneClass(analysisExpenseLabel, 'card')
+              )}>
+                {analysisExpenseLabel}
+              </p>
             </div>
             <div className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--sk-text-dim)]">Masuk</p>
-              <p className="mt-2 text-xl font-bold text-[var(--sk-green)]">{formatIDRCompact(activeInsight.income)}</p>
+              <p className={cn(
+                'mt-2 whitespace-nowrap font-bold leading-tight tabular-nums text-[var(--sk-green)]',
+                amountToneClass(analysisIncomeLabel, 'card')
+              )}>
+                {analysisIncomeLabel}
+              </p>
             </div>
             <div className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--sk-text-dim)]">Rata/hari</p>
-              <p className="mt-2 text-xl font-bold text-[var(--sk-text)]">{formatIDRCompact(activeInsight.avgPerDay)}</p>
+              <p className={cn(
+                'mt-2 whitespace-nowrap font-bold leading-tight tabular-nums text-[var(--sk-text)]',
+                amountToneClass(analysisAvgLabel, 'card')
+              )}>
+                {analysisAvgLabel}
+              </p>
             </div>
           </div>
 
@@ -561,7 +494,7 @@ export const TabBeranda = memo(function TabBeranda() {
               type="button"
               onClick={openTopCategory}
               disabled={!activeInsight.topCategory}
-              className="flex w-full items-center justify-between gap-3 text-left disabled:cursor-default"
+              className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-transparent px-3 py-3 text-left transition-colors enabled:hover:border-[var(--sk-border)] enabled:hover:bg-[var(--sk-surface-2)] disabled:cursor-default"
             >
               <span className="text-[var(--sk-text-dim)]">Kategori terboros</span>
               <span className="flex items-center gap-1 font-semibold text-[var(--sk-text)]">
@@ -573,7 +506,7 @@ export const TabBeranda = memo(function TabBeranda() {
               type="button"
               onClick={openBusiestDay}
               disabled={!activeInsight.busiestDay}
-              className="flex w-full items-center justify-between gap-3 text-left disabled:cursor-default"
+              className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-transparent px-3 py-3 text-left transition-colors enabled:hover:border-[var(--sk-border)] enabled:hover:bg-[var(--sk-surface-2)] disabled:cursor-default"
             >
               <span className="text-[var(--sk-text-dim)]">Hari paling boros</span>
               <span className="flex items-center gap-1 font-semibold text-[var(--sk-text)]">
@@ -608,7 +541,7 @@ export const TabBeranda = memo(function TabBeranda() {
           </div>
         </section>
 
-        <section className="mt-6">
+        <section className="mt-5">
           <h2 className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-muted)]">History hari ini</h2>
           <div className="mt-4">
             <FilterTabs active={filter} onChange={setFilter} counts={counts} />

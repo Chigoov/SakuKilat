@@ -304,7 +304,7 @@ export const TabRekapan = memo(function TabRekapan() {
         </header>
 
         <div className="mb-6 overflow-x-auto pb-1">
-          <div className="inline-grid min-w-full grid-cols-3 gap-1 rounded-[10px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-0.5 md:rounded-[28px] md:p-1">
+          <div className="inline-grid min-w-full grid-cols-3 gap-1.5 rounded-[14px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-1 md:rounded-[28px] md:gap-1 md:p-1">
             {([
               ['history', 'History'],
               ['calendar', 'Kalender'],
@@ -315,7 +315,7 @@ export const TabRekapan = memo(function TabRekapan() {
                 type="button"
                 onClick={() => setMode(value)}
                 className={cn(
-                  'rounded-[8px] px-1.5 py-0.5 text-[8px] font-semibold transition-colors md:rounded-[22px] md:px-4 md:py-3 md:text-base md:lg:text-lg',
+                  'min-h-9 rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors md:min-h-0 md:rounded-[22px] md:px-4 md:py-3 md:text-base md:lg:text-lg',
                   mode === value ? 'bg-[var(--sk-surface-3)] text-[var(--sk-text)] shadow-sm' : 'text-[var(--sk-text-muted)]'
                 )}
               >
@@ -327,7 +327,7 @@ export const TabRekapan = memo(function TabRekapan() {
 
         {(mode === 'history' || mode === 'trend') && (
           <div className="mb-4 overflow-x-auto pb-1">
-            <div className="flex w-max gap-1 md:gap-3">
+            <div className="flex w-max gap-2 md:gap-3">
               {([
                 ['7d', '7 Hari'],
                 ['30d', '30 Hari'],
@@ -339,7 +339,7 @@ export const TabRekapan = memo(function TabRekapan() {
                   type="button"
                   onClick={() => setRangeMode(value)}
                   className={cn(
-                    'rounded-[8px] px-2 py-0.5 text-[8px] font-semibold transition-colors md:rounded-[20px] md:px-5 md:py-3 md:text-base md:lg:text-lg',
+                    'min-h-9 rounded-xl px-3 py-2 text-[12px] font-semibold transition-colors md:min-h-0 md:rounded-[20px] md:px-5 md:py-3 md:text-base md:lg:text-lg',
                     rangeMode === value
                       ? 'bg-[var(--sk-cyan)] text-[#090D16]'
                       : 'bg-[var(--sk-surface)] text-[var(--sk-text-muted)]'
@@ -354,24 +354,24 @@ export const TabRekapan = memo(function TabRekapan() {
 
         {mode === 'history' && (
           <section>
-            <p className="mb-1.5 text-[9px] text-[var(--sk-text-dim)] md:mb-6 md:text-base md:lg:text-lg">History: {bounds.label}</p>
+            <p className="mb-2.5 text-xs text-[var(--sk-text-dim)] md:mb-6 md:text-base md:lg:text-lg">History: {bounds.label}</p>
 
-            <div className="grid grid-cols-2 gap-1.5 md:gap-4">
+            <div className="grid grid-cols-2 gap-2 md:gap-4">
               <button
                 type="button"
                 onClick={() => openCategorySummary('expense', `Kategori pengeluaran ${bounds.label}`, rangeExpenseRows)}
-                className="rounded-[12px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-2 text-left shadow-[0_14px_34px_rgba(2,6,23,0.22)] md:rounded-[26px] md:p-5"
+                className="rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3 text-left shadow-[0_14px_34px_rgba(2,6,23,0.22)] md:rounded-[26px] md:p-5"
               >
-                <p className="text-[9px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)] md:text-[13px]">Total keluar</p>
-                <p className="mt-1 text-sm font-bold text-[var(--sk-red)] md:mt-4 md:text-3xl">{formatIDR(rangeTotalsData.expense)}</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)] md:text-[13px]">Total keluar</p>
+                <p className="mt-1.5 text-base font-bold text-[var(--sk-red)] md:mt-4 md:text-3xl">{formatIDR(rangeTotalsData.expense)}</p>
               </button>
               <button
                 type="button"
                 onClick={() => openCategorySummary('income', `Kategori pemasukan ${bounds.label}`, rangeIncomeRows)}
-                className="rounded-[12px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-2 text-left shadow-[0_14px_34px_rgba(2,6,23,0.22)] md:rounded-[26px] md:p-5"
+                className="rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3 text-left shadow-[0_14px_34px_rgba(2,6,23,0.22)] md:rounded-[26px] md:p-5"
               >
-                <p className="text-[9px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)] md:text-[13px]">Total masuk</p>
-                <p className="mt-1 text-sm font-bold text-[var(--sk-green)] md:mt-4 md:text-3xl">{formatIDR(rangeTotalsData.income)}</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)] md:text-[13px]">Total masuk</p>
+                <p className="mt-1.5 text-base font-bold text-[var(--sk-green)] md:mt-4 md:text-3xl">{formatIDR(rangeTotalsData.income)}</p>
               </button>
             </div>
 

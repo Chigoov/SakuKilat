@@ -126,7 +126,7 @@ export function AppLockSettings() {
             <button
               type="button"
               onClick={() => setSheetMode(config ? 'change' : 'create')}
-              className="rounded-lg bg-[var(--sk-cyan)] px-3 py-2 text-xs font-semibold text-[#090D16]"
+              className="min-h-10 rounded-lg bg-[var(--sk-cyan)] px-4 py-2.5 text-sm font-semibold text-[#090D16]"
             >
               {config ? 'Ganti sandi' : 'Buat sandi'}
             </button>
@@ -134,7 +134,7 @@ export function AppLockSettings() {
               <button
                 type="button"
                 onClick={handleRemovePasscode}
-                className="rounded-lg bg-[var(--sk-surface-2)] px-3 py-2 text-xs font-semibold text-[var(--sk-text-muted)]"
+                className="min-h-10 rounded-lg bg-[var(--sk-surface-2)] px-4 py-2.5 text-sm font-semibold text-[var(--sk-text-muted)]"
               >
                 Hapus sandi
               </button>
@@ -169,7 +169,7 @@ export function AppLockSettings() {
               onClick={() => void handleBiometric()}
               disabled={busy || !config || !biometricSupported}
               className={cn(
-                'rounded-lg px-3 py-2 text-xs font-semibold',
+                'min-h-10 rounded-lg px-4 py-2.5 text-sm font-semibold',
                 config && biometricSupported
                   ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)]'
                   : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-dim)]'
@@ -178,7 +178,7 @@ export function AppLockSettings() {
               {config?.biometricEnabled ? 'Matikan sidik jari' : 'Aktifkan sidik jari'}
             </button>
             {!config && (
-              <span className="inline-flex items-center gap-1 rounded-lg bg-[var(--sk-surface-2)] px-3 py-2 text-[11px] text-[var(--sk-text-dim)]">
+              <span className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-[var(--sk-surface-2)] px-3 py-2 text-[12px] text-[var(--sk-text-dim)]">
                 <ShieldOff className="h-3.5 w-3.5" />
                 Aktifkan sandi dulu
               </span>
