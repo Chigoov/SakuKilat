@@ -61,7 +61,7 @@ export function RecurringManager() {
   }
 
   return (
-    <section>
+    <section data-tour="recurring">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-7 h-7 rounded-lg bg-[var(--sk-cyan-dim)] flex items-center justify-center">
           <Repeat className="w-4 h-4 text-[var(--sk-cyan)]" />

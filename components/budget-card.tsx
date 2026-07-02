@@ -15,38 +15,43 @@ export function BudgetCard() {
   const openBudgetSettings = () => {
     window.dispatchEvent(new CustomEvent('sakukilat:navigate', { detail: { tab: 'saku', section: 'budget' } }))
   }
+  const budgetLabel = formatIDR(status.budget)
+  const budgetAmountClass =
+    budgetLabel.replace(/\s+/g, '').length >= 13
+      ? 'text-[clamp(1.55rem,6.2vw,2.2rem)]'
+      : 'text-[clamp(1.72rem,6.8vw,2.45rem)]'
 
   return (
-    <section className="mt-5 h-full rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
-        <div className="flex items-center gap-2 mb-3">
+    <section className="mt-4 h-full rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
+        <div className="mb-3 flex items-center gap-2">
           <div className={cn(
-            'w-10 h-10 rounded-2xl flex items-center justify-center',
+            'flex h-9 w-9 items-center justify-center rounded-[18px]',
             status.roast ? 'bg-[var(--sk-red-dim)]' : 'bg-[var(--sk-amber-dim)]'
           )}>
             <Gauge className={cn('w-5 h-5', status.roast ? 'text-[var(--sk-red)]' : 'text-[var(--sk-amber)]')} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-[var(--sk-text-muted)]">Budget bulan ini</p>
-            <p className="text-[2rem] font-bold leading-none tabular-nums text-[var(--sk-text)]" data-amount>
-              {formatIDR(status.budget)}
+            <p className="text-[13px] font-medium text-[var(--sk-text-muted)]">Budget bulan ini</p>
+            <p className={cn('whitespace-nowrap font-bold leading-none tabular-nums text-[var(--sk-text)]', budgetAmountClass)} data-amount>
+              {budgetLabel}
             </p>
           </div>
           <span className={cn(
-            'ml-auto text-lg font-semibold tabular-nums',
+            'ml-auto text-[1rem] font-semibold tabular-nums',
             status.roast ? 'text-[var(--sk-red)]' : pct > 75 ? 'text-[var(--sk-amber)]' : 'text-[var(--sk-green)]'
           )}>
             {pct}%
           </span>
         </div>
 
-        <div className="h-2 rounded-full bg-[var(--sk-surface-2)] overflow-hidden mb-3">
+        <div className="mb-3 h-2 rounded-full bg-[var(--sk-surface-2)] overflow-hidden">
           <div
             className={cn('h-full rounded-full', status.roast ? 'bg-[var(--sk-red)]' : 'bg-[var(--sk-cyan)]')}
             style={{ width: `${pct}%` }}
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-2 text-sm mb-3">
+        <div className="mb-3 grid grid-cols-3 gap-2 text-[13px]">
           <div>
             <p className="text-[var(--sk-text-dim)]">Terpakai</p>
             <p className="font-semibold tabular-nums text-[var(--sk-red)]">{formatIDRCompact(status.spent)}</p>
@@ -61,8 +66,8 @@ export function BudgetCard() {
           </div>
         </div>
 
-        <div className="rounded-[24px] bg-[var(--sk-surface-2)] border border-[var(--sk-border)] p-4">
-          <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3.5">
+          <div className="mb-2 flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] text-[var(--sk-text-dim)] uppercase tracking-widest">
                 Minggu {status.weekOfMonth}/{status.totalWeeks}

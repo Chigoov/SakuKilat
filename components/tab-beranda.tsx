@@ -91,14 +91,14 @@ function recommendationText(categoryLabel: string | null, pct: number | null, ne
 function amountToneClass(label: string, variant: 'hero' | 'card'): string {
   const compactLabel = label.replace(/\s+/g, '')
   if (variant === 'hero') {
-    if (compactLabel.length >= 16) return 'text-[clamp(1.55rem,6.6vw,2.2rem)]'
-    if (compactLabel.length >= 13) return 'text-[clamp(1.72rem,7.2vw,2.45rem)]'
-    return 'text-[clamp(1.9rem,8.5vw,2.75rem)]'
+    if (compactLabel.length >= 16) return 'text-[clamp(1.4rem,5.8vw,2rem)]'
+    if (compactLabel.length >= 13) return 'text-[clamp(1.56rem,6.4vw,2.2rem)]'
+    return 'text-[clamp(1.72rem,7.1vw,2.42rem)]'
   }
 
-  if (compactLabel.length >= 13) return 'text-[clamp(0.68rem,3vw,1rem)]'
-  if (compactLabel.length >= 10) return 'text-[clamp(0.74rem,3.25vw,1.08rem)]'
-  return 'text-[clamp(0.78rem,3.6vw,1.2rem)]'
+  if (compactLabel.length >= 13) return 'text-[clamp(0.66rem,2.55vw,0.92rem)]'
+  if (compactLabel.length >= 10) return 'text-[clamp(0.72rem,2.8vw,1rem)]'
+  return 'text-[clamp(0.76rem,3vw,1.08rem)]'
 }
 
 function MonthHeroChart({
@@ -410,21 +410,21 @@ export const TabBeranda = memo(function TabBeranda() {
 
         <BudgetCard />
 
-        <section className="mt-4 rounded-[28px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
+        <section className="mt-4 rounded-[24px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3.5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-cyan-dim)]">
-                <Lightbulb className="h-5 w-5 text-[var(--sk-cyan)]" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-[18px] bg-[var(--sk-cyan-dim)]">
+                <Lightbulb className="h-4.5 w-4.5 text-[var(--sk-cyan)]" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-[var(--sk-text)]">Analisis Keuangan</h2>
-                <p className="mt-1 text-sm text-[var(--sk-text-dim)]">
+                <h2 className="text-[1.45rem] font-bold leading-tight text-[var(--sk-text)]">Analisis Keuangan</h2>
+                <p className="mt-0.5 text-[13px] text-[var(--sk-text-dim)]">
                   Periode: {analysisScope === 'minggu' ? '7 hari terakhir' : heroMonthLabel}
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-1 rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-1">
+            <div className="grid grid-cols-2 gap-1 rounded-[18px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-1">
               {([
                 ['minggu', 'Mingguan'],
                 ['bulan', 'Bulanan'],
@@ -434,7 +434,7 @@ export const TabBeranda = memo(function TabBeranda() {
                   type="button"
                   onClick={() => setAnalysisScope(scope)}
                   className={cn(
-                    'rounded-xl px-3 py-2 text-sm font-semibold transition-colors',
+                    'rounded-xl px-3 py-1.5 text-[13px] font-semibold transition-colors',
                     analysisScope === scope ? 'bg-[var(--sk-cyan)] text-[#090D16]' : 'text-[var(--sk-text-muted)]'
                   )}
                 >
@@ -444,29 +444,29 @@ export const TabBeranda = memo(function TabBeranda() {
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            <div className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--sk-text-dim)]">Keluar</p>
+          <div className="mt-4 grid grid-cols-3 gap-2.5">
+            <div className="rounded-[18px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-2.5">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Keluar</p>
               <p className={cn(
-                'mt-2 whitespace-nowrap font-bold leading-tight tabular-nums text-[var(--sk-red)]',
+                'mt-1.5 whitespace-nowrap font-bold leading-tight tabular-nums text-[var(--sk-red)]',
                 amountToneClass(analysisExpenseLabel, 'card')
               )}>
                 {analysisExpenseLabel}
               </p>
             </div>
-            <div className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--sk-text-dim)]">Masuk</p>
+            <div className="rounded-[18px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-2.5">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Masuk</p>
               <p className={cn(
-                'mt-2 whitespace-nowrap font-bold leading-tight tabular-nums text-[var(--sk-green)]',
+                'mt-1.5 whitespace-nowrap font-bold leading-tight tabular-nums text-[var(--sk-green)]',
                 amountToneClass(analysisIncomeLabel, 'card')
               )}>
                 {analysisIncomeLabel}
               </p>
             </div>
-            <div className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--sk-text-dim)]">Rata/hari</p>
+            <div className="rounded-[18px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-2.5">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Rata/hari</p>
               <p className={cn(
-                'mt-2 whitespace-nowrap font-bold leading-tight tabular-nums text-[var(--sk-text)]',
+                'mt-1.5 whitespace-nowrap font-bold leading-tight tabular-nums text-[var(--sk-text)]',
                 amountToneClass(analysisAvgLabel, 'card')
               )}>
                 {analysisAvgLabel}
@@ -475,7 +475,7 @@ export const TabBeranda = memo(function TabBeranda() {
           </div>
 
           <div className={cn(
-            'mt-4 rounded-full px-4 py-3 text-base font-semibold',
+            'mt-3.5 rounded-full px-4 py-2.5 text-[15px] font-semibold',
             activeInsight.deltaPct !== null && activeInsight.deltaPct <= 0
               ? 'bg-[rgba(16,185,129,0.18)] text-[var(--sk-green)]'
               : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]'
@@ -489,12 +489,12 @@ export const TabBeranda = memo(function TabBeranda() {
                   : 'Stabil dari periode sebelumnya'}
           </div>
 
-          <div className="mt-4 space-y-3 text-[15px]">
+          <div className="mt-3.5 space-y-2 text-[14px]">
             <button
               type="button"
               onClick={openTopCategory}
               disabled={!activeInsight.topCategory}
-              className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-transparent px-3 py-3 text-left transition-colors enabled:hover:border-[var(--sk-border)] enabled:hover:bg-[var(--sk-surface-2)] disabled:cursor-default"
+              className="flex min-h-10 w-full items-center justify-between gap-3 rounded-2xl border border-transparent px-2.5 py-2.5 text-left transition-colors enabled:hover:border-[var(--sk-border)] enabled:hover:bg-[var(--sk-surface-2)] disabled:cursor-default"
             >
               <span className="text-[var(--sk-text-dim)]">Kategori terboros</span>
               <span className="flex items-center gap-1 font-semibold text-[var(--sk-text)]">
@@ -506,7 +506,7 @@ export const TabBeranda = memo(function TabBeranda() {
               type="button"
               onClick={openBusiestDay}
               disabled={!activeInsight.busiestDay}
-              className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-transparent px-3 py-3 text-left transition-colors enabled:hover:border-[var(--sk-border)] enabled:hover:bg-[var(--sk-surface-2)] disabled:cursor-default"
+              className="flex min-h-10 w-full items-center justify-between gap-3 rounded-2xl border border-transparent px-2.5 py-2.5 text-left transition-colors enabled:hover:border-[var(--sk-border)] enabled:hover:bg-[var(--sk-surface-2)] disabled:cursor-default"
             >
               <span className="text-[var(--sk-text-dim)]">Hari paling boros</span>
               <span className="flex items-center gap-1 font-semibold text-[var(--sk-text)]">
@@ -522,8 +522,8 @@ export const TabBeranda = memo(function TabBeranda() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-[24px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-4">
-            <ul className="space-y-3 text-[15px] leading-relaxed text-[var(--sk-text-muted)]">
+          <div className="mt-3.5 rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3.5">
+            <ul className="space-y-2.5 text-[14px] leading-relaxed text-[var(--sk-text-muted)]">
               {activeInsight.takeaways.map((item) => (
                 <li key={item} className="flex gap-2">
                   <span className="text-[var(--sk-cyan)]">*</span>
@@ -533,9 +533,9 @@ export const TabBeranda = memo(function TabBeranda() {
             </ul>
           </div>
 
-          <div className="mt-4 rounded-[24px] border border-[rgba(56,189,248,0.18)] bg-[rgba(32,55,83,0.55)] p-4">
+          <div className="mt-3.5 rounded-[22px] border border-[rgba(56,189,248,0.18)] bg-[rgba(32,55,83,0.55)] p-3.5">
             <p className="text-[12px] uppercase tracking-[0.24em] text-[var(--sk-cyan)]">Rekomendasi</p>
-            <p className="mt-3 text-[15px] leading-relaxed text-[var(--sk-text-muted)]">
+            <p className="mt-2.5 text-[14px] leading-relaxed text-[var(--sk-text-muted)]">
               {recommendationText(topCategoryLabel, topCategoryPct, activeInsight.net)}
             </p>
           </div>

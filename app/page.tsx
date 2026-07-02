@@ -33,7 +33,7 @@ const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: st
 ]
 
 const TabRekapan = dynamic(
-  () => import('@/components/tab-rekapan').then(mod => mod.TabRekapan),
+  () => import('@/components/tab-rekapan-yearly').then(mod => mod.TabRekapan),
   {
     ssr: false,
     loading: () => (
