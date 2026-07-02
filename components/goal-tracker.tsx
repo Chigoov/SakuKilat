@@ -5,6 +5,7 @@ import { Check, ChevronDown, ChevronUp, Pencil, Plus, Sparkles, Target, Trash2, 
 import { useFeedbackStore, useWalletStore } from '@/lib/store'
 import { formatIDR, formatIDRCompact } from '@/lib/parser'
 import { formatNaturalAmountInput, parseAmountInput } from '@/lib/amount'
+import { mirrorToNative, scheduleFileBackup } from '@/lib/native-store'
 import { cn } from '@/lib/utils'
 
 /**
@@ -76,7 +77,10 @@ export function createGoalSnapshot(input: Pick<Goal, 'label' | 'target' | 'deadl
 function saveGoals(goals: Goal[]) {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(goals))
+    const json = JSON.stringify(goals)
+    window.localStorage.setItem(GOAL_STORAGE_KEY, json)
+    mirrorToNative(GOAL_STORAGE_KEY, json)
+    scheduleFileBackup()
     window.dispatchEvent(new CustomEvent('sakukilat:goals-changed'))
   } catch { /* quota */ }
 }
@@ -110,7 +114,12 @@ function loadCelebrated(): Set<string> {
 
 function saveCelebrated(set: Set<string>) {
   if (typeof window === 'undefined') return
-  try { window.localStorage.setItem(CELEBRATED_KEY, JSON.stringify([...set])) } catch { /* quota */ }
+  try {
+    const json = JSON.stringify([...set])
+    window.localStorage.setItem(CELEBRATED_KEY, json)
+    mirrorToNative(CELEBRATED_KEY, json)
+    scheduleFileBackup()
+  } catch { /* quota */ }
 }
 
 function generateGoalId(): string {

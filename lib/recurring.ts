@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { mirrorToNative, scheduleFileBackup } from '@/lib/native-store'
 
 export type RecurringCadence = 'daily' | 'weekly' | 'monthly'
 
@@ -61,7 +62,10 @@ function loadFromStorage(): RecurringTemplate[] {
 function saveToStorage(templates: RecurringTemplate[]): void {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(templates))
+    const json = JSON.stringify(templates)
+    window.localStorage.setItem(STORAGE_KEY, json)
+    mirrorToNative(STORAGE_KEY, json)
+    scheduleFileBackup()
   } catch {
     /* quota / private mode — silently ignore */
   }

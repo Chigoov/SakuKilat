@@ -1,5 +1,7 @@
 'use client'
 
+import { mirrorToNative, removeFromNative, scheduleFileBackup } from '@/lib/native-store'
+
 export interface AppLockConfig {
   enabled: boolean
   passcodeHash: string
@@ -51,10 +53,15 @@ function writeLockConfig(config: AppLockConfig | null) {
   if (typeof window === 'undefined') return
   if (!config) {
     window.localStorage.removeItem(APP_LOCK_KEY)
+    removeFromNative(APP_LOCK_KEY)
+    scheduleFileBackup()
     emitChange()
     return
   }
-  window.localStorage.setItem(APP_LOCK_KEY, JSON.stringify(config))
+  const json = JSON.stringify(config)
+  window.localStorage.setItem(APP_LOCK_KEY, json)
+  mirrorToNative(APP_LOCK_KEY, json)
+  scheduleFileBackup()
   emitChange()
 }
 

@@ -38,6 +38,7 @@ import {
   registerCustomCategories,
   registerCustomPayments,
 } from '@/components/category-badge'
+import { mirrorToNative, scheduleFileBackup } from './native-store'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface MockUser {
@@ -387,7 +388,14 @@ function persistState(state: PersistedState) {
   if (typeof window === 'undefined') return
 
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, ...state }))
+    const json = JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, ...state })
+    // 1. Cache sinkron cepat (perilaku lama, tetap dipakai loader sinkron).
+    window.localStorage.setItem(STORAGE_KEY, json)
+    // 2. Cermin ke Preferences native (durable, tahan clear-cache WebView).
+    mirrorToNative(STORAGE_KEY, json)
+    // 3. Backup file ke Documents (tahan uninstall) — di-debounce 5 detik
+    //    supaya tidak menulis file di setiap keystroke.
+    scheduleFileBackup()
   } catch (error) {
     console.warn('Gagal menyimpan auto-save SakuKilat:', error)
   }

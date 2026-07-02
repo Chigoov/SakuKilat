@@ -3,6 +3,7 @@ import { Inter, Geist_Mono } from 'next/font/google'
 import type { ReactNode } from 'react'
 import './globals.css'
 import { StoreProvider } from '@/lib/store'
+import { StorageBoot } from '@/components/storage-boot'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -71,7 +72,9 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-icon.png" />
       </head>
       <body className="font-sans antialiased bg-[var(--sk-bg)] overscroll-none">
-        <StoreProvider>{children}</StoreProvider>
+        <StorageBoot>
+          <StoreProvider>{children}</StoreProvider>
+        </StorageBoot>
       </body>
     </html>
   )
