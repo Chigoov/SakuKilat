@@ -1,0 +1,20 @@
+# Build artifacts & local logs — jangan pernah diunggah ke deploy context
+*.log
+logs/
+.next/
+node_modules/
+
+# Agent / sandbox / render artifacts — bloat murni, tidak dipakai runtime
+.agents/
+.codex/
+.snowflake/
+.v0-trash/
+render_*/
+
+# Dokumen pribadi yang nyasar ke repo
+*.docx
+*.pdf
+
+# Local env
+.env*.local
+.env*

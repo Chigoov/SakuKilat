@@ -4,27 +4,56 @@ node_modules/
 # Next.js build output
 .next/
 out/
+build/
+tsconfig.tsbuildinfo
 
-# Capacitor
-android/
-
-# Environment
-.env
-.env.local
-.env.production
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
+# Environment variables
+.env*
+!.env.example
 
 # Logs
 *.log
-npm-debug.log*
+logs/
 
-# Misc
+# Deploy / platform
+.vercel/
+
+# Editor / local workspace
+.vscode/
+.idea/
+.kiro/
+.agents/
+.codex/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Local helper output
+render_*/
+.snowflake/
+.v0-trash/
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+_github-upload/
+
+# Android / Capacitor local files
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+android/captures/
+android/local.properties
+android/keystore.properties
+android/app/*.jks
+android/app/*.keystore
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+
+# Temporary verification output
+scripts/.verify-build/
+
+# Release artifacts
 *.apk
-*.keystore
+*.aab
