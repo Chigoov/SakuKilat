@@ -39,7 +39,7 @@ import { monthlyBreakdownForYear, type TrendPoint } from '@/lib/stats-rekapan-ye
 import { cn } from '@/lib/utils'
 
 type RecapMode = 'history' | 'calendar' | 'trend' | 'yearly'
-type RangeMode = '7d' | '30d' | '1y' | 'period'
+type RangeMode = 'month' | '7d' | '30d' | '1y' | 'period'
 type FilterType = FilterTab
 
 interface CategoryDetailRow {
@@ -103,6 +103,12 @@ function parseDayLabel(key: string): string {
 function rangeBounds(mode: RangeMode, selectedMonth: Date): { start: Date; end: Date; label: string } {
   const now = new Date()
   const today = dateOnly(now)
+
+  if (mode === 'month') {
+    const start = new Date(today.getFullYear(), today.getMonth(), 1)
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+    return { start, end, label: `${formatRangeDate(start)} - ${formatRangeDate(today)}` }
+  }
 
   if (mode === '7d') {
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6)
@@ -183,7 +189,7 @@ export const TabRekapan = memo(function TabRekapan() {
   const { deleteTransaction, updateTransaction } = useTransactionActions()
   const { newTransactionId } = useTransactionStatus()
   const [mode, setMode] = useState<RecapMode>('history')
-  const [rangeMode, setRangeMode] = useState<RangeMode>('30d')
+  const [rangeMode, setRangeMode] = useState<RangeMode>('month')
   const [filter, setFilter] = useState<FilterType>('semua')
   const [selectedMonth, setSelectedMonth] = useState(() => monthStart(new Date()))
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear())
@@ -356,6 +362,7 @@ export const TabRekapan = memo(function TabRekapan() {
           <div className="mb-4 overflow-x-auto pb-1">
             <div className="flex w-max gap-2 md:gap-3">
               {([
+                ['month', 'Bulan ini'],
                 ['7d', '7 Hari'],
                 ['30d', '30 Hari'],
                 ['1y', '1 Tahun'],

@@ -57,3 +57,8 @@ scripts/.verify-build/
 # Release artifacts
 *.apk
 *.aab
+
+# Private local profiles / import previews
+public/private-profiles/
+outputs/
+IMPORT-MONEY-ANDROID-PREVIEW.md

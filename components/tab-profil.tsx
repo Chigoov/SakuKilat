@@ -16,6 +16,7 @@ import { TrophyCase } from '@/components/trophy-case'
 import { NotificationSettings } from '@/components/notification-settings'
 import { AppLockSettings } from '@/components/app-lock-settings'
 import { enableDemo, disableDemo, isDemoActive } from '@/lib/demo'
+import { APP_NAME } from '@/lib/app-variant'
 import { cn } from '@/lib/utils'
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024
@@ -306,7 +307,7 @@ export function TabProfil() {
             </button>
           </div>
           <p className="text-[11px] text-[var(--sk-text-dim)] mt-2">
-            Nama ini hanya dipakai di SakuKilat, bukan mengubah akun Google.
+            Nama ini hanya dipakai di {APP_NAME}, bukan mengubah akun Google.
           </p>
         </div>
 
@@ -513,7 +514,7 @@ export function TabProfil() {
 
         <div className="text-center pt-4">
           <p className="text-[11px] text-[var(--sk-text-dim)]">
-            SakuKilat v2.0 - dibuat oleh Ardhika Argha
+            {APP_NAME} v2.0 - dibuat oleh Ardhika Argha
           </p>
         </div>
       </div>

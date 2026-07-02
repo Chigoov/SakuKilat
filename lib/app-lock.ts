@@ -1,6 +1,7 @@
 'use client'
 
 import { mirrorToNative, removeFromNative, scheduleFileBackup } from '@/lib/native-store'
+import { APP_NAME, appScopedKey } from '@/lib/app-variant'
 
 export interface AppLockConfig {
   enabled: boolean
@@ -10,7 +11,7 @@ export interface AppLockConfig {
   updatedAt: string
 }
 
-const APP_LOCK_KEY = 'sakukilat:v2:app-lock'
+const APP_LOCK_KEY = appScopedKey('app-lock')
 
 function emitChange() {
   if (typeof window === 'undefined') return
@@ -118,11 +119,11 @@ export async function enrollBiometric(config = readLockConfig()): Promise<AppLoc
   const credential = await navigator.credentials.create({
     publicKey: {
       challenge: randomBytes(32),
-      rp: { name: 'SakuKilat', id: window.location.hostname },
+      rp: { name: APP_NAME, id: window.location.hostname },
       user: {
         id: randomBytes(16),
         name: 'local@sakukilat.app',
-        displayName: 'SakuKilat',
+        displayName: APP_NAME,
       },
       pubKeyCredParams: [
         { type: 'public-key', alg: -7 },

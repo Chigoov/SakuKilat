@@ -15,11 +15,12 @@ import {
   Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { appScopedKey } from '@/lib/app-variant'
 
 type TourTab = 'beranda' | 'saku' | 'rekapan' | 'profil'
 
 const ONBOARDING_VERSION = 10
-const ONBOARDING_KEY_PREFIX = `sakukilat:v2:onboarding-completed-v${ONBOARDING_VERSION}`
+const ONBOARDING_KEY_PREFIX = appScopedKey(`onboarding-completed-v${ONBOARDING_VERSION}`)
 
 interface Slide {
   icon: React.ComponentType<{ className?: string }>

@@ -31,6 +31,7 @@ import {
 } from '@/lib/stats'
 import { cn } from '@/lib/utils'
 import { getCategoryConfig, getCategoryHex } from '@/components/category-badge'
+import { APP_NAME } from '@/lib/app-variant'
 
 interface HomeDetailSheet {
   title: string
@@ -268,7 +269,7 @@ export const TabBeranda = memo(function TabBeranda() {
                   </svg>
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-[22px] font-bold text-[var(--sk-text)]">SakuKilat</p>
+                  <p className="truncate text-[22px] font-bold text-[var(--sk-text)]">{APP_NAME}</p>
                   <p className="mt-0.5 text-[15px] text-[var(--sk-text-muted)]">{greetingLabel(now)}</p>
                   <p className="mt-0.5 truncate whitespace-nowrap text-[11px] text-[var(--sk-text-dim)]">
                     {fullDateLabel(now)} | Hari ke-{now.getDate()} dari {budgetStatus.daysInMonth}

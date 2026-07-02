@@ -20,6 +20,7 @@ import { TabProfil } from '@/components/tab-profil'
 import { OnboardingTour } from '@/components/onboarding-tour'
 import { isNativeRuntime } from '@/lib/notifications'
 import { authenticateBiometric, readLockConfig, verifyPasscode, type AppLockConfig } from '@/lib/app-lock'
+import { APP_NAME } from '@/lib/app-variant'
 
 type Tab = 'beranda' | 'saku' | 'rekapan' | 'profil'
 type SakuSection = 'budget' | 'wallet' | 'move' | 'goal' | 'category'
@@ -46,7 +47,6 @@ const TabRekapan = dynamic(
 
 const APP_VERSION = pkg.version
 const APP_SPLASH_MS = 1200
-const APP_NAME = 'SakuKilat Nova'
 
 function triggerTinyHaptic() {
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {

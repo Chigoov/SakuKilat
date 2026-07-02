@@ -6,6 +6,7 @@ import { useFeedbackStore, useWalletStore } from '@/lib/store'
 import { formatIDR, formatIDRCompact } from '@/lib/parser'
 import { formatNaturalAmountInput, parseAmountInput } from '@/lib/amount'
 import { mirrorToNative, scheduleFileBackup } from '@/lib/native-store'
+import { appScopedKey } from '@/lib/app-variant'
 import { cn } from '@/lib/utils'
 
 /**
@@ -27,8 +28,8 @@ export interface Goal {
   createdAt: string
 }
 
-export const GOAL_STORAGE_KEY = 'sakukilat:v2:goals'
-const CELEBRATED_KEY = 'sakukilat:v2:celebrated-goals'
+export const GOAL_STORAGE_KEY = appScopedKey('goals')
+const CELEBRATED_KEY = appScopedKey('celebrated-goals')
 
 function isGoal(value: unknown): value is Goal {
   return Boolean(

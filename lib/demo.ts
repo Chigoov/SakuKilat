@@ -14,10 +14,11 @@
 
 import { STORAGE_KEY, CURRENT_SCHEMA_VERSION } from './store'
 import { GOAL_STORAGE_KEY } from '@/components/goal-tracker'
+import { appScopedKey } from './app-variant'
 
-const DEMO_FLAG = 'sakukilat:v2:demo-active'
-const BACKUP_BEFORE_DEMO = 'sakukilat:v2:demo-backup'
-const RECURRING_STORAGE_KEY = 'sakukilat:v2:recurring'
+const DEMO_FLAG = appScopedKey('demo-active')
+const BACKUP_BEFORE_DEMO = appScopedKey('demo-backup')
+const RECURRING_STORAGE_KEY = appScopedKey('recurring')
 
 interface DemoTx {
   id: string
@@ -193,8 +194,8 @@ export function enableDemo(): void {
     window.localStorage.setItem(RECURRING_STORAGE_KEY, JSON.stringify(DEMO_RECURRING))
     window.localStorage.setItem(DEMO_FLAG, '1')
     // Picu beberapa counter biar achievement demo terlihat hidup.
-    window.localStorage.setItem('sakukilat:v2:backup-count', '3')
-    window.localStorage.setItem('sakukilat:v2:zen-used', '1')
+    window.localStorage.setItem(appScopedKey('backup-count'), '3')
+    window.localStorage.setItem(appScopedKey('zen-used'), '1')
     window.location.reload()
   } catch {
     /* quota / private mode */

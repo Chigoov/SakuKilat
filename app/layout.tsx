@@ -18,15 +18,15 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  applicationName: 'SakuKilat Nova',
-  title: 'SakuKilat Nova - Pencatat Keuangan Cepat',
-  description: 'Versi baru SakuKilat untuk catat pemasukan, pengeluaran, dan goal tabungan lebih cepat.',
+  applicationName: 'Saku Kilat V2',
+  title: 'Saku Kilat V2 - Pencatat Keuangan Cepat',
+  description: 'Saku Kilat V2 untuk catat pemasukan, pengeluaran, dan goal tabungan lebih cepat.',
   generator: 'v0.app',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'SakuKilat Nova',
+    title: 'Saku Kilat V2',
   },
   formatDetection: {
     telephone: false,
@@ -40,12 +40,12 @@ export const metadata: Metadata = {
     shortcut: '/icon-192.png',
   },
   openGraph: {
-    title: 'SakuKilat Nova - Pencatat Keuangan Cepat',
-    description: 'Versi baru SakuKilat untuk catat pemasukan, pengeluaran, dan goal tabungan lebih cepat.',
+    title: 'Saku Kilat V2 - Pencatat Keuangan Cepat',
+    description: 'Saku Kilat V2 untuk catat pemasukan, pengeluaran, dan goal tabungan lebih cepat.',
     type: 'website',
   },
   other: {
-    'apple-mobile-web-app-title': 'SakuKilat Nova',
+    'apple-mobile-web-app-title': 'Saku Kilat V2',
     'mobile-web-app-capable': 'yes',
     'msapplication-TileColor': '#090D16',
   },

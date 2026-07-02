@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { appScopedKey } from '@/lib/app-variant'
 import { mirrorToNative, scheduleFileBackup } from '@/lib/native-store'
 
 export type RecurringCadence = 'daily' | 'weekly' | 'monthly'
@@ -31,7 +32,7 @@ export interface RecurringTemplate {
   createdAt: number
 }
 
-const STORAGE_KEY = 'sakukilat:v2:recurring'
+const STORAGE_KEY = appScopedKey('recurring')
 const MS_DAY = 24 * 60 * 60 * 1000
 
 // ── Storage helpers ──────────────────────────────────────────────────────────

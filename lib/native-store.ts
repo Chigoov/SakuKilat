@@ -25,19 +25,20 @@
 import { Capacitor } from '@capacitor/core'
 import { Preferences } from '@capacitor/preferences'
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
+import { APP_STORAGE_PREFIX, appScopedKey } from '@/lib/app-variant'
 
-const NATIVE_INDEX_KEY = '__sakukilat_native_keys__'
-const BACKUP_DIR = 'sakukilat'
-const BACKUP_FILE = 'sakukilat/backup-latest.json'
+const NATIVE_INDEX_KEY = `${APP_STORAGE_PREFIX}:native-keys`
+const BACKUP_DIR = APP_STORAGE_PREFIX.replace(/[:]/g, '-')
+const BACKUP_FILE = `${BACKUP_DIR}/backup-latest.json`
 const PRIMARY_KEYS = [
-  'sakukilat:v2:local-state',
-  'sakukilat:v2:goals',
-  'sakukilat:v2:recurring',
+  appScopedKey('local-state'),
+  appScopedKey('goals'),
+  appScopedKey('recurring'),
 ] as const
 const TRACKED_KEYS = [
   ...PRIMARY_KEYS,
-  'sakukilat:v2:celebrated-goals',
-  'sakukilat:v2:app-lock',
+  appScopedKey('celebrated-goals'),
+  appScopedKey('app-lock'),
 ] as const
 let fileBackupTimer: ReturnType<typeof setTimeout> | null = null
 
