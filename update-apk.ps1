@@ -13,21 +13,64 @@
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
+$publicState = Join-Path $root 'public\preloaded-state.json'
+$ownerState = Join-Path $root 'outputs\money-android-preview-state.json'
+$personalAssets = Join-Path $root 'android\app\src\personal\assets\public'
+$backupState = Join-Path $root '.next\preloaded-state.backup.json'
 
 # Lokasi tool yang dipasang sebelumnya.
 $pnpm = "$env:APPDATA\npm\node_modules\pnpm\bin\pnpm.cjs"
 $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 
-Write-Host "`n[1/4] Build web statis (next export)..." -ForegroundColor Cyan
-node $pnpm run build
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if (-not (Test-Path $ownerState)) {
+  Write-Host "`nGAGAL: data owner tidak ditemukan di $ownerState" -ForegroundColor Red
+  exit 1
+}
 
-Write-Host "`n[2/4] Sinkronisasi ke proyek Android..." -ForegroundColor Cyan
-node "$root\node_modules\@capacitor\cli\bin\capacitor" sync android
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if (Test-Path $publicState) {
+  Copy-Item $publicState $backupState -Force
+}
 
-Write-Host "`n[3/5] Bersihkan output release lama..." -ForegroundColor Cyan
+try {
+  Write-Host "`n[1/6] Build web user (Saku Kilat V2)..." -ForegroundColor Cyan
+  $env:NEXT_PUBLIC_APP_VARIANT = 'user'
+  node $pnpm run build
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  Write-Host "`n[2/6] Sinkronisasi aset user ke Android..." -ForegroundColor Cyan
+  node "$root\node_modules\@capacitor\cli\bin\capacitor" sync android
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  Write-Host "`n[3/6] Build web personal (SakuKilat)..." -ForegroundColor Cyan
+  Copy-Item $ownerState $publicState -Force
+  $env:NEXT_PUBLIC_APP_VARIANT = 'owner'
+  node $pnpm run build
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  if (Test-Path $personalAssets) {
+    Remove-Item -LiteralPath $personalAssets -Recurse -Force
+  }
+  New-Item -ItemType Directory -Force -Path $personalAssets | Out-Null
+  Copy-Item (Join-Path $root 'out\*') $personalAssets -Recurse -Force
+
+  Write-Host "`n[4/6] Pulihkan aset web user..." -ForegroundColor Cyan
+  if (Test-Path $backupState) {
+    Copy-Item $backupState $publicState -Force
+  } else {
+    '{}' | Set-Content $publicState
+  }
+  $env:NEXT_PUBLIC_APP_VARIANT = 'user'
+  node $pnpm run build
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+} finally {
+  Remove-Item Env:NEXT_PUBLIC_APP_VARIANT -ErrorAction SilentlyContinue
+  if (Test-Path $backupState) {
+    Remove-Item $backupState -Force -ErrorAction SilentlyContinue
+  }
+}
+
+Write-Host "`n[5/7] Bersihkan output release lama..." -ForegroundColor Cyan
 $stalePaths = @(
   "$root\android\app\build\outputs\apk\public\release",
   "$root\android\app\build\outputs\apk\personal\release",
@@ -40,7 +83,7 @@ foreach ($stalePath in $stalePaths) {
   }
 }
 
-Write-Host "`n[4/5] Build APK release lewat Gradle (bisa beberapa menit)..." -ForegroundColor Cyan
+Write-Host "`n[6/7] Build APK release lewat Gradle (bisa beberapa menit)..." -ForegroundColor Cyan
 Push-Location "$root\android"
 try {
   .\gradlew.bat assemblePublicRelease assemblePersonalRelease --no-daemon
@@ -49,7 +92,7 @@ try {
   Pop-Location
 }
 
-Write-Host "`n[5/5] Menyalin APK ke folder root..." -ForegroundColor Cyan
+Write-Host "`n[7/7] Menyalin APK ke folder root..." -ForegroundColor Cyan
 $artifacts = @(
   @{
     SourceDir = "$root\android\app\build\outputs\apk\public\release"

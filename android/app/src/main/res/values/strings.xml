@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">SakuKilat Nova</string>
-    <string name="title_activity_main">SakuKilat Nova</string>
+    <string name="app_name">Saku Kilat V2</string>
+    <string name="title_activity_main">Saku Kilat V2</string>
     <string name="package_name">com.sakukilat.app</string>
     <string name="custom_url_scheme">com.sakukilat.app</string>
 </resources>

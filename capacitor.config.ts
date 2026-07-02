@@ -11,7 +11,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
  */
 const config: CapacitorConfig = {
   appId: 'com.sakukilat.app.v2',
-  appName: 'SakuKilat',
+  appName: 'Saku Kilat V2',
   webDir: 'out',
   android: {
     backgroundColor: '#090D16',

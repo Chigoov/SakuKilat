@@ -37,8 +37,8 @@ android {
     productFlavors {
         create("public") {
             dimension "edition"
-            resValue "string", "app_name", "SakuKilat Nova"
-            resValue "string", "title_activity_main", "SakuKilat Nova"
+            resValue "string", "app_name", "Saku Kilat V2"
+            resValue "string", "title_activity_main", "Saku Kilat V2"
             resValue "string", "package_name", "com.sakukilat.app.v2"
             resValue "string", "custom_url_scheme", "com.sakukilat.app.v2"
         }
@@ -46,8 +46,8 @@ android {
             dimension "edition"
             applicationIdSuffix ".personal"
             versionNameSuffix "-personal"
-            resValue "string", "app_name", "SakuKilat Nova Pribadi"
-            resValue "string", "title_activity_main", "SakuKilat Nova Pribadi"
+            resValue "string", "app_name", "SakuKilat"
+            resValue "string", "title_activity_main", "SakuKilat"
             resValue "string", "package_name", "com.sakukilat.app.v2.personal"
             resValue "string", "custom_url_scheme", "com.sakukilat.app.v2.personal"
         }

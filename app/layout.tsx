@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import './globals.css'
 import { StoreProvider } from '@/lib/store'
 import { StorageBoot } from '@/components/storage-boot'
+import { APP_NAME } from '@/lib/app-variant'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -18,15 +19,15 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  applicationName: 'Saku Kilat V2',
-  title: 'Saku Kilat V2 - Pencatat Keuangan Cepat',
-  description: 'Saku Kilat V2 untuk catat pemasukan, pengeluaran, dan goal tabungan lebih cepat.',
+  applicationName: APP_NAME,
+  title: `${APP_NAME} - Pencatat Keuangan Cepat`,
+  description: `${APP_NAME} untuk catat pemasukan, pengeluaran, dan goal tabungan lebih cepat.`,
   generator: 'v0.app',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Saku Kilat V2',
+    title: APP_NAME,
   },
   formatDetection: {
     telephone: false,
@@ -40,12 +41,12 @@ export const metadata: Metadata = {
     shortcut: '/icon-192.png',
   },
   openGraph: {
-    title: 'Saku Kilat V2 - Pencatat Keuangan Cepat',
-    description: 'Saku Kilat V2 untuk catat pemasukan, pengeluaran, dan goal tabungan lebih cepat.',
+    title: `${APP_NAME} - Pencatat Keuangan Cepat`,
+    description: `${APP_NAME} untuk catat pemasukan, pengeluaran, dan goal tabungan lebih cepat.`,
     type: 'website',
   },
   other: {
-    'apple-mobile-web-app-title': 'Saku Kilat V2',
+    'apple-mobile-web-app-title': APP_NAME,
     'mobile-web-app-capable': 'yes',
     'msapplication-TileColor': '#090D16',
   },
