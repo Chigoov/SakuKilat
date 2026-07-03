@@ -224,16 +224,6 @@ export function CategoryManager() {
                     <Icon className={cn('h-4 w-4', item.color)} />
                   </div>
                   <p className="mt-3 truncate text-sm font-semibold text-[var(--sk-text)]">{item.label}</p>
-                  <span
-                    className={cn(
-                      'mt-2 inline-flex rounded-full px-2 py-1 text-[10px] font-semibold',
-                      item.type === 'income'
-                        ? 'bg-[var(--sk-green-dim)] text-[var(--sk-green)]'
-                        : 'bg-[var(--sk-red-dim)] text-[var(--sk-red)]'
-                    )}
-                  >
-                    {CATEGORY_TYPE_LABEL[item.type]}
-                  </span>
                   <p className="mt-1 text-[11px] text-[var(--sk-text-dim)]">
                     {item.subcategories.length > 0 ? `${item.subcategories.length} sub` : `${item.keywords.length} keyword`}
                   </p>
@@ -358,7 +348,7 @@ export function CategoryManager() {
                   <div className="min-w-0 flex-1">
                     <p className="text-lg font-semibold text-[var(--sk-text)]">{selected.label}</p>
                     <p className="mt-1 text-xs text-[var(--sk-text-dim)]">
-                      {CATEGORY_TYPE_LABEL[selected.type]} • {selected.subcategories.length > 0 ? `${selected.subcategories.length} sub kategori` : 'Belum ada sub kategori'}
+                      {selected.subcategories.length > 0 ? `${selected.subcategories.length} sub kategori` : 'Belum ada sub kategori'}
                     </p>
                   </div>
                 </div>

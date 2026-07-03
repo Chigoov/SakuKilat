@@ -167,16 +167,10 @@ html[data-theme="light"] {
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    height: 100%;
-    overflow: hidden;
-    overscroll-behavior-y: none;
   }
   html {
     @apply font-sans;
     background-color: var(--sk-bg);
-    height: 100%;
-    overflow: hidden;
-    overscroll-behavior-y: none;
   }
 }
 

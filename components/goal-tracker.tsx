@@ -5,8 +5,6 @@ import { Check, ChevronDown, ChevronUp, Pencil, Plus, Sparkles, Target, Trash2, 
 import { useFeedbackStore, useWalletStore } from '@/lib/store'
 import { formatIDR, formatIDRCompact } from '@/lib/parser'
 import { formatNaturalAmountInput, parseAmountInput } from '@/lib/amount'
-import { mirrorToNative, scheduleFileBackup } from '@/lib/native-store'
-import { appScopedKey } from '@/lib/app-variant'
 import { cn } from '@/lib/utils'
 
 /**
@@ -28,8 +26,8 @@ export interface Goal {
   createdAt: string
 }
 
-export const GOAL_STORAGE_KEY = appScopedKey('goals')
-const CELEBRATED_KEY = appScopedKey('celebrated-goals')
+export const GOAL_STORAGE_KEY = 'sakukilat:v2:goals'
+const CELEBRATED_KEY = 'sakukilat:v2:celebrated-goals'
 
 function isGoal(value: unknown): value is Goal {
   return Boolean(
@@ -58,30 +56,10 @@ export function readGoalSnapshot(): Goal[] {
   return loadGoals()
 }
 
-export function createGoalSnapshot(input: Pick<Goal, 'label' | 'target' | 'deadline'>): Goal | null {
-  const label = input.label.trim()
-  const target = Math.round(input.target)
-  if (!label || !Number.isFinite(target) || target <= 0) return null
-
-  const fresh: Goal = {
-    id: generateGoalId(),
-    label,
-    target,
-    saved: 0,
-    deadline: input.deadline,
-    createdAt: new Date().toISOString(),
-  }
-  saveGoals([fresh, ...loadGoals()])
-  return fresh
-}
-
 function saveGoals(goals: Goal[]) {
   if (typeof window === 'undefined') return
   try {
-    const json = JSON.stringify(goals)
-    window.localStorage.setItem(GOAL_STORAGE_KEY, json)
-    mirrorToNative(GOAL_STORAGE_KEY, json)
-    scheduleFileBackup()
+    window.localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(goals))
     window.dispatchEvent(new CustomEvent('sakukilat:goals-changed'))
   } catch { /* quota */ }
 }
@@ -115,12 +93,7 @@ function loadCelebrated(): Set<string> {
 
 function saveCelebrated(set: Set<string>) {
   if (typeof window === 'undefined') return
-  try {
-    const json = JSON.stringify([...set])
-    window.localStorage.setItem(CELEBRATED_KEY, json)
-    mirrorToNative(CELEBRATED_KEY, json)
-    scheduleFileBackup()
-  } catch { /* quota */ }
+  try { window.localStorage.setItem(CELEBRATED_KEY, JSON.stringify([...set])) } catch { /* quota */ }
 }
 
 function generateGoalId(): string {
@@ -273,10 +246,10 @@ const GoalCard = memo(function GoalCard({ goal, onContribute, onEdit, onRemove, 
         />
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
+      <div className="mt-1.5 flex items-center justify-between text-[10px]">
         <span className="tabular-nums text-[var(--sk-text-muted)] font-medium">{pct}%</span>
         {dailySuggestion && (
-          <span className="text-right text-[var(--sk-text-dim)]">
+          <span className="text-[var(--sk-text-dim)]">
             Sisihkan ~<span className="text-[var(--sk-cyan)] font-semibold">{formatIDRCompact(dailySuggestion)}</span>/hari
           </span>
         )}
@@ -292,7 +265,7 @@ const GoalCard = memo(function GoalCard({ goal, onContribute, onEdit, onRemove, 
           <button
             type="button"
             onClick={() => setExpanded(v => !v)}
-            className="mt-3 flex min-h-10 w-full items-center justify-center gap-1 rounded-lg border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-3 py-2.5 text-[12px] font-semibold text-[var(--sk-text-muted)] hover:bg-[var(--sk-surface-3)]"
+            className="mt-2.5 w-full flex items-center justify-center gap-1 py-1.5 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-[11px] font-semibold text-[var(--sk-text-muted)] hover:bg-[var(--sk-surface-3)]"
           >
             {expanded
               ? <><ChevronUp className="w-3.5 h-3.5" /> Tutup</>
@@ -315,7 +288,7 @@ const GoalCard = memo(function GoalCard({ goal, onContribute, onEdit, onRemove, 
                   onClick={handleContribute}
                   disabled={!parsedContrib || parsedContrib <= 0}
                   className={cn(
-                    'h-10 w-10 rounded-lg flex items-center justify-center transition-all flex-shrink-0',
+                    'w-9 h-8 rounded-lg flex items-center justify-center transition-all flex-shrink-0',
                     parsedContrib
                       ? 'bg-[var(--sk-cyan)] text-[#090D16] shadow-[0_0_10px_var(--sk-cyan-glow)] hover:opacity-90 active:scale-95'
                       : 'bg-[var(--sk-surface-3)] text-[var(--sk-text-dim)]'

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Home, BarChart2, Wallet, User, X, Fingerprint, KeyRound } from 'lucide-react'
 import pkg from '@/package.json'
@@ -20,11 +20,8 @@ import { TabProfil } from '@/components/tab-profil'
 import { OnboardingTour } from '@/components/onboarding-tour'
 import { isNativeRuntime } from '@/lib/notifications'
 import { authenticateBiometric, readLockConfig, verifyPasscode, type AppLockConfig } from '@/lib/app-lock'
-import { APP_NAME } from '@/lib/app-variant'
 
 type Tab = 'beranda' | 'saku' | 'rekapan' | 'profil'
-type SakuSection = 'budget' | 'wallet' | 'move' | 'goal' | 'category'
-type AppNavigateDetail = { tab?: Tab; section?: SakuSection }
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'beranda', label: 'Beranda', icon: Home },
@@ -34,7 +31,7 @@ const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: st
 ]
 
 const TabRekapan = dynamic(
-  () => import('@/components/tab-rekapan-yearly').then(mod => mod.TabRekapan),
+  () => import('@/components/tab-rekapan').then(mod => mod.TabRekapan),
   {
     ssr: false,
     loading: () => (
@@ -47,6 +44,8 @@ const TabRekapan = dynamic(
 
 const APP_VERSION = pkg.version
 const APP_SPLASH_MS = 1200
+const APP_NAME = 'SakuKilat v2'
+const APP_LOCK_READY_TIMEOUT_MS = 1200
 
 function triggerTinyHaptic() {
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -64,28 +63,6 @@ function AppUnlockScreen({
   const [passcode, setPasscode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [hint, setHint] = useState(
-    config.biometricEnabled
-      ? 'Tempel sidik jari, atau lanjut pakai sandi.'
-      : 'Masukkan sandi untuk masuk ke aplikasi.'
-  )
-  const biometricAutoTried = useRef(false)
-
-  useEffect(() => {
-    if (!config.biometricEnabled || biometricAutoTried.current) return
-    biometricAutoTried.current = true
-    setBusy(true)
-    setError('')
-    setHint('Mencoba sidik jari perangkat...')
-    void authenticateBiometric(config).then((ok) => {
-      setBusy(false)
-      if (ok) {
-        onUnlock()
-        return
-      }
-      setHint('Sidik jari belum cocok. Kamu tetap bisa masuk pakai sandi.')
-    })
-  }, [config, onUnlock])
 
   const handlePasscodeSubmit = async () => {
     if (!passcode.trim()) {
@@ -124,7 +101,9 @@ function AppUnlockScreen({
         </div>
         <div className="mt-4 text-center">
           <p className="text-lg font-semibold text-[var(--sk-text)]">{APP_NAME}</p>
-          <p className="mt-1 text-sm text-[var(--sk-text-dim)]">{hint}</p>
+          <p className="mt-1 text-sm text-[var(--sk-text-dim)]">
+            Masukkan sandi untuk masuk ke aplikasi.
+          </p>
         </div>
 
         <form
@@ -160,7 +139,7 @@ function AppUnlockScreen({
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-4 py-3 text-sm font-semibold text-[var(--sk-text)]"
           >
             <Fingerprint className="h-4 w-4" />
-            Coba lagi sidik jari
+            Gunakan sidik jari
           </button>
         )}
 
@@ -235,12 +214,9 @@ function AppShell() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const onNavigate = (event: Event) => {
-      const detail = (event as CustomEvent<AppNavigateDetail>).detail
-      if (detail?.tab) switchTab(detail.tab)
-      if (!detail?.section) return
-      window.setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('sakukilat:focus-section', { detail: { section: detail.section } }))
-      }, detail.tab && detail.tab !== activeTab ? 160 : 20)
+      const detail = (event as CustomEvent<{ tab?: Tab }>).detail
+      if (!detail?.tab) return
+      switchTab(detail.tab)
     }
     window.addEventListener('sakukilat:navigate', onNavigate as EventListener)
     return () => window.removeEventListener('sakukilat:navigate', onNavigate as EventListener)
@@ -248,6 +224,7 @@ function AppShell() {
 
   useEffect(() => {
     if (!mounted || !authReady) return
+    const timeoutId = window.setTimeout(() => setLockReady(true), APP_LOCK_READY_TIMEOUT_MS)
     const syncLock = () => {
       const nextConfig = readLockConfig()
       setLockConfig(nextConfig)
@@ -256,7 +233,10 @@ function AppShell() {
     }
     syncLock()
     window.addEventListener('sakukilat:app-lock-changed', syncLock)
-    return () => window.removeEventListener('sakukilat:app-lock-changed', syncLock)
+    return () => {
+      window.clearTimeout(timeoutId)
+      window.removeEventListener('sakukilat:app-lock-changed', syncLock)
+    }
   }, [mounted, authReady])
 
   if (!mounted || !authReady || nativeSplashVisible || !lockReady) {
@@ -285,8 +265,8 @@ function AppShell() {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[var(--sk-bg)] flex flex-col">
-      <main className={cn('min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] pb-[182px] md:pb-[118px] md:mb-0')}>
+    <div className="min-h-[100dvh] bg-[var(--sk-bg)] flex flex-col">
+      <main className={cn('flex-1 overflow-y-auto pb-[182px] md:pb-[118px] md:mb-0')}>
         {activeTab === 'beranda' && <TabBeranda />}
         {activeTab === 'rekapan' && <TabRekapan />}
         {activeTab === 'saku' && <TabSaku />}

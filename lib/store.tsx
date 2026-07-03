@@ -38,8 +38,6 @@ import {
   registerCustomCategories,
   registerCustomPayments,
 } from '@/components/category-badge'
-import { mirrorToNative, scheduleFileBackup } from './native-store'
-import { APP_STORAGE_PREFIX, PRELOADED_STATE_URL, appScopedKey } from './app-variant'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface MockUser {
@@ -217,37 +215,39 @@ const SEED_CATEGORIES: CustomCategory[] = [
   { id: 'expense-peliharaan', label: 'Peliharaan', keywords: ['kucing', 'anjing', 'catfood', 'vet', 'grooming'], type: 'expense' },
 ]
 const DEFAULT_MONTHLY_BUDGET = 0
-export const STORAGE_KEY = appScopedKey('local-state')
-const ONBOARDING_STORAGE_KEY_PREFIX = appScopedKey('onboarding-completed-v')
+export const STORAGE_KEY = 'sakukilat:v2:local-state'
+const PRELOADED_STATE_URL = '/preloaded-state.json'
+const ONBOARDING_STORAGE_KEY_PREFIX = 'sakukilat:v2:onboarding-completed-v'
+const BUNDLE_SEED_TIMEOUT_MS = 1600
 const KNOWN_STORAGE_KEYS = new Set([
   STORAGE_KEY,
-  appScopedKey('goals'),
-  appScopedKey('celebrated-goals'),
-  appScopedKey('recurring'),
-  appScopedKey('celebrated-streak'),
+  'sakukilat:v2:goals',
+  'sakukilat:v2:celebrated-goals',
+  'sakukilat:v2:recurring',
+  'sakukilat:v2:celebrated-streak',
 ])
 // Prefix key yang BUKAN garbage & wajib dipertahankan saat pembersihan
 // localStorage (counter & progress achievement, flag fitur, dll).
 const PRESERVED_KEY_PREFIXES = [
-  appScopedKey('backup-count'),
-  appScopedKey('import-count'),
-  appScopedKey('zen-used'),
-  appScopedKey('edit-count'),
-  appScopedKey('undo-count'),
-  appScopedKey('guide-opened'),
-  appScopedKey('photo-changed'),
-  appScopedKey('tabs-seen'),
-  appScopedKey('rekap-days'),
-  appScopedKey('badge-unlocks'),
-  appScopedKey('badges-seen'),
-  appScopedKey('budget-set'),
-  appScopedKey('tren-seen'),
-  appScopedKey('goal-deadline'),
-  appScopedKey('ach-'),
-  appScopedKey('notif-prefs'),
-  appScopedKey('last-rollover'),
-  appScopedKey('app-lock'),
-  appScopedKey('demo'),
+  'sakukilat:v2:backup-count',
+  'sakukilat:v2:import-count',
+  'sakukilat:v2:zen-used',
+  'sakukilat:v2:edit-count',
+  'sakukilat:v2:undo-count',
+  'sakukilat:v2:guide-opened',
+  'sakukilat:v2:photo-changed',
+  'sakukilat:v2:tabs-seen',
+  'sakukilat:v2:rekap-days',
+  'sakukilat:v2:badge-unlocks',
+  'sakukilat:v2:badges-seen',
+  'sakukilat:v2:budget-set',
+  'sakukilat:v2:tren-seen',
+  'sakukilat:v2:goal-deadline',
+  'sakukilat:v2:ach-',
+  'sakukilat:v2:notif-prefs',
+  'sakukilat:v2:last-rollover',
+  'sakukilat:v2:app-lock',
+  'sakukilat:v2:demo',
 ]
 const DEMO_USER: MockUser = {
   name: 'Perangkat Ini',
@@ -367,7 +367,7 @@ function loadPersistedState(): PersistedState {
   try {
     for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
       const key = window.localStorage.key(i)
-      if (!key?.startsWith(APP_STORAGE_PREFIX)) continue
+      if (!key?.startsWith('sakukilat:')) continue
       if (KNOWN_STORAGE_KEYS.has(key) || key.startsWith(ONBOARDING_STORAGE_KEY_PREFIX)) continue
       if (PRESERVED_KEY_PREFIXES.some(prefix => key.startsWith(prefix))) continue
       window.localStorage.removeItem(key)
@@ -388,14 +388,7 @@ function persistState(state: PersistedState) {
   if (typeof window === 'undefined') return
 
   try {
-    const json = JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, ...state })
-    // 1. Cache sinkron cepat (perilaku lama, tetap dipakai loader sinkron).
-    window.localStorage.setItem(STORAGE_KEY, json)
-    // 2. Cermin ke Preferences native (durable, tahan clear-cache WebView).
-    mirrorToNative(STORAGE_KEY, json)
-    // 3. Backup file ke Documents (tahan uninstall) — di-debounce 5 detik
-    //    supaya tidak menulis file di setiap keystroke.
-    scheduleFileBackup()
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, ...state }))
   } catch (error) {
     console.warn('Gagal menyimpan auto-save SakuKilat:', error)
   }
@@ -688,6 +681,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!needsBundleSeed || typeof window === 'undefined') return
     let cancelled = false
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) setBundleSeedResolved(true)
+    }, BUNDLE_SEED_TIMEOUT_MS)
 
     const loadBundledState = async () => {
       try {
@@ -699,6 +695,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } catch {
         // ponytail: bundled seed is optional; blank local state is a safe fallback.
       } finally {
+        window.clearTimeout(timeoutId)
         if (!cancelled) setBundleSeedResolved(true)
       }
     }
@@ -706,6 +703,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     void loadBundledState()
     return () => {
       cancelled = true
+      window.clearTimeout(timeoutId)
     }
   }, [applyPersistedSnapshot, needsBundleSeed])
 

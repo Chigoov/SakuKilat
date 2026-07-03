@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ArrowRightLeft, Check, ChevronDown, Gauge, Landmark, Pencil, PiggyBank, Plus, SlidersHorizontal, Trash2, Wallet, X } from 'lucide-react'
 import { useBudgetStore, useWalletStore } from '@/lib/store'
 import { GoalTracker } from '@/components/goal-tracker'
@@ -420,27 +420,6 @@ function CollapsibleSection({
 }
 
 export function TabSaku() {
-  useEffect(() => {
-    const onFocusSection = (event: Event) => {
-      const section = (event as CustomEvent<{ section?: string }>).detail?.section
-      if (!section) return
-      const target = document.querySelector<HTMLElement>(`[data-saku-section="${section}"]`)
-      if (!target) return
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      target.animate(
-        [
-          { boxShadow: '0 0 0 rgba(56,189,248,0)' },
-          { boxShadow: '0 0 0 3px rgba(56,189,248,0.2)' },
-          { boxShadow: '0 0 0 rgba(56,189,248,0)' },
-        ],
-        { duration: 1200, easing: 'ease-out' }
-      )
-    }
-
-    window.addEventListener('sakukilat:focus-section', onFocusSection as EventListener)
-    return () => window.removeEventListener('sakukilat:focus-section', onFocusSection as EventListener)
-  }, [])
-
   return (
     <div className="flex flex-col min-h-full md:ml-[72px]">
       <div className="sticky top-0 z-20 bg-[var(--sk-bg)] backdrop-blur-xl border-b border-[var(--sk-border)] px-4 md:px-8 py-4">
@@ -451,19 +430,11 @@ export function TabSaku() {
       </div>
 
       <div className="flex-1 px-4 md:px-8 py-5 flex flex-col gap-6 pb-10">
-        <div data-saku-section="budget">
-          <BudgetSettings />
-        </div>
-        <div data-saku-section="wallet">
-          <WalletManager />
-        </div>
-        <div data-saku-section="move">
-          <MoneyMovePanel />
-        </div>
+        <BudgetSettings />
+        <WalletManager />
+        <MoneyMovePanel />
         <RecurringManager />
-        <div data-saku-section="goal">
-          <GoalTracker />
-        </div>
+        <GoalTracker />
         <CollapsibleSection
           title="Metode Bayar"
           subtitle="Atur dompet & metode pembayaran"
@@ -471,15 +442,13 @@ export function TabSaku() {
         >
           <PersonalizationSettings showCategories={false} />
         </CollapsibleSection>
-        <div data-saku-section="category">
-          <CollapsibleSection
-            title="Kategori"
-            subtitle="Atur kategori masuk, keluar, dan sub kategori"
-            icon={SlidersHorizontal}
-          >
-            <CategoryManager />
-          </CollapsibleSection>
-        </div>
+        <CollapsibleSection
+          title="Kategori"
+          subtitle="Atur kategori & sub kategori"
+          icon={SlidersHorizontal}
+        >
+          <CategoryManager />
+        </CollapsibleSection>
       </div>
     </div>
   )

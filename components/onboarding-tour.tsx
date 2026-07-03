@@ -1,26 +1,13 @@
 'use client'
 
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  ArrowLeft,
-  ArrowRight,
-  BarChart2,
-  Bell,
-  BookOpen,
-  Check,
-  PenLine,
-  Repeat,
-  Sparkles,
-  Trophy,
-  Wallet,
-} from 'lucide-react'
+import { ArrowLeft, ArrowRight, BarChart2, Bell, BookOpen, Check, PenLine, Repeat, Sparkles, Trophy, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { appScopedKey } from '@/lib/app-variant'
 
 type TourTab = 'beranda' | 'saku' | 'rekapan' | 'profil'
 
-const ONBOARDING_VERSION = 10
-const ONBOARDING_KEY_PREFIX = appScopedKey(`onboarding-completed-v${ONBOARDING_VERSION}`)
+const ONBOARDING_VERSION = 9
+const ONBOARDING_KEY_PREFIX = `sakukilat:v2:onboarding-completed-v${ONBOARDING_VERSION}`
 
 interface Slide {
   icon: React.ComponentType<{ className?: string }>
@@ -38,9 +25,9 @@ const SLIDES: Slide[] = [
     icon: Sparkles,
     iconColor: 'text-[var(--sk-cyan)]',
     iconBg: 'bg-[var(--sk-cyan-dim)]',
-    title: 'Input cepat',
-    body: 'Kolom bawah membaca kalimat singkat seperti "kopi 18k gopay" atau "gaji 6jt bca". Sistem akan menebak nominal, tipe, kategori, dan saku.',
-    action: 'Pakai format: nama transaksi + nominal + saku. Contoh aman: "makan 25rb cash".',
+    title: 'Catat otomatis',
+    body: 'Area bawah ini membaca kalimat seperti "kopi 18k gopay" dan langsung menebak nominal, kategori, serta saku.',
+    action: 'Coba nanti ketik transaksi singkat di kolom yang disorot.',
     tab: 'beranda',
     target: 'smart-input',
   },
@@ -49,8 +36,8 @@ const SLIDES: Slide[] = [
     iconColor: 'text-[var(--sk-amber)]',
     iconBg: 'bg-[var(--sk-amber-dim)]',
     title: 'Catat manual',
-    body: 'Tombol ini membuka form lengkap untuk memilih pemasukan atau pengeluaran, saku, kategori, tanggal, dan deskripsi sendiri.',
-    action: 'Pakai ini kalau input cepat tidak cocok, atau saat kamu ingin isi data lebih detail.',
+    body: 'Tombol ini membuka form lengkap untuk memilih tipe, dompet, kategori, tanggal, dan deskripsi sendiri.',
+    action: 'Pakai ini untuk transaksi hari kemarin, besok, atau catatan yang butuh detail.',
     tab: 'beranda',
     target: 'manual-entry',
   },
@@ -59,30 +46,40 @@ const SLIDES: Slide[] = [
     iconColor: 'text-[var(--sk-green)]',
     iconBg: 'bg-[var(--sk-green-dim)]',
     title: 'Saku uang',
-    body: 'Di tab Saku kamu bisa melihat saldo tiap saku, menambah saku baru, edit nama saku, dan cek total uang tersimpan.',
-    action: 'Pastikan nama saku sesuai kebiasaanmu, misalnya Cash, BCA, GoPay, atau Dana.',
+    body: 'Di sini kamu melihat total uang tersimpan, beberapa saku utama, dan tombol untuk membuka semua saku.',
+    action: 'Buka semua saku kalau ingin cek saldo dompet satu per satu.',
     tab: 'saku',
     target: 'wallets',
-  },
-  {
-    icon: Repeat,
-    iconColor: 'text-[var(--sk-green)]',
-    iconBg: 'bg-[var(--sk-green-dim)]',
-    title: 'Transaksi otomatis',
-    body: 'Bagian ini cocok untuk gaji, langganan, cicilan, atau tagihan bulanan. Isi dengan kalimat transaksi lengkap, bukan cuma judul.',
-    action: 'Contoh: "netflix 54rb bca" atau "gaji 6,5jt bca". Tombol petir artinya catat sekarang.',
-    tab: 'saku',
-    target: 'recurring',
   },
   {
     icon: BarChart2,
     iconColor: 'text-[var(--sk-cyan)]',
     iconBg: 'bg-[var(--sk-cyan-dim)]',
     title: 'Rekapan',
-    body: 'Di sini kamu bisa melihat history, kalender, tren, dan detail kategori pengeluaran atau pemasukan.',
-    action: 'Cara tercepat cek detail kategori: buka Rekapan lalu tekan kartu Total keluar atau Total masuk.',
+    body: 'Di sini kamu bisa pindah antara mode mingguan dan bulanan, lalu buka rincian kategori masuk atau keluar.',
+    action: 'Mulai dari kartu Masuk atau Keluar untuk masuk ke detail kategori lebih cepat.',
     tab: 'rekapan',
     target: 'rekapan-tabs',
+  },
+  {
+    icon: Repeat,
+    iconColor: 'text-[var(--sk-green)]',
+    iconBg: 'bg-[var(--sk-green-dim)]',
+    title: 'Pindah data',
+    body: 'Bagian ini untuk backup JSON, ekspor CSV, dan impor data dari SakuKilat atau aplikasi lain.',
+    action: 'Backup JSON paling aman untuk memindahkan semua data lokal.',
+    tab: 'profil',
+    target: 'data-portability',
+  },
+  {
+    icon: Trophy,
+    iconColor: 'text-[var(--sk-amber)]',
+    iconBg: 'bg-[var(--sk-amber-dim)]',
+    title: 'Streak & Trofi',
+    body: 'Catat tiap hari untuk menjaga streak dan 5 nyawa. Kebiasaan baikmu membuka lencana di Etalase Trofi.',
+    action: 'Bagian ini di tab Profil — pantau nyawa, rekor streak, dan koleksi lencanamu.',
+    tab: 'profil',
+    target: 'streak-card',
   },
   {
     icon: Bell,
@@ -95,22 +92,12 @@ const SLIDES: Slide[] = [
     target: 'notif-bell',
   },
   {
-    icon: Trophy,
-    iconColor: 'text-[var(--sk-amber)]',
-    iconBg: 'bg-[var(--sk-amber-dim)]',
-    title: 'Streak & Trofi',
-    body: 'Kalau kamu rutin mencatat, streak akan naik dan trofi akan terbuka sedikit demi sedikit.',
-    action: 'Cek bagian ini di Profil untuk lihat progres kebiasaanmu.',
-    tab: 'profil',
-    target: 'streak-card',
-  },
-  {
     icon: BookOpen,
     iconColor: 'text-[var(--sk-cyan)]',
     iconBg: 'bg-[var(--sk-cyan-dim)]',
     title: 'Buku Panduan',
-    body: 'Kalau masih bingung, buka Buku Panduan di Profil. Di sana ada penjelasan yang lebih lengkap dan santai.',
-    action: 'Panduan awal ini cuma ringkas. Buku Panduan cocok buat belajar pelan-pelan.',
+    body: 'Masih bingung? Tombol ini membuka Buku Panduan lengkap. Semua fitur dijelaskan pakai bahasa yang gampang.',
+    action: 'Ada di tab Profil. Baca kapan saja, sesantai kamu.',
     tab: 'profil',
     target: 'guide-button',
   },
@@ -148,9 +135,7 @@ export const OnboardingTour = memo(function OnboardingTour({
   const [resolved, setResolved] = useState<boolean | null>(null)
   const [index, setIndex] = useState(0)
   const [closing, setClosing] = useState(false)
-  const [highlight, setHighlight] = useState<{ top: number; left: number; width: number; height: number } | null>(
-    null,
-  )
+  const [highlight, setHighlight] = useState<{ top: number; left: number; width: number; height: number } | null>(null)
 
   useEffect(() => {
     setResolved(readCompleted(userId))
@@ -163,15 +148,13 @@ export const OnboardingTour = memo(function OnboardingTour({
   const Icon = useMemo(() => slide.icon, [slide.icon])
 
   const updateHighlight = useCallback(() => {
+    // Beberapa anchor (mis. lonceng) ada di header desktop & mobile sekaligus —
+    // salah satunya tersembunyi (display:none). Pilih yang benar-benar terlihat.
     const candidates = Array.from(document.querySelectorAll<HTMLElement>(`[data-tour="${slide.target}"]`))
-    const target =
-      candidates.find((element) => {
-        const rect = element.getBoundingClientRect()
-        return rect.width > 0 && rect.height > 0
-      }) ??
-      candidates[0] ??
-      null
-
+    const target = candidates.find(el => {
+      const r = el.getBoundingClientRect()
+      return r.width > 0 && r.height > 0
+    }) ?? candidates[0] ?? null
     if (!target) {
       setHighlight(null)
       return
@@ -193,11 +176,11 @@ export const OnboardingTour = memo(function OnboardingTour({
   useEffect(() => {
     if (resolved !== false) return
     onNavigate?.(slide.tab)
-    const timers = [180, 520, 900].map((delay) => window.setTimeout(updateHighlight, delay))
+    const timers = [180, 520, 900].map(delay => window.setTimeout(updateHighlight, delay))
     window.addEventListener('resize', updateHighlight)
     window.addEventListener('scroll', updateHighlight, true)
     return () => {
-      timers.forEach((timer) => window.clearTimeout(timer))
+      timers.forEach(timer => window.clearTimeout(timer))
       window.removeEventListener('resize', updateHighlight)
       window.removeEventListener('scroll', updateHighlight, true)
     }
@@ -214,11 +197,11 @@ export const OnboardingTour = memo(function OnboardingTour({
       finish()
       return
     }
-    setIndex((value) => Math.min(total - 1, value + 1))
+    setIndex(value => Math.min(total - 1, value + 1))
   }, [finish, isLast, total])
 
   const prev = useCallback(() => {
-    if (!isFirst) setIndex((value) => Math.max(0, value - 1))
+    if (!isFirst) setIndex(value => Math.max(0, value - 1))
   }, [isFirst])
 
   useEffect(() => {
@@ -235,9 +218,7 @@ export const OnboardingTour = memo(function OnboardingTour({
     if (resolved !== false) return
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prevOverflow
-    }
+    return () => { document.body.style.overflow = prevOverflow }
   }, [resolved])
 
   if (resolved !== false) return null
@@ -268,38 +249,40 @@ export const OnboardingTour = memo(function OnboardingTour({
 
       <div
         className={cn(
-          'fixed left-4 right-4 mx-auto max-w-sm rounded-2xl border border-[var(--sk-border-2)] bg-[var(--sk-surface)] p-4 shadow-2xl',
+          'fixed left-4 right-4 mx-auto max-w-sm rounded-2xl bg-[var(--sk-surface)] border border-[var(--sk-border-2)] p-4 shadow-2xl',
           'transition-transform duration-200',
           panelTop ? 'top-4' : 'bottom-4',
-          closing ? 'scale-95' : 'scale-100',
+          closing ? 'scale-95' : 'scale-100'
         )}
       >
         <div className="flex items-start gap-3">
-          <div className={cn('h-11 w-11 flex-shrink-0 rounded-xl flex items-center justify-center', slide.iconBg)}>
-            <Icon className={cn('h-5 w-5', slide.iconColor)} />
+          <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0', slide.iconBg)}>
+            <Icon className={cn('w-5 h-5', slide.iconColor)} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--sk-text-dim)]">
+            <p className="text-[10px] font-semibold text-[var(--sk-text-dim)] uppercase tracking-widest mb-1">
               Panduan {index + 1}/{total}
             </p>
-            <h2 id="sk-onboarding-title" className="text-lg font-bold leading-tight text-[var(--sk-text)]">
+            <h2 id="sk-onboarding-title" className="text-lg font-bold text-[var(--sk-text)] leading-tight">
               {slide.title}
             </h2>
-            <p className="mt-1 text-sm leading-relaxed text-[var(--sk-text-muted)]">{slide.body}</p>
+            <p className="text-sm text-[var(--sk-text-muted)] leading-relaxed mt-1">
+              {slide.body}
+            </p>
           </div>
         </div>
 
-        <div className="mt-3 rounded-xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-3 py-2 text-xs leading-relaxed text-[var(--sk-cyan)]">
+        <div className="mt-3 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] px-3 py-2 text-xs text-[var(--sk-cyan)] leading-relaxed">
           {slide.action}
         </div>
 
-        <div className="my-4 flex items-center justify-center gap-1.5" aria-hidden>
+        <div className="flex items-center justify-center gap-1.5 my-4" aria-hidden>
           {SLIDES.map((_, slideIndex) => (
             <span
               key={slideIndex}
               className={cn(
                 'h-1.5 rounded-full transition-all duration-200',
-                slideIndex === index ? 'w-6 bg-[var(--sk-cyan)]' : 'w-1.5 bg-[var(--sk-border-2)]',
+                slideIndex === index ? 'w-6 bg-[var(--sk-cyan)]' : 'w-1.5 bg-[var(--sk-border-2)]'
               )}
             />
           ))}
@@ -312,28 +295,28 @@ export const OnboardingTour = memo(function OnboardingTour({
             disabled={isFirst}
             aria-label="Sebelumnya"
             className={cn(
-              'h-11 w-11 rounded-xl flex items-center justify-center transition-colors',
+              'w-11 h-11 rounded-xl flex items-center justify-center transition-colors',
               isFirst
-                ? 'cursor-not-allowed text-[var(--sk-text-dim)] opacity-40'
-                : 'text-[var(--sk-text-muted)] hover:bg-[var(--sk-surface-2)] hover:text-[var(--sk-text)]',
+                ? 'text-[var(--sk-text-dim)] opacity-40 cursor-not-allowed'
+                : 'text-[var(--sk-text-muted)] hover:text-[var(--sk-text)] hover:bg-[var(--sk-surface-2)]'
             )}
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <button
             type="button"
             onClick={next}
-            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--sk-cyan)] text-sm font-semibold text-[var(--sk-bg)] transition-opacity hover:opacity-90"
+            className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 bg-[var(--sk-cyan)] text-[var(--sk-bg)] font-semibold text-sm hover:opacity-90 transition-opacity"
           >
             {isLast ? (
               <>
-                <Check className="h-4 w-4" />
+                <Check className="w-4 h-4" />
                 Mulai pakai
               </>
             ) : (
               <>
                 Lanjut
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>

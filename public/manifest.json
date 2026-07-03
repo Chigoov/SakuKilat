@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Saku Kilat V2 - Pencatat Keuangan",
-  "short_name": "Saku Kilat V2",
+  "name": "SakuKilat - Pencatat Keuangan",
+  "short_name": "SakuKilat",
   "description": "Pencatat keuangan pribadi cepat dengan input bahasa natural",
   "start_url": "/",
   "scope": "/",

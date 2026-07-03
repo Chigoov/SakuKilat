@@ -23,29 +23,6 @@ function hasDigit(value: string): boolean {
   return /\d/.test(value)
 }
 
-function queryMatchScore(normalizedValue: string, words: string[]): number {
-  const parts = normalizedValue.split(' ').filter(Boolean)
-  let score = 0
-
-  for (const word of words) {
-    if (normalizedValue.startsWith(word)) {
-      score += 4
-      continue
-    }
-    if (parts.some((part) => part.startsWith(word))) {
-      score += 3
-      continue
-    }
-    if (normalizedValue.includes(word)) {
-      score += 1
-      continue
-    }
-    return -1
-  }
-
-  return score
-}
-
 export function findPhraseSuggestions(
   transactions: Transaction[],
   query: string,
@@ -63,7 +40,7 @@ export function findPhraseSuggestions(
     const value = transaction.description.trim()
     const normalizedValue = normalizeText(value)
     if (normalizedValue.length < 2) continue
-    if (queryMatchScore(normalizedValue, words) < 0) continue
+    if (!words.every(word => normalizedValue.includes(word))) continue
 
     const existing = byText.get(normalizedValue)
     if (!existing) {
@@ -90,9 +67,9 @@ export function findPhraseSuggestions(
 
   return Array.from(byText.values())
     .sort((left, right) => {
-      const leftScore = queryMatchScore(normalizeText(left.value), words)
-      const rightScore = queryMatchScore(normalizeText(right.value), words)
-      if (leftScore !== rightScore) return rightScore - leftScore
+      const leftStarts = normalizeText(left.value).startsWith(normalizedQuery) ? 1 : 0
+      const rightStarts = normalizeText(right.value).startsWith(normalizedQuery) ? 1 : 0
+      if (leftStarts !== rightStarts) return rightStarts - leftStarts
       if (left.count !== right.count) return right.count - left.count
       return right.lastUsedAt - left.lastUsedAt
     })

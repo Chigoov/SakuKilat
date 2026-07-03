@@ -1,4 +1,4 @@
-import { formatIDR } from './parser'
+import { formatIDR, parseAmountToken } from './parser'
 
 const FORMAT_SKIP_PREV = new Set([
   'bagi',
@@ -29,9 +29,7 @@ function formatInlineAmount(token: string, prevToken?: string): string {
   if (FORMAT_SKIP_PREV.has(previous)) return token
   if (isDateLikeToken(token)) return token
 
-  // ponytail: reuse the shared input parser so backspace on formatted inputs
-  // shrinks cleanly instead of bouncing between grouped values.
-  const amount = parseAmountInput(token)
+  const amount = parseAmountToken(token)
   if (!amount || amount <= 0) return normalizeCurrencyToken(token)
 
   if (previous === 'rp' || previous === 'idr') {

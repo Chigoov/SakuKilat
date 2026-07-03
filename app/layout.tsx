@@ -3,8 +3,6 @@ import { Inter, Geist_Mono } from 'next/font/google'
 import type { ReactNode } from 'react'
 import './globals.css'
 import { StoreProvider } from '@/lib/store'
-import { StorageBoot } from '@/components/storage-boot'
-import { APP_NAME } from '@/lib/app-variant'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -19,15 +17,15 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  applicationName: APP_NAME,
-  title: `${APP_NAME} - Pencatat Keuangan Cepat`,
-  description: `${APP_NAME} untuk catat pemasukan, pengeluaran, dan goal tabungan lebih cepat.`,
+  applicationName: 'SakuKilat',
+  title: 'SakuKilat - Pencatat Keuangan Cepat',
+  description: 'Catat pengeluaran dan pemasukan dengan input bahasa natural. Gratis, lokal, dan cepat.',
   generator: 'v0.app',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: APP_NAME,
+    title: 'SakuKilat',
   },
   formatDetection: {
     telephone: false,
@@ -41,12 +39,12 @@ export const metadata: Metadata = {
     shortcut: '/icon-192.png',
   },
   openGraph: {
-    title: `${APP_NAME} - Pencatat Keuangan Cepat`,
-    description: `${APP_NAME} untuk catat pemasukan, pengeluaran, dan goal tabungan lebih cepat.`,
+    title: 'SakuKilat - Pencatat Keuangan Cepat',
+    description: 'Catat pengeluaran dan pemasukan dengan input bahasa natural.',
     type: 'website',
   },
   other: {
-    'apple-mobile-web-app-title': APP_NAME,
+    'apple-mobile-web-app-title': 'SakuKilat',
     'mobile-web-app-capable': 'yes',
     'msapplication-TileColor': '#090D16',
   },
@@ -73,9 +71,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-icon.png" />
       </head>
       <body className="font-sans antialiased bg-[var(--sk-bg)] overscroll-none">
-        <StorageBoot>
-          <StoreProvider>{children}</StoreProvider>
-        </StorageBoot>
+        <StoreProvider>{children}</StoreProvider>
       </body>
     </html>
   )

@@ -12,46 +12,38 @@ export function BudgetCard() {
   const status = monthlyBudgetStatus(transactions, monthlyBudget)
   const pct = Math.min(100, Math.round(status.pctUsed * 100))
   const weekPct = Math.min(100, Math.round(status.pctWeekUsed * 100))
-  const openBudgetSettings = () => {
-    window.dispatchEvent(new CustomEvent('sakukilat:navigate', { detail: { tab: 'saku', section: 'budget' } }))
-  }
-  const budgetLabel = formatIDR(status.budget)
-  const budgetAmountClass =
-    budgetLabel.replace(/\s+/g, '').length >= 13
-      ? 'text-[clamp(1.55rem,6.2vw,2.2rem)]'
-      : 'text-[clamp(1.72rem,6.8vw,2.45rem)]'
 
   return (
-    <section className="mt-4 h-full rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
-        <div className="mb-3 flex items-center gap-2">
+    <section className="mt-5 h-full rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
+        <div className="flex items-center gap-2 mb-3">
           <div className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-[18px]',
+            'w-10 h-10 rounded-2xl flex items-center justify-center',
             status.roast ? 'bg-[var(--sk-red-dim)]' : 'bg-[var(--sk-amber-dim)]'
           )}>
             <Gauge className={cn('w-5 h-5', status.roast ? 'text-[var(--sk-red)]' : 'text-[var(--sk-amber)]')} />
           </div>
           <div className="min-w-0">
-            <p className="text-[13px] font-medium text-[var(--sk-text-muted)]">Budget bulan ini</p>
-            <p className={cn('whitespace-nowrap font-bold leading-none tabular-nums text-[var(--sk-text)]', budgetAmountClass)} data-amount>
-              {budgetLabel}
+            <p className="text-sm font-medium text-[var(--sk-text-muted)]">Budget bulan ini</p>
+            <p className="text-[2rem] font-bold leading-none tabular-nums text-[var(--sk-text)]" data-amount>
+              {formatIDR(status.budget)}
             </p>
           </div>
           <span className={cn(
-            'ml-auto text-[1rem] font-semibold tabular-nums',
+            'ml-auto text-lg font-semibold tabular-nums',
             status.roast ? 'text-[var(--sk-red)]' : pct > 75 ? 'text-[var(--sk-amber)]' : 'text-[var(--sk-green)]'
           )}>
             {pct}%
           </span>
         </div>
 
-        <div className="mb-3 h-2 rounded-full bg-[var(--sk-surface-2)] overflow-hidden">
+        <div className="h-2 rounded-full bg-[var(--sk-surface-2)] overflow-hidden mb-3">
           <div
             className={cn('h-full rounded-full', status.roast ? 'bg-[var(--sk-red)]' : 'bg-[var(--sk-cyan)]')}
             style={{ width: `${pct}%` }}
           />
         </div>
 
-        <div className="mb-3 grid grid-cols-3 gap-2 text-[13px]">
+        <div className="grid grid-cols-3 gap-2 text-sm mb-3">
           <div>
             <p className="text-[var(--sk-text-dim)]">Terpakai</p>
             <p className="font-semibold tabular-nums text-[var(--sk-red)]">{formatIDRCompact(status.spent)}</p>
@@ -66,8 +58,8 @@ export function BudgetCard() {
           </div>
         </div>
 
-        <div className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3.5">
-          <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="rounded-[24px] bg-[var(--sk-surface-2)] border border-[var(--sk-border)] p-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
             <div>
               <p className="text-[10px] text-[var(--sk-text-dim)] uppercase tracking-widest">
                 Minggu {status.weekOfMonth}/{status.totalWeeks}
@@ -122,29 +114,20 @@ export function BudgetCard() {
         )}
 
         {status.budget === 0 ? (
-          <div className="mt-3">
-            <p className="text-xs leading-relaxed text-[var(--sk-text-dim)]">
-              Budget bulan ini belum diisi.
-            </p>
-            <button
-              type="button"
-              onClick={openBudgetSettings}
-              className="mt-3 inline-flex min-h-10 items-center rounded-full border border-[rgba(56,189,248,0.25)] bg-[var(--sk-cyan-dim)] px-3 py-2 text-[13px] font-semibold text-[var(--sk-cyan)]"
-            >
-              Atur sekarang -&gt;
-            </button>
-          </div>
+          <p className="mt-3 text-xs leading-relaxed text-[var(--sk-text-dim)]">
+            Budget bulan ini belum diisi. Isi dulu supaya batas aman harian langsung kebaca.
+          </p>
         ) : status.todayOverBase ? (
           <p className="mt-3 text-xs leading-relaxed text-[var(--sk-red)]">
-            Hari ini keluar {formatIDR(status.todayExpense)}. Lewat {formatIDR(Math.max(0, status.todayExpense - status.baseDailyBudget))} dari jatah harian.
+            Hari ini kamu sudah keluar {formatIDR(status.todayExpense)}. Itu lewat {formatIDR(Math.max(0, status.todayExpense - status.baseDailyBudget))} dari jatah harian {formatIDR(status.baseDailyBudget)}.
           </p>
         ) : status.todayExpense > 0 ? (
           <p className="mt-3 text-xs leading-relaxed text-[var(--sk-text-dim)]">
-            Hari ini keluar {formatIDR(status.todayExpense)}. Batas amannya sekitar {formatIDR(Math.round(status.dynamicDailyBudget))} per hari.
+            Hari ini baru keluar {formatIDR(status.todayExpense)}. Batas amannya sekitar {formatIDR(Math.round(status.dynamicDailyBudget))} per hari sampai minggu ini selesai.
           </p>
         ) : (
           <p className="mt-3 text-xs leading-relaxed text-[var(--sk-text-dim)]">
-            Belum ada pengeluaran hari ini. Cocok buat mulai catat dari input cepat.
+            Belum ada pengeluaran hari ini. Cocok kalau mau mulai catat dari Smart Tracker atau input manual.
           </p>
         )}
     </section>

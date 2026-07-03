@@ -14,11 +14,9 @@
 
 import { STORAGE_KEY, CURRENT_SCHEMA_VERSION } from './store'
 import { GOAL_STORAGE_KEY } from '@/components/goal-tracker'
-import { appScopedKey } from './app-variant'
 
-const DEMO_FLAG = appScopedKey('demo-active')
-const BACKUP_BEFORE_DEMO = appScopedKey('demo-backup')
-const RECURRING_STORAGE_KEY = appScopedKey('recurring')
+const DEMO_FLAG = 'sakukilat:v2:demo-active'
+const BACKUP_BEFORE_DEMO = 'sakukilat:v2:demo-backup'
 
 interface DemoTx {
   id: string
@@ -126,39 +124,6 @@ const DEMO_GOALS = [
   { id: 'g_demo2', label: 'Liburan akhir tahun', target: 5000000, saved: 5000000, deadline: dayISO(60, 0).slice(0, 10), createdAt: dayISO(-50, 0) },
 ]
 
-const DEMO_RECURRING = [
-  {
-    id: 'rec_demo_gaji',
-    input: 'gaji bulanan 6500000 bca',
-    label: 'Gaji bulanan',
-    cadence: 'monthly',
-    nextDueAt: Date.now() - 60_000,
-    lastFiredAt: null,
-    active: true,
-    createdAt: Date.now() - 86_400_000 * 20,
-  },
-  {
-    id: 'rec_demo_netflix',
-    input: 'netflix patungan 54000 bca',
-    label: 'Netflix patungan',
-    cadence: 'monthly',
-    nextDueAt: Date.now() + 86_400_000 * 3,
-    lastFiredAt: Date.now() - 86_400_000 * 27,
-    active: true,
-    createdAt: Date.now() - 86_400_000 * 40,
-  },
-  {
-    id: 'rec_demo_gym',
-    input: 'gym bulanan 175000 bca',
-    label: 'Gym bulanan',
-    cadence: 'monthly',
-    nextDueAt: Date.now() + 86_400_000 * 12,
-    lastFiredAt: null,
-    active: false,
-    createdAt: Date.now() - 86_400_000 * 10,
-  },
-] as const
-
 export function isDemoActive(): boolean {
   if (typeof window === 'undefined') return false
   try { return window.localStorage.getItem(DEMO_FLAG) === '1' } catch { return false }
@@ -172,8 +137,7 @@ export function enableDemo(): void {
     if (!isDemoActive()) {
       const real = window.localStorage.getItem(STORAGE_KEY)
       const realGoals = window.localStorage.getItem(GOAL_STORAGE_KEY)
-      const realRecurring = window.localStorage.getItem(RECURRING_STORAGE_KEY)
-      window.localStorage.setItem(BACKUP_BEFORE_DEMO, JSON.stringify({ state: real, goals: realGoals, recurring: realRecurring }))
+      window.localStorage.setItem(BACKUP_BEFORE_DEMO, JSON.stringify({ state: real, goals: realGoals }))
     }
 
     const demoState = {
@@ -191,11 +155,10 @@ export function enableDemo(): void {
     }
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(demoState))
     window.localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(DEMO_GOALS))
-    window.localStorage.setItem(RECURRING_STORAGE_KEY, JSON.stringify(DEMO_RECURRING))
     window.localStorage.setItem(DEMO_FLAG, '1')
     // Picu beberapa counter biar achievement demo terlihat hidup.
-    window.localStorage.setItem(appScopedKey('backup-count'), '3')
-    window.localStorage.setItem(appScopedKey('zen-used'), '1')
+    window.localStorage.setItem('sakukilat:v2:backup-count', '3')
+    window.localStorage.setItem('sakukilat:v2:zen-used', '1')
     window.location.reload()
   } catch {
     /* quota / private mode */
@@ -208,13 +171,11 @@ export function disableDemo(): void {
   try {
     const raw = window.localStorage.getItem(BACKUP_BEFORE_DEMO)
     if (raw) {
-      const { state, goals, recurring } = JSON.parse(raw) as { state: string | null; goals: string | null; recurring?: string | null }
+      const { state, goals } = JSON.parse(raw) as { state: string | null; goals: string | null }
       if (state) window.localStorage.setItem(STORAGE_KEY, state)
       else window.localStorage.removeItem(STORAGE_KEY)
       if (goals) window.localStorage.setItem(GOAL_STORAGE_KEY, goals)
       else window.localStorage.removeItem(GOAL_STORAGE_KEY)
-      if (recurring) window.localStorage.setItem(RECURRING_STORAGE_KEY, recurring)
-      else window.localStorage.removeItem(RECURRING_STORAGE_KEY)
     }
     window.localStorage.removeItem(BACKUP_BEFORE_DEMO)
     window.localStorage.removeItem(DEMO_FLAG)

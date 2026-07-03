@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { formatRelativeDate } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import type { TransactionUpdateInput } from '@/lib/store'
@@ -14,7 +14,8 @@ interface TransactionListProps {
   onUpdate?: (id: string, updates: TransactionUpdateInput) => void
   newTransactionId?: string | null
   className?: string
-  compact?: boolean
+  initialVisibleCount?: number
+  loadMoreCount?: number
 }
 
 interface GroupedTransactions {
@@ -29,13 +30,24 @@ export function TransactionList({
   onUpdate,
   newTransactionId,
   className,
-  compact,
+  initialVisibleCount = Number.POSITIVE_INFINITY,
+  loadMoreCount = 40,
 }: TransactionListProps) {
+  const [visibleCount, setVisibleCount] = useState(initialVisibleCount)
+
+  useEffect(() => {
+    setVisibleCount(initialVisibleCount)
+  }, [initialVisibleCount, transactions])
+
+  const visibleTransactions = useMemo(() => (
+    Number.isFinite(visibleCount) ? transactions.slice(0, visibleCount) : transactions
+  ), [transactions, visibleCount])
+
   const grouped = useMemo<GroupedTransactions[]>(() => {
     const map = new Map<string, Transaction[]>()
 
     // Sort transactions newest first
-    const sorted = [...transactions].sort(
+    const sorted = [...visibleTransactions].sort(
       (a, b) => b.date.getTime() - a.date.getTime()
     )
 
@@ -51,7 +63,7 @@ export function TransactionList({
       label: formatRelativeDate(txns[0].date),
       transactions: txns,
     }))
-  }, [transactions])
+  }, [visibleTransactions])
 
   if (transactions.length === 0) {
     return (
@@ -73,28 +85,22 @@ export function TransactionList({
   }
 
   return (
-    <div className={cn(compact ? 'flex flex-col gap-3 px-4 md:px-8 pb-2' : 'flex flex-col gap-5 px-4 md:px-8 pb-2', className)}>
+    <div className={cn('flex flex-col gap-5 px-4 md:px-8 pb-2', className)}>
       {grouped.map(group => (
         <section key={group.dateKey} aria-label={`Transaksi ${group.label}`}>
           {/* Date heading */}
-          <div className={cn('flex items-center gap-3', compact ? 'mb-1.5' : 'mb-2.5')}>
-            <span className={cn(
-              'font-semibold text-[var(--sk-text-muted)] uppercase tracking-wider whitespace-nowrap',
-              compact ? 'text-[10px]' : 'text-xs'
-            )}>
+          <div className="flex items-center gap-3 mb-2.5">
+            <span className="text-xs font-semibold text-[var(--sk-text-muted)] uppercase tracking-wider whitespace-nowrap">
               {group.label}
             </span>
             <div className="flex-1 h-px bg-[var(--sk-border)]" />
-            <span className={cn(
-              'text-[var(--sk-text-dim)] tabular-nums whitespace-nowrap',
-              compact ? 'text-[10px]' : 'text-xs'
-            )}>
+            <span className="text-xs text-[var(--sk-text-dim)] tabular-nums whitespace-nowrap">
               {group.transactions.length} transaksi
             </span>
           </div>
 
           {/* Transaction items */}
-          <div className={cn('flex flex-col', compact ? 'gap-1.5' : 'gap-2')}>
+          <div className="flex flex-col gap-2">
             {group.transactions.map(txn => (
               <TransactionItem
                 key={txn.id}
@@ -102,12 +108,21 @@ export function TransactionList({
                 onDelete={onDelete}
                 onUpdate={onUpdate}
                 isNew={txn.id === newTransactionId}
-                compact={compact}
               />
             ))}
           </div>
         </section>
       ))}
+
+      {visibleTransactions.length < transactions.length && (
+        <button
+          type="button"
+          onClick={() => setVisibleCount((count) => count + loadMoreCount)}
+          className="rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface)] px-4 py-3 text-sm font-semibold text-[var(--sk-text-muted)]"
+        >
+          Muat lebih banyak
+        </button>
+      )}
     </div>
   )
 }
