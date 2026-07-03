@@ -1,8 +1,8 @@
 'use client'
 
 import { memo, useEffect, useMemo, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Eye, EyeOff, Flame, Lightbulb, TrendingDown, TrendingUp, Trophy, ChevronRight } from 'lucide-react'
-import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { BudgetCard } from '@/components/budget-card'
 import { BottomSheet } from '@/components/bottom-sheet'
 import { FilterTabs, type FilterTab } from '@/components/filter-tabs'
@@ -30,7 +30,7 @@ import {
   transactionsForDay,
 } from '@/lib/stats'
 import { cn } from '@/lib/utils'
-import { getCategoryConfig, getCategoryHex } from '@/components/category-badge'
+import { getCategoryConfig } from '@/components/category-badge'
 
 interface HomeDetailSheet {
   title: string
@@ -88,47 +88,19 @@ function recommendationText(categoryLabel: string | null, pct: number | null, ne
   return `Sebaran pengeluaran masih cukup sehat. Tetap pantau ${categoryLabel} supaya tidak ikut melonjak.`
 }
 
-function MonthHeroChart({
-  empty,
-  slices,
-}: {
-  empty: boolean
-  slices: Array<{ category: string; total: number }>
-}) {
-  if (empty) {
-    return (
-      <div className="animate-home-chart-spin mx-auto flex h-[190px] w-full max-w-[300px] items-center justify-center">
-        <div className="flex h-[180px] w-[180px] items-center justify-center rounded-full border-[8px] border-dashed border-[var(--sk-border-2)] text-center text-sm leading-relaxed text-[var(--sk-text-dim)]">
-          Belum
-          <br />
-          ada data
-        </div>
+// recharts di-code-split: dimuat setelah shell Beranda tampil, bukan di critical
+// path. Placeholder ringan menjaga tinggi layout supaya tidak ada layout shift.
+const MonthHeroChart = dynamic(
+  () => import('@/components/month-hero-chart').then((mod) => mod.MonthHeroChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mx-auto flex h-[190px] w-full max-w-[320px] items-center justify-center">
+        <div className="h-[168px] w-[168px] rounded-full border-[8px] border-[var(--sk-border-2)] animate-pulse-soft" />
       </div>
-    )
+    ),
   }
-
-  return (
-    <div className="mx-auto h-[190px] w-full max-w-[320px]">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={slices}
-            dataKey="total"
-            innerRadius={56}
-            outerRadius={84}
-            paddingAngle={3}
-            strokeWidth={0}
-            isAnimationActive={false}
-          >
-            {slices.map((slice) => (
-              <Cell key={slice.category} fill={getCategoryHex(slice.category)} />
-            ))}
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
+)
 
 export const TabBeranda = memo(function TabBeranda() {
   const { transactions } = useTransactionData()
