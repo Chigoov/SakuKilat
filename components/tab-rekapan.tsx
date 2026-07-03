@@ -38,7 +38,7 @@ import {
 import { cn } from '@/lib/utils'
 
 type RecapMode = 'history' | 'calendar' | 'trend'
-type RangeMode = '7d' | '30d' | '1y' | 'period'
+type RangeMode = 'month' | '7d' | '30d' | '1y' | 'period'
 type FilterType = FilterTab
 
 interface CategoryDetailRow {
@@ -99,6 +99,12 @@ function parseDayLabel(key: string): string {
 function rangeBounds(mode: RangeMode, selectedMonth: Date): { start: Date; end: Date; label: string } {
   const now = new Date()
   const today = dateOnly(now)
+
+  if (mode === 'month') {
+    const start = new Date(today.getFullYear(), today.getMonth(), 1)
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+    return { start, end, label: `${formatRangeDate(start)} - ${formatRangeDate(today)}` }
+  }
 
   if (mode === '7d') {
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6)
@@ -179,7 +185,7 @@ export const TabRekapan = memo(function TabRekapan() {
   const { deleteTransaction, updateTransaction } = useTransactionActions()
   const { newTransactionId } = useTransactionStatus()
   const [mode, setMode] = useState<RecapMode>('history')
-  const [rangeMode, setRangeMode] = useState<RangeMode>('30d')
+  const [rangeMode, setRangeMode] = useState<RangeMode>('month')
   const [filter, setFilter] = useState<FilterType>('semua')
   const [selectedMonth, setSelectedMonth] = useState(() => monthStart(new Date()))
   const [allocationType, setAllocationType] = useState<'expense' | 'income'>('expense')
@@ -298,13 +304,13 @@ export const TabRekapan = memo(function TabRekapan() {
 
   return (
     <div className="flex min-h-full flex-col md:ml-[72px]">
-      <div className="mx-auto w-full max-w-[560px] px-4 pb-[182px] pt-7 md:max-w-[980px] md:px-8 md:pt-8">
-        <header className="mb-5">
-          <h2 className="text-[30px] font-bold tracking-tight text-[var(--sk-text)] md:text-[36px]">Rekapan</h2>
+      <div className="mx-auto w-full max-w-[560px] px-4 pb-[176px] pt-4 md:max-w-[980px] md:px-8 md:pt-6">
+        <header className="mb-4">
+          <h2 className="text-[24px] font-bold tracking-tight text-[var(--sk-text)] md:text-[30px]">Rekapan</h2>
         </header>
 
-        <div className="mb-6 overflow-x-auto pb-1">
-          <div className="inline-grid min-w-full grid-cols-3 gap-1 rounded-[28px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-1">
+        <div className="mb-5 overflow-x-auto pb-1">
+          <div className="inline-grid min-w-full grid-cols-3 gap-1 rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-1">
             {([
               ['history', 'History'],
               ['calendar', 'Kalender'],
@@ -315,7 +321,7 @@ export const TabRekapan = memo(function TabRekapan() {
                 type="button"
                 onClick={() => setMode(value)}
                 className={cn(
-                  'rounded-[22px] px-4 py-3 text-base font-semibold transition-colors md:text-lg',
+                  'rounded-[16px] px-3.5 py-2 text-[14px] font-semibold transition-colors',
                   mode === value ? 'bg-[var(--sk-surface-3)] text-[var(--sk-text)] shadow-sm' : 'text-[var(--sk-text-muted)]'
                 )}
               >
@@ -329,6 +335,7 @@ export const TabRekapan = memo(function TabRekapan() {
           <div className="mb-4 overflow-x-auto pb-1">
             <div className="flex w-max gap-3">
               {([
+                ['month', 'Bulan ini'],
                 ['7d', '7 Hari'],
                 ['30d', '30 Hari'],
                 ['1y', '1 Tahun'],
@@ -336,10 +343,10 @@ export const TabRekapan = memo(function TabRekapan() {
               ] as const).map(([value, label]) => (
                 <button
                   key={value}
-                  type="button"
-                  onClick={() => setRangeMode(value)}
-                  className={cn(
-                    'rounded-[20px] px-5 py-3 text-base font-semibold transition-colors md:text-lg',
+                type="button"
+                onClick={() => setRangeMode(value)}
+                className={cn(
+                    'rounded-[18px] px-4 py-2.5 text-[14px] font-semibold transition-colors',
                     rangeMode === value
                       ? 'bg-[var(--sk-cyan)] text-[#090D16]'
                       : 'bg-[var(--sk-surface)] text-[var(--sk-text-muted)]'
@@ -354,28 +361,32 @@ export const TabRekapan = memo(function TabRekapan() {
 
         {mode === 'history' && (
           <section>
-            <p className="mb-6 text-base text-[var(--sk-text-dim)] md:text-lg">History: {bounds.label}</p>
+            <p className="mb-4 text-[14px] text-[var(--sk-text-dim)]">History: {bounds.label}</p>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => openCategorySummary('expense', `Kategori pengeluaran ${bounds.label}`, rangeExpenseRows)}
-                className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5 text-left shadow-[0_14px_34px_rgba(2,6,23,0.22)]"
+                className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4 text-left shadow-[0_14px_34px_rgba(2,6,23,0.18)]"
               >
-                <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Total keluar</p>
-                <p className="mt-4 text-3xl font-bold text-[var(--sk-red)]">{formatIDR(rangeTotalsData.expense)}</p>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--sk-text-dim)]">Total keluar</p>
+                <p className="mt-3 text-[17px] font-bold leading-tight text-[var(--sk-red)] break-words [overflow-wrap:anywhere]">
+                  {formatIDR(rangeTotalsData.expense)}
+                </p>
               </button>
               <button
                 type="button"
                 onClick={() => openCategorySummary('income', `Kategori pemasukan ${bounds.label}`, rangeIncomeRows)}
-                className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5 text-left shadow-[0_14px_34px_rgba(2,6,23,0.22)]"
+                className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4 text-left shadow-[0_14px_34px_rgba(2,6,23,0.18)]"
               >
-                <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Total masuk</p>
-                <p className="mt-4 text-3xl font-bold text-[var(--sk-green)]">{formatIDR(rangeTotalsData.income)}</p>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--sk-text-dim)]">Total masuk</p>
+                <p className="mt-3 text-[17px] font-bold leading-tight text-[var(--sk-green)] break-words [overflow-wrap:anywhere]">
+                  {formatIDR(rangeTotalsData.income)}
+                </p>
               </button>
             </div>
 
-            <div className="my-6 border-t border-[var(--sk-border)] pt-6">
+            <div className="my-5 border-t border-[var(--sk-border)] pt-5">
               <FilterTabs active={filter} onChange={setFilter} counts={historyCounts} />
             </div>
 
@@ -385,6 +396,8 @@ export const TabRekapan = memo(function TabRekapan() {
               onUpdate={updateTransaction}
               newTransactionId={newTransactionId}
               className="px-0 pb-0 md:px-0"
+              initialVisibleCount={80}
+              loadMoreCount={80}
             />
           </section>
         )}

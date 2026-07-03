@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { ArrowRightLeft, Info, PiggyBank, SendHorizonal, Sparkles, SlidersHorizontal, X, Loader2, TrendingDown, TrendingUp } from 'lucide-react'
 import { parseEntry, formatIDR, type ParserExtras } from '@/lib/parser'
-import { formatNaturalAmountInput } from '@/lib/amount'
+import { formatAmountFieldInput, formatNaturalAmountInput } from '@/lib/amount'
 import { findPhraseSuggestions } from '@/lib/suggestions'
 import { useTransactionData } from '@/lib/store'
 import { ManualEntryForm } from '@/components/manual-entry-form'
@@ -61,6 +61,12 @@ interface SmartInputProps {
 }
 
 type InputMode = 'auto' | 'expense' | 'income'
+
+function isAmountOnlyInput(raw: string): boolean {
+  const trimmed = raw.trim()
+  if (!trimmed) return false
+  return /^(rp|idr)?\s*[\d.,\s]+(?:k|rb|ribu|jt|juta)?$/i.test(trimmed)
+}
 
 export function SmartInput({ onSubmit, isSubmitting, className, parserExtras, autoFocus }: SmartInputProps) {
   const { transactions } = useTransactionData()
@@ -383,7 +389,11 @@ export function SmartInput({ onSubmit, isSubmitting, className, parserExtras, au
             ref={inputRef}
             type="text"
             value={value}
-            onChange={event => setValue(formatNaturalAmountInput(event.target.value))}
+            onChange={event => setValue(
+              isAmountOnlyInput(event.target.value)
+                ? formatAmountFieldInput(event.target.value)
+                : formatNaturalAmountInput(event.target.value)
+            )}
             onKeyDown={handleKeyDown}
             disabled={locked}
             onFocus={() => setFocused(true)}

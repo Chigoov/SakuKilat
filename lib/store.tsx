@@ -858,10 +858,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (id: string) => {
       const wallet = wallets.find(item => item.id === id)
       if (!wallet) return
-      if (wallet.isBuiltIn || wallet.balance !== 0) {
-        showToast('Saku bawaan atau bersaldo tidak bisa dihapus.', 'error')
-        return
-      }
       setWallets(prev => prev.filter(item => item.id !== id))
       showToast(`Saku "${wallet.label}" dihapus.`, 'success')
     },

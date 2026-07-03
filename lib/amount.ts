@@ -20,7 +20,7 @@ function isDateLikeToken(token: string): boolean {
 
 function normalizeCurrencyToken(token: string): string {
   const lower = token.trim().toLowerCase()
-  if (lower === 'rp' || lower === 'idr') return 'Rp'
+  if (lower === 'rp' || lower === 'idr') return ''
   return token
 }
 
@@ -77,4 +77,10 @@ export function formatNaturalAmountInput(raw: string): string {
   }
 
   return formatted.join('')
+}
+
+export function formatAmountFieldInput(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return ''
+  return formatNaturalAmountInput(raw).replace(/^Rp\s*/i, '')
 }

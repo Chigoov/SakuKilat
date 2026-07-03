@@ -8,7 +8,7 @@ import { RecurringManager } from '@/components/recurring-manager'
 import { CategoryManager } from '@/components/category-manager'
 import { PersonalizationSettings } from '@/components/personalization-settings'
 import { formatIDR } from '@/lib/parser'
-import { formatNaturalAmountInput, parseAmountInput } from '@/lib/amount'
+import { formatAmountFieldInput, parseAmountInput } from '@/lib/amount'
 import type { WalletType } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
 
@@ -48,7 +48,7 @@ function BudgetSettings() {
         <div className="flex items-center gap-2">
           <input
             value={raw}
-            onChange={e => setRaw(formatNaturalAmountInput(e.target.value))}
+            onChange={e => setRaw(formatAmountFieldInput(e.target.value))}
             onKeyDown={e => e.key === 'Enter' && handleSave()}
             placeholder="cth. 1,5jt"
             inputMode="decimal"
@@ -170,7 +170,7 @@ function WalletManager() {
         <div className="grid grid-cols-[1fr_auto] gap-2">
           <input
             value={balance}
-            onChange={e => setBalance(formatNaturalAmountInput(e.target.value))}
+            onChange={e => setBalance(formatAmountFieldInput(e.target.value))}
             placeholder="Saldo awal, cth. 250rb"
             inputMode="decimal"
             className="min-w-0 bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] outline-none border border-[var(--sk-border)]"
@@ -226,7 +226,7 @@ function WalletManager() {
                   </div>
                   <input
                     value={draft.balance}
-                    onChange={e => setDraft(prev => ({ ...prev, balance: formatNaturalAmountInput(e.target.value) }))}
+                    onChange={e => setDraft(prev => ({ ...prev, balance: formatAmountFieldInput(e.target.value) }))}
                     inputMode="decimal"
                     className="bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] outline-none border border-[var(--sk-border)]"
                     placeholder="Saldo"
@@ -280,15 +280,13 @@ function WalletManager() {
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
-                  {!wallet.isBuiltIn && (
-                    <button
-                      onClick={() => removeWallet(wallet.id)}
-                      className="w-7 h-7 rounded-lg bg-[var(--sk-red-dim)] text-[var(--sk-red)] flex items-center justify-center shrink-0"
-                      aria-label={`Hapus ${wallet.label}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => removeWallet(wallet.id)}
+                    className="w-7 h-7 rounded-lg bg-[var(--sk-red-dim)] text-[var(--sk-red)] flex items-center justify-center shrink-0"
+                    aria-label={`Hapus ${wallet.label}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
             </div>
@@ -343,7 +341,7 @@ function MoneyMovePanel() {
         </div>
         <input
           value={amount}
-          onChange={e => setAmount(formatNaturalAmountInput(e.target.value))}
+          onChange={e => setAmount(formatAmountFieldInput(e.target.value))}
           placeholder="Nominal, cth. 100k"
           inputMode="decimal"
           className="bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] outline-none border border-[var(--sk-border)]"

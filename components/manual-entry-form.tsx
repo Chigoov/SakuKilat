@@ -18,7 +18,7 @@ import {
   useWalletStore,
 } from '@/lib/store'
 import { CATEGORY_CONFIG, getCategoryConfig } from '@/components/category-badge'
-import { formatNaturalAmountInput, parseAmountInput } from '@/lib/amount'
+import { formatAmountFieldInput, formatNaturalAmountInput, parseAmountInput } from '@/lib/amount'
 import { formatIDR, getBuiltinCategoryType } from '@/lib/parser'
 import { findPhraseSuggestions } from '@/lib/suggestions'
 import { cn } from '@/lib/utils'
@@ -266,7 +266,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
               inputMode="decimal"
               autoFocus
               value={amountRaw}
-              onChange={event => setAmountRaw(formatNaturalAmountInput(event.target.value))}
+              onChange={event => setAmountRaw(formatAmountFieldInput(event.target.value))}
               placeholder="cth. 50000, 50rb, 1,5jt"
               className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] focus:outline-none focus:border-[var(--sk-cyan)] caret-[var(--sk-cyan)] tabular-nums"
             />

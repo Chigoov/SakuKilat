@@ -220,20 +220,20 @@ export const TabBeranda = memo(function TabBeranda() {
 
   return (
     <div className="flex min-h-full flex-col md:ml-[72px]">
-      <div className="mx-auto w-full max-w-[560px] px-4 pb-[182px] pt-7 md:max-w-[860px] md:px-8 md:pt-8">
+      <div className="mx-auto w-full max-w-[560px] px-4 pb-[176px] pt-5 md:max-w-[860px] md:px-8 md:pt-7">
         <section className="mb-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--sk-cyan)] shadow-[0_12px_30px_rgba(56,189,248,0.18)]">
-                  <svg viewBox="0 0 24 24" className="h-6 w-6 fill-[#090D16]" aria-hidden>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-cyan)] shadow-[0_12px_30px_rgba(56,189,248,0.18)]">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-[#090D16]" aria-hidden>
                     <path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z" />
                   </svg>
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-2xl font-bold text-[var(--sk-text)]">SakuKilat</p>
-                  <p className="mt-1 text-base text-[var(--sk-text-muted)]">{greetingLabel(now)}</p>
-                  <p className="mt-1 text-sm text-[var(--sk-text-dim)]">
+                  <p className="truncate text-[23px] font-bold text-[var(--sk-text)]">SakuKilat</p>
+                  <p className="mt-1 text-[15px] text-[var(--sk-text-muted)]">{greetingLabel(now)}</p>
+                  <p className="mt-1 whitespace-nowrap text-[12px] text-[var(--sk-text-dim)]">
                     {fullDateLabel(now)} | Hari ke-{now.getDate()} dari {budgetStatus.daysInMonth}
                   </p>
                 </div>
@@ -246,7 +246,7 @@ export const TabBeranda = memo(function TabBeranda() {
                 type="button"
                 onClick={toggleZen}
                 aria-label={zenMode ? 'Matikan Zen Mode' : 'Aktifkan Zen Mode'}
-                className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface)] text-[var(--sk-text-muted)]"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface)] text-[var(--sk-text-muted)]"
               >
                 {zenMode ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
@@ -254,7 +254,7 @@ export const TabBeranda = memo(function TabBeranda() {
           </div>
         </section>
 
-        <section className="mb-5 rounded-[28px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4 shadow-[0_18px_40px_rgba(7,10,20,0.16)]">
+        <section className="mb-5 rounded-[24px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3.5 shadow-[0_18px_40px_rgba(7,10,20,0.16)]">
           <div className="flex items-start justify-between gap-3 border-b border-[var(--sk-border)] pb-3">
             <div className="min-w-0">
               <p className="flex items-center gap-2 text-[13px] font-semibold text-[var(--sk-text)]">
@@ -267,7 +267,7 @@ export const TabBeranda = memo(function TabBeranda() {
             </p>
           </div>
 
-          <p className="py-4 text-sm leading-relaxed text-[var(--sk-text-dim)]">
+          <p className="py-3 text-[13px] leading-relaxed text-[var(--sk-text-dim)]">
             {streak.loggedToday
               ? 'Hari ini sudah tercatat. Pertahankan ritmenya dan jaga napas keuanganmu.'
               : 'Catat hari ini untuk mulai streak beruntunmu lagi.'}
@@ -275,11 +275,11 @@ export const TabBeranda = memo(function TabBeranda() {
 
           <div className="flex items-center justify-between gap-3 border-t border-[var(--sk-border)] pt-3">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-[rgba(250,204,21,0.16)] px-3 py-1.5 text-sm font-semibold text-[#facc15]">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[rgba(250,204,21,0.16)] px-3 py-1.5 text-[13px] font-semibold text-[#facc15]">
                 <Trophy className="h-4 w-4" />
                 {unlockedBadges}/{BADGES.length} lencana
               </div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-[var(--sk-surface-2)] px-3 py-1.5 text-sm font-semibold text-[var(--sk-text-muted)]">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[var(--sk-surface-2)] px-3 py-1.5 text-[13px] font-semibold text-[var(--sk-text-muted)]">
                 <Flame className="h-4 w-4 text-[var(--sk-amber)]" />
                 {streak.current} hari
               </div>
@@ -287,14 +287,14 @@ export const TabBeranda = memo(function TabBeranda() {
             <button
               type="button"
               onClick={() => window.dispatchEvent(new CustomEvent('sakukilat:navigate', { detail: { tab: 'profil' } }))}
-              className="text-sm text-[var(--sk-text-dim)]"
+              className="text-[13px] text-[var(--sk-text-dim)]"
             >
               Detail di Profil
             </button>
           </div>
         </section>
 
-        <section className="mb-5 rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
+        <section className="mb-5 rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
           <MonthHeroChart empty={monthTotals.income === 0 && monthTotals.expense === 0} slices={expenseSlices} />
 
           <div className="mt-3">
@@ -302,35 +302,35 @@ export const TabBeranda = memo(function TabBeranda() {
               Saldo Bersih — {heroMonthLabel}
             </p>
             <p className={cn(
-              'mt-2 text-5xl font-bold tracking-tight text-[var(--sk-text)]',
+              'mt-2 text-[42px] font-bold leading-none tracking-tight text-[var(--sk-text)] break-words [overflow-wrap:anywhere]',
               monthTotals.balance < 0 && 'text-[var(--sk-red)]'
             )}>
               {monthTotals.balance < 0 ? `-${formatIDR(Math.abs(monthTotals.balance))}` : formatIDR(monthTotals.balance)}
             </p>
 
-            <div className="mt-5 grid grid-cols-2 gap-4">
+            <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-green-dim)]">
-                  <TrendingUp className="h-5 w-5 text-[var(--sk-green)]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--sk-green-dim)]">
+                  <TrendingUp className="h-4 w-4 text-[var(--sk-green)]" />
                 </div>
                 <div>
-                  <p className="text-sm text-[var(--sk-text-dim)]">Masuk</p>
-                  <p className="text-xl font-bold text-[var(--sk-green)]">{formatIDRCompact(monthTotals.income)}</p>
+                  <p className="text-[13px] text-[var(--sk-text-dim)]">Masuk</p>
+                  <p className="text-[17px] font-bold leading-tight text-[var(--sk-green)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(monthTotals.income)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-red-dim)]">
-                  <TrendingDown className="h-5 w-5 text-[var(--sk-red)]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--sk-red-dim)]">
+                  <TrendingDown className="h-4 w-4 text-[var(--sk-red)]" />
                 </div>
                 <div>
-                  <p className="text-sm text-[var(--sk-text-dim)]">Keluar</p>
-                  <p className="text-xl font-bold text-[var(--sk-red)]">{formatIDRCompact(monthTotals.expense)}</p>
+                  <p className="text-[13px] text-[var(--sk-text-dim)]">Keluar</p>
+                  <p className="text-[17px] font-bold leading-tight text-[var(--sk-red)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(monthTotals.expense)}</p>
                 </div>
               </div>
             </div>
 
             {savingsRate !== null && (
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[rgba(52,211,153,0.2)] bg-[var(--sk-green-dim)] px-3 py-1.5 text-sm font-semibold text-[var(--sk-green)]">
+              <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-[rgba(52,211,153,0.2)] bg-[var(--sk-green-dim)] px-3 py-1.5 text-[13px] font-semibold text-[var(--sk-green)]">
                 <span className="h-2.5 w-2.5 rounded-full bg-current" />
                 Tingkat tabungan {savingsRate}%
               </div>
@@ -340,15 +340,15 @@ export const TabBeranda = memo(function TabBeranda() {
 
         <BudgetCard />
 
-        <section className="mt-5 rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
+        <section className="mt-5 rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3.5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-cyan-dim)]">
-                <Lightbulb className="h-5 w-5 text-[var(--sk-cyan)]" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--sk-cyan-dim)]">
+                <Lightbulb className="h-4 w-4 text-[var(--sk-cyan)]" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-[var(--sk-text)]">Analisis Keuangan</h2>
-                <p className="mt-1 text-sm text-[var(--sk-text-dim)]">
+                <h2 className="text-[26px] font-bold text-[var(--sk-text)]">Analisis Keuangan</h2>
+                <p className="mt-1 text-[13px] text-[var(--sk-text-dim)]">
                   Periode: {analysisScope === 'minggu' ? '7 hari terakhir' : heroMonthLabel}
                 </p>
               </div>
@@ -364,7 +364,7 @@ export const TabBeranda = memo(function TabBeranda() {
                   type="button"
                   onClick={() => setAnalysisScope(scope)}
                   className={cn(
-                    'rounded-xl px-3 py-2 text-sm font-semibold transition-colors',
+                    'rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors',
                     analysisScope === scope ? 'bg-[var(--sk-cyan)] text-[#090D16]' : 'text-[var(--sk-text-muted)]'
                   )}
                 >
@@ -374,23 +374,23 @@ export const TabBeranda = memo(function TabBeranda() {
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            <div className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--sk-text-dim)]">Keluar</p>
-              <p className="mt-2 text-xl font-bold text-[var(--sk-red)]">{formatIDRCompact(activeInsight.expense)}</p>
+          <div className="mt-4 grid grid-cols-3 gap-2.5">
+            <div className="rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Keluar</p>
+              <p className="mt-2 text-[17px] font-bold leading-tight text-[var(--sk-red)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(activeInsight.expense)}</p>
             </div>
-            <div className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--sk-text-dim)]">Masuk</p>
-              <p className="mt-2 text-xl font-bold text-[var(--sk-green)]">{formatIDRCompact(activeInsight.income)}</p>
+            <div className="rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Masuk</p>
+              <p className="mt-2 text-[17px] font-bold leading-tight text-[var(--sk-green)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(activeInsight.income)}</p>
             </div>
-            <div className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--sk-text-dim)]">Rata/hari</p>
-              <p className="mt-2 text-xl font-bold text-[var(--sk-text)]">{formatIDRCompact(activeInsight.avgPerDay)}</p>
+            <div className="rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Rata/hari</p>
+              <p className="mt-2 text-[17px] font-bold leading-tight text-[var(--sk-text)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(activeInsight.avgPerDay)}</p>
             </div>
           </div>
 
           <div className={cn(
-            'mt-4 rounded-full px-4 py-3 text-base font-semibold',
+            'mt-3 rounded-full px-4 py-3 text-[14px] font-semibold',
             activeInsight.deltaPct !== null && activeInsight.deltaPct <= 0
               ? 'bg-[rgba(16,185,129,0.18)] text-[var(--sk-green)]'
               : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]'
@@ -404,7 +404,7 @@ export const TabBeranda = memo(function TabBeranda() {
                   : 'Stabil dari periode sebelumnya'}
           </div>
 
-          <div className="mt-4 space-y-3 text-[15px]">
+          <div className="mt-4 space-y-3 text-[14px]">
             <button
               type="button"
               onClick={openTopCategory}
@@ -437,8 +437,8 @@ export const TabBeranda = memo(function TabBeranda() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-[24px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-4">
-            <ul className="space-y-3 text-[15px] leading-relaxed text-[var(--sk-text-muted)]">
+          <div className="mt-4 rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-4">
+            <ul className="space-y-3 text-[14px] leading-relaxed text-[var(--sk-text-muted)]">
               {activeInsight.takeaways.map((item) => (
                 <li key={item} className="flex gap-2">
                   <span className="text-[var(--sk-cyan)]">*</span>
@@ -448,9 +448,9 @@ export const TabBeranda = memo(function TabBeranda() {
             </ul>
           </div>
 
-          <div className="mt-4 rounded-[24px] border border-[rgba(56,189,248,0.18)] bg-[rgba(32,55,83,0.55)] p-4">
+          <div className="mt-4 rounded-[22px] border border-[rgba(56,189,248,0.18)] bg-[rgba(32,55,83,0.55)] p-4">
             <p className="text-[12px] uppercase tracking-[0.24em] text-[var(--sk-cyan)]">Rekomendasi</p>
-            <p className="mt-3 break-words text-[15px] leading-relaxed text-[var(--sk-text-muted)] [overflow-wrap:anywhere]">
+            <p className="mt-3 break-words text-[14px] leading-relaxed text-[var(--sk-text-muted)] [overflow-wrap:anywhere]">
               {recommendationText(topCategoryLabel, topCategoryPct, activeInsight.net)}
             </p>
           </div>
