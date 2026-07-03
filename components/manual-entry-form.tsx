@@ -266,7 +266,25 @@ export const ManualEntryForm = memo(function ManualEntryForm({
               inputMode="decimal"
               autoFocus
               value={amountRaw}
-              onChange={event => setAmountRaw(formatAmountFieldInput(event.target.value))}
+              onChange={event => {
+                const raw = event.target.value
+                // Skip realtime reformat saat user menghapus (backspace / forward-delete /
+                // cut / hapus-word). Di Android IME (Gboard) reformat yang mengganti value
+                // secara programatik saat delete bisa menelan keystroke sehingga input
+                // terasa "tidak bisa dihapus". Terima raw value dulu; reformat dijalankan
+                // saat user mengetik ulang atau saat blur.
+                const inputType = (event.nativeEvent as InputEvent | null)?.inputType ?? ''
+                const isDeleting = typeof inputType === 'string' && inputType.startsWith('delete')
+                if (isDeleting) {
+                  setAmountRaw(raw)
+                  return
+                }
+                setAmountRaw(formatAmountFieldInput(raw))
+              }}
+              onBlur={event => {
+                const cleaned = formatAmountFieldInput(event.target.value)
+                if (cleaned !== amountRaw) setAmountRaw(cleaned)
+              }}
               placeholder="cth. 50000, 50rb, 1,5jt"
               className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] focus:outline-none focus:border-[var(--sk-cyan)] caret-[var(--sk-cyan)] tabular-nums"
             />

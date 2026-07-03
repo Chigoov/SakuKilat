@@ -389,15 +389,37 @@ export function SmartInput({ onSubmit, isSubmitting, className, parserExtras, au
             ref={inputRef}
             type="text"
             value={value}
-            onChange={event => setValue(
-              isAmountOnlyInput(event.target.value)
-                ? formatAmountFieldInput(event.target.value)
-                : formatNaturalAmountInput(event.target.value)
-            )}
+            onChange={event => {
+              const raw = event.target.value
+              // Skip realtime reformat saat user menghapus (backspace / forward-delete /
+              // cut / hapus-word). Di Android IME (Gboard) reformat yang mengganti value
+              // secara programatik saat delete bisa menelan keystroke sehingga input
+              // terasa "tidak bisa dihapus". Terima raw value dulu; reformat kembali
+              // dijalankan saat user mengetik ulang.
+              const inputType = (event.nativeEvent as InputEvent | null)?.inputType ?? ''
+              const isDeleting = typeof inputType === 'string' && inputType.startsWith('delete')
+              if (isDeleting) {
+                setValue(raw)
+                return
+              }
+              setValue(
+                isAmountOnlyInput(raw)
+                  ? formatAmountFieldInput(raw)
+                  : formatNaturalAmountInput(raw)
+              )
+            }}
+            onBlur={() => {
+              // Rapikan format setelah user selesai edit, jaga hasil akhir tetap konsisten.
+              if (!value.trim()) return
+              const cleaned = isAmountOnlyInput(value)
+                ? formatAmountFieldInput(value)
+                : formatNaturalAmountInput(value)
+              if (cleaned !== value) setValue(cleaned)
+              setFocused(false)
+            }}
             onKeyDown={handleKeyDown}
             disabled={locked}
             onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
             placeholder={`cth. "${placeholderHint}"`}
             autoComplete="off"
             autoCorrect="off"

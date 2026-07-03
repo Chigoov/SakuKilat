@@ -377,15 +377,15 @@ export const TabBeranda = memo(function TabBeranda() {
           <div className="mt-4 grid grid-cols-3 gap-2.5">
             <div className="rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Keluar</p>
-              <p className="mt-2 text-[17px] font-bold leading-tight text-[var(--sk-red)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(activeInsight.expense)}</p>
+              <p className="mt-2 text-[13px] font-bold leading-tight text-[var(--sk-red)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(activeInsight.expense)}</p>
             </div>
             <div className="rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Masuk</p>
-              <p className="mt-2 text-[17px] font-bold leading-tight text-[var(--sk-green)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(activeInsight.income)}</p>
+              <p className="mt-2 text-[13px] font-bold leading-tight text-[var(--sk-green)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(activeInsight.income)}</p>
             </div>
             <div className="rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Rata/hari</p>
-              <p className="mt-2 text-[17px] font-bold leading-tight text-[var(--sk-text)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(activeInsight.avgPerDay)}</p>
+              <p className="mt-2 text-[13px] font-bold leading-tight text-[var(--sk-text)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(activeInsight.avgPerDay)}</p>
             </div>
           </div>
 
@@ -448,7 +448,7 @@ export const TabBeranda = memo(function TabBeranda() {
             </ul>
           </div>
 
-          <div className="mt-4 rounded-[22px] border border-[rgba(56,189,248,0.18)] bg-[rgba(32,55,83,0.55)] p-4">
+          <div className="mt-4 rounded-[22px] border border-[var(--sk-cyan-glow)] bg-[var(--sk-cyan-dim)] p-4">
             <p className="text-[12px] uppercase tracking-[0.24em] text-[var(--sk-cyan)]">Rekomendasi</p>
             <p className="mt-3 break-words text-[14px] leading-relaxed text-[var(--sk-text-muted)] [overflow-wrap:anywhere]">
               {recommendationText(topCategoryLabel, topCategoryPct, activeInsight.net)}
