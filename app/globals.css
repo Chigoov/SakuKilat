@@ -256,7 +256,12 @@ html[data-theme="light"] {
 .animate-home-chart-spin { animation: sk-home-chart-spin 0.75s cubic-bezier(0.22,1,0.36,1) both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-home-chart-spin { animation: none; }
+  .animate-home-chart-spin,
+  .animate-pulse-soft,
+  .animate-slide-up,
+  .animate-pop-in,
+  .animate-bounce-joy,
+  .animate-sheet-up { animation: none; }
 }
 
 /* ── Zen Mode: blur sensitive wealth figures without unmounting them ── */
@@ -268,10 +273,12 @@ html[data-theme="light"] {
   pointer-events: none;
 }
 
-/* ── Glass surface utility ── */
+/* ── Glass surface utility ──
+   NOTE: backdrop-filter (blur) dihapus. Di Android WebView, backdrop-filter pada
+   elemen fixed/sticky memaksa re-rasterisasi area di belakangnya SETIAP frame saat
+   konten di-scroll → scroll patah-patah (jank) parah di HP mid/low-end.
+   Diganti permukaan solid semi-opaque yang murah untuk di-compositing. */
 .sk-glass {
-  background: color-mix(in srgb, var(--sk-surface) 86%, transparent);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background: color-mix(in srgb, var(--sk-surface) 97%, transparent);
   border: 1px solid var(--sk-border-2);
 }

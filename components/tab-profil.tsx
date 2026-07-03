@@ -155,7 +155,7 @@ export function TabProfil() {
       />
       <UserGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
 
-      <div className="sticky top-0 z-20 bg-[var(--sk-bg)] backdrop-blur-xl border-b border-[var(--sk-border)] px-4 md:px-8 py-4">
+      <div className="sticky top-0 z-20 bg-[var(--sk-bg)] border-b border-[var(--sk-border)] px-4 md:px-8 py-4">
         <h2 className="text-base font-semibold text-[var(--sk-text)]">Profil</h2>
       </div>
 

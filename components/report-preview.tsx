@@ -30,7 +30,7 @@ export function ReportPreview({
       role="dialog"
       aria-modal="true"
       aria-labelledby="sk-report-title"
-      className="fixed inset-0 z-[75] bg-[rgba(9,13,22,0.86)] backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-[75] bg-[rgba(9,13,22,0.94)] animate-fade-in"
     >
       <div className="flex h-full flex-col bg-[var(--sk-bg)]">
         <div className="flex items-center gap-2 border-b border-[var(--sk-border)] px-3 py-3">

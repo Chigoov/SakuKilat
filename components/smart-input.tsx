@@ -105,35 +105,41 @@ export function SmartInput({ onSubmit, isSubmitting, className, parserExtras, au
       setPreview(null)
       return
     }
-    const parsed = parseEntry(effectiveValue, parserExtras)
-    if (parsed && parsed.amount > 0) {
-      if (parsed.kind === 'transfer' || parsed.kind === 'saving') {
+    // Debounce: parseEntry (parser.ts, ~1100 baris) jangan jalan sinkron di setiap
+    // ketikan — di HP low-end itu bikin input nge-lag. Tunda ~140ms setelah user
+    // berhenti mengetik, dan batalkan timer sebelumnya bila masih mengetik.
+    const timeoutId = window.setTimeout(() => {
+      const parsed = parseEntry(effectiveValue, parserExtras)
+      if (parsed && parsed.amount > 0) {
+        if (parsed.kind === 'transfer' || parsed.kind === 'saving') {
+          setPreview({
+            kind: parsed.kind,
+            description: parsed.description,
+            amount: parsed.amount,
+            fromWalletId: parsed.fromWalletId,
+            toWalletId: parsed.toWalletId,
+            confidence: parsed.confidence,
+            warning: parsed.warning,
+          })
+          return
+        }
+
         setPreview({
-          kind: parsed.kind,
+          kind: 'transaction',
           description: parsed.description,
           amount: parsed.amount,
-          fromWalletId: parsed.fromWalletId,
-          toWalletId: parsed.toWalletId,
+          type: parsed.type,
+          category: parsed.category,
+          subcategory: parsed.subcategory,
+          paymentMethod: parsed.paymentMethod,
           confidence: parsed.confidence,
           warning: parsed.warning,
         })
         return
       }
-
-      setPreview({
-        kind: 'transaction',
-        description: parsed.description,
-        amount: parsed.amount,
-        type: parsed.type,
-        category: parsed.category,
-        subcategory: parsed.subcategory,
-        paymentMethod: parsed.paymentMethod,
-        confidence: parsed.confidence,
-        warning: parsed.warning,
-      })
-      return
-    }
-    setPreview(null)
+      setPreview(null)
+    }, 140)
+    return () => window.clearTimeout(timeoutId)
   }, [effectiveValue, parserExtras, value])
 
   const phraseSuggestions = useMemo(

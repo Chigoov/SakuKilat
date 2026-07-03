@@ -16,6 +16,8 @@ interface TransactionListProps {
   className?: string
   initialVisibleCount?: number
   loadMoreCount?: number
+  /** Tampilan ringkas (dipakai di rekap tahunan). Opsional; default false. */
+  compact?: boolean
 }
 
 interface GroupedTransactions {

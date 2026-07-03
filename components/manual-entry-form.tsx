@@ -192,7 +192,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
       role="dialog"
       aria-modal="true"
       aria-labelledby="sk-manual-title"
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-2 py-3 bg-[rgba(9,13,22,0.78)] backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-2 py-3 bg-[rgba(9,13,22,0.9)]"
       onClick={event => { if (event.target === event.currentTarget) onClose() }}
     >
       <form

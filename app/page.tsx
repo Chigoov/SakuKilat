@@ -273,7 +273,7 @@ function AppShell() {
         {activeTab === 'profil' && <TabProfil />}
       </main>
 
-      <div className="fixed bottom-[62px] left-3 right-3 z-30 rounded-[28px] border border-[var(--sk-border-2)] bg-[color-mix(in_srgb,var(--sk-surface)_92%,transparent)] shadow-[0_18px_40px_rgba(0,0,0,0.22)] backdrop-blur-xl safe-bottom md:bottom-5 md:left-[96px] md:right-6 md:max-w-[560px]">
+      <div className="fixed bottom-[62px] left-3 right-3 z-30 rounded-[28px] border border-[var(--sk-border-2)] bg-[var(--sk-surface)] shadow-[0_18px_40px_rgba(0,0,0,0.22)] safe-bottom md:bottom-5 md:left-[96px] md:right-6 md:max-w-[560px]">
         <div className="px-3 py-2 md:px-4">
           <SmartInput
             onSubmit={addTransaction}
@@ -359,7 +359,7 @@ function AppShell() {
         >
           <div
             className={cn(
-              'flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-2xl text-sm font-medium border backdrop-blur-xl',
+              'flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-2xl text-sm font-medium border',
               toast.type === 'success'
                 ? 'bg-[var(--sk-green-dim)] border-[rgba(52,211,153,0.3)] text-[var(--sk-green)]'
                 : 'bg-[var(--sk-red-dim)] border-[rgba(248,113,113,0.3)] text-[var(--sk-red)]'

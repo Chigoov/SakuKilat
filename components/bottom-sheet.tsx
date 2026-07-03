@@ -42,7 +42,7 @@ export function BottomSheet({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[90] flex items-end justify-center bg-[rgba(9,13,22,0.7)] backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-[90] flex items-end justify-center bg-[rgba(9,13,22,0.85)] animate-fade-in"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}

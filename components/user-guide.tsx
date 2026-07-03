@@ -256,7 +256,7 @@ export function UserGuide({ open, onClose }: { open: boolean; onClose: () => voi
       role="dialog"
       aria-modal="true"
       aria-labelledby="sk-guide-title"
-      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 animate-fade-in"
     >
       <div className="w-full sm:max-w-lg max-h-[88dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-[var(--sk-surface)] border border-[var(--sk-border-2)] shadow-2xl overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[var(--sk-border)] flex-shrink-0">

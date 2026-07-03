@@ -125,7 +125,7 @@ export function NotificationBell() {
           role="dialog"
           aria-modal="true"
           aria-label="Notifikasi"
-          className="fixed inset-0 z-[70] flex items-start justify-center bg-black/60 backdrop-blur-sm animate-fade-in pt-16 px-4"
+          className="fixed inset-0 z-[70] flex items-start justify-center bg-black/80 animate-fade-in pt-16 px-4"
           onClick={() => setOpen(false)}
         >
           <div

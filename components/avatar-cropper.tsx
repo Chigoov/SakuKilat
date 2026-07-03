@@ -142,7 +142,7 @@ export function AvatarCropper({ imageUrl, onCancel, onConfirm }: AvatarCropperPr
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 animate-fade-in">
       <div className="w-full max-w-sm rounded-2xl bg-[var(--sk-surface)] border border-[var(--sk-border-2)] shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--sk-border)]">
           <p className="text-sm font-semibold text-[var(--sk-text)]">Atur foto profil</p>

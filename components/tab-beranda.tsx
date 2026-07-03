@@ -189,14 +189,21 @@ export const TabBeranda = memo(function TabBeranda() {
     return recentTransactions
   }, [filter, recentTransactions])
 
-  const badges = evaluateBadges(buildContext({
-    transactions,
-    walletsCount: wallets.length,
-    customPaymentsCount: customPayments.length,
-    customCategoriesCount: customCategories.length,
-    goalsTotal: goals.length,
-    goalsCompleted: goals.filter((goal) => goal.saved >= goal.target).length,
-  }))
+  // Dibungkus useMemo: evaluateBadges/buildContext meng-iterasi seluruh transaksi
+  // x seluruh aturan badge. Tanpa memo, ini jalan pada SETIAP render (toast, ketik,
+  // ganti tab) dan nge-block main thread → UI freeze di HP. Sekarang hanya
+  // dihitung ulang saat dependency-nya benar-benar berubah.
+  const badges = useMemo(
+    () => evaluateBadges(buildContext({
+      transactions,
+      walletsCount: wallets.length,
+      customPaymentsCount: customPayments.length,
+      customCategoriesCount: customCategories.length,
+      goalsTotal: goals.length,
+      goalsCompleted: goals.filter((goal) => goal.saved >= goal.target).length,
+    })),
+    [transactions, wallets.length, customPayments.length, customCategories.length, goals]
+  )
   const unlockedBadges = badges.filter((badge) => badge.unlocked).length
 
   const savingsRate = monthTotals.income > 0
