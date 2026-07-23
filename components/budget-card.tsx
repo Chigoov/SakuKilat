@@ -53,7 +53,7 @@ export function BudgetCard() {
             <p className="font-semibold tabular-nums text-[var(--sk-cyan)]">{formatIDRCompact(status.dynamicDailyBudget)}</p>
           </div>
           <div>
-            <p className="text-[var(--sk-text-dim)]">Hari tersisa</p>
+            <p className="text-[var(--sk-text-dim)]">Sisa hari</p>
             <p className="font-semibold tabular-nums text-[var(--sk-text)]">{status.remainingDays}</p>
           </div>
         </div>
@@ -84,7 +84,7 @@ export function BudgetCard() {
           <div className="grid grid-cols-3 gap-2 text-xs">
             <div>
               <p className="text-[var(--sk-text-dim)]">Jatah minggu ini</p>
-              <p className="font-semibold tabular-nums text-[var(--sk-text)]">{formatIDRCompact(status.baseWeeklyBudget)}</p>
+              <p className="font-semibold tabular-nums text-[var(--sk-text)]">{formatIDRCompact(status.dynamicWeeklyBudget)}</p>
             </div>
             <div>
               <p className="text-[var(--sk-text-dim)]">Sudah keluar</p>
@@ -111,7 +111,7 @@ export function BudgetCard() {
         )}
         {!status.roast && status.weekOverBase && (
           <p className="mt-3 text-xs leading-relaxed text-[var(--sk-amber)]">
-            Pengeluaran minggu ini ({formatIDR(status.weeklySpent)}) sudah lewat {formatIDR(Math.max(0, status.weeklySpent - status.baseWeeklyBudget))} dari jatah mingguan {formatIDR(Math.round(status.baseWeeklyBudget))}.
+            Pengeluaran minggu ini ({formatIDR(status.weeklySpent)}) sudah lewat {formatIDR(Math.max(0, status.weeklySpent - status.dynamicWeeklyBudget))} dari jatah mingguan {formatIDR(Math.round(status.dynamicWeeklyBudget))}.
           </p>
         )}
 
@@ -121,11 +121,11 @@ export function BudgetCard() {
           </p>
         ) : status.todayOverBase ? (
           <p className="mt-3 text-xs leading-relaxed text-[var(--sk-red)]">
-            Hari ini kamu sudah keluar {formatIDR(status.todayExpense)}. Itu lewat {formatIDR(Math.max(0, status.todayExpense - status.baseDailyBudget))} dari jatah harian {formatIDR(status.baseDailyBudget)}.
+            Hari ini kamu sudah keluar {formatIDR(status.todayExpense)}. Itu lewat {formatIDR(Math.max(0, status.todayExpense - status.todayBudgetLimit))} dari batas aman hari ini {formatIDR(Math.round(status.todayBudgetLimit))}.
           </p>
         ) : status.todayExpense > 0 ? (
           <p className="mt-3 text-xs leading-relaxed text-[var(--sk-text-dim)]">
-            Hari ini baru keluar {formatIDR(status.todayExpense)}. Batas amannya sekitar {formatIDR(Math.round(status.dynamicDailyBudget))} per hari sampai minggu ini selesai.
+            Hari ini baru keluar {formatIDR(status.todayExpense)}. Batas aman hari ini sekitar {formatIDR(Math.round(status.todayBudgetLimit))}; sisa aman berikutnya sekitar {formatIDR(Math.round(status.dynamicDailyBudget))} per hari.
           </p>
         ) : (
           <p className="mt-3 text-xs leading-relaxed text-[var(--sk-text-dim)]">

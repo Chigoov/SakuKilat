@@ -39,11 +39,24 @@ function dateInputValue(date = new Date()): string {
   ].join('-')
 }
 
-function dateFromInput(value: string): Date {
+function timeInputValue(date = new Date()): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+function dateFromInput(value: string, timeValue?: string): Date {
   const [year, month, day] = value.split('-').map(Number)
   if (!year || !month || !day) return new Date()
   const now = new Date()
-  return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), 0, 0)
+  // Kalau timeValue diisi (HH:MM), pakai itu -- jadi user bisa catat transaksi
+  // di jam tertentu. Kalau kosong, fallback ke jam sekarang (perilaku lama).
+  let hour = now.getHours()
+  let minute = now.getMinutes()
+  if (timeValue) {
+    const [h, m] = timeValue.split(':').map(Number)
+    if (Number.isFinite(h)) hour = h
+    if (Number.isFinite(m)) minute = m
+  }
+  return new Date(year, month - 1, day, hour, minute, 0, 0)
 }
 
 export const ManualEntryForm = memo(function ManualEntryForm({
@@ -65,6 +78,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
   const [paymentMethod, setPaymentMethod] = useState<string>('')
   const [toWalletId, setToWalletId] = useState<string>('')
   const [entryDate, setEntryDate] = useState(() => dateInputValue())
+  const [entryTime, setEntryTime] = useState(() => timeInputValue())
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -79,6 +93,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     setPaymentMethod(from)
     setToWalletId(wallets.find(wallet => wallet.id !== from)?.id ?? '')
     setEntryDate(dateInputValue())
+    setEntryTime(timeInputValue())
     setSubmitting(false)
   }, [open, seedInput, wallets])
 
@@ -161,7 +176,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
   const handleSubmit = useCallback(async () => {
     if (!canSubmit || !parsedAmount) return
     setSubmitting(true)
-    const selectedDate = dateFromInput(entryDate)
+    const selectedDate = dateFromInput(entryDate, entryTime)
     const ok = type === 'transfer'
       ? transferMoney(paymentMethod, toWalletId, parsedAmount, description.trim() || 'Pindah uang', 'transfer', selectedDate)
       : await addManualTransaction({
@@ -182,6 +197,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     category,
     description,
     entryDate,
+    entryTime,
     onClose,
     parsedAmount,
     paymentMethod,
@@ -420,16 +436,29 @@ export const ManualEntryForm = memo(function ManualEntryForm({
             </div>
           )}
 
-          <div>
-            <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
-              Tanggal
-            </label>
-            <input
-              type="date"
-              value={entryDate}
-              onChange={event => setEntryDate(event.target.value)}
-              className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
-            />
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                Tanggal
+              </label>
+              <input
+                type="date"
+                value={entryDate}
+                onChange={event => setEntryDate(event.target.value)}
+                className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                Jam
+              </label>
+              <input
+                type="time"
+                value={entryTime}
+                onChange={event => setEntryTime(event.target.value)}
+                className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
+              />
+            </div>
           </div>
 
           {type !== 'transfer' && (

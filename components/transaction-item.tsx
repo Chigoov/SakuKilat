@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ArrowRightLeft, Check, ChevronRight, Pencil, PiggyBank, Trash2, X } from 'lucide-react'
 import { formatNaturalAmountInput, parseAmountInput } from '@/lib/amount'
 import { formatIDR, formatTime } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import type { TransactionUpdateInput } from '@/lib/store'
-import { useWalletStore } from '@/lib/store'
-import { CategoryIcon, getCategoryConfig, getPaymentLabel } from './category-badge'
+import { useCustomizationStore, useWalletStore } from '@/lib/store'
+import { CATEGORY_CONFIG, CategoryIcon, getCategoryConfig, getPaymentLabel } from './category-badge'
 import { cn } from '@/lib/utils'
 
 interface TransactionItemProps {
@@ -17,6 +17,27 @@ interface TransactionItemProps {
   isNew?: boolean
 }
 
+// ── Helpers untuk <input type="date"> & <input type="time"> ──────────
+function toDateInputValue(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+function toTimeInputValue(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+/** Gabungkan hasil <input type="date"> dan <input type="time"> jadi Date lokal. */
+function combineDateTime(dateStr: string, timeStr: string, fallback: Date): Date {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const [hh, mm] = timeStr.split(':').map(Number)
+  if (!y || !m || !d) return fallback
+  const combined = new Date(y, m - 1, d, Number.isFinite(hh) ? hh : 0, Number.isFinite(mm) ? mm : 0)
+  return Number.isNaN(combined.getTime()) ? fallback : combined
+}
+
+// ID built-in yang tergolong income (sisanya expense). `transfer` netral.
+const INCOME_CATEGORY_IDS = new Set([
+  'gaji', 'investasi', 'penjualan', 'cashback', 'refund', 'hadiah', 'freelance',
+])
+
 export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: TransactionItemProps) {
   const [expanded, setExpanded] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -24,7 +45,12 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
   const [editDescription, setEditDescription] = useState(transaction.description)
   const [editAmount, setEditAmount] = useState(String(transaction.amount))
   const [editPaymentMethod, setEditPaymentMethod] = useState(transaction.paymentMethod)
+  const [editCategory, setEditCategory] = useState(transaction.category)
+  const [editSubcategory, setEditSubcategory] = useState(transaction.subcategory ?? '')
+  const [editDate, setEditDate] = useState(toDateInputValue(transaction.date))
+  const [editTime, setEditTime] = useState(toTimeInputValue(transaction.date))
   const { wallets } = useWalletStore()
+  const { customCategories } = useCustomizationStore()
 
   const kind = transaction.kind ?? 'transaction'
   const isMove = kind === 'transfer' || kind === 'saving'
@@ -35,6 +61,29 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
   const typeLabel = isMove ? (kind === 'saving' ? 'Simpan' : 'Pindah') : isExpense ? 'Pengeluaran' : 'Pemasukan'
   const categoryLabel = transaction.subcategory ? `${config.label} / ${transaction.subcategory}` : config.label
   const signedAmount = `${isMove ? '' : isExpense ? '-' : '+'}${formatIDR(transaction.amount)}`
+
+  // ── Kategori yang bisa dipilih waktu edit (filter by type transaksi) ──
+  const categoryOptions = useMemo(() => {
+    const builtinIds = Object.keys(CATEGORY_CONFIG) as Array<keyof typeof CATEGORY_CONFIG>
+    const builtin = builtinIds
+      .filter((id) => {
+        if (id === 'transfer') return false // transfer bukan pilihan manual
+        const isIncomeCat = INCOME_CATEGORY_IDS.has(id)
+        return isExpense ? !isIncomeCat : isIncomeCat || id === 'lainnya'
+      })
+      .map((id) => ({ id, label: CATEGORY_CONFIG[id].label }))
+
+    const custom = customCategories
+      .filter((c) => (c.type ?? 'expense') === (isExpense ? 'expense' : 'income'))
+      .map((c) => ({ id: c.id, label: c.label }))
+
+    // Pastikan kategori transaksi saat ini selalu muncul (walau tipenya tidak cocok)
+    const currentInList = [...builtin, ...custom].some((c) => c.id === transaction.category)
+    if (!currentInList) {
+      builtin.unshift({ id: transaction.category as any, label: config.label })
+    }
+    return [...builtin, ...custom]
+  }, [customCategories, isExpense, transaction.category, config.label])
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -51,6 +100,10 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
     setEditDescription(transaction.description)
     setEditAmount(String(transaction.amount))
     setEditPaymentMethod(transaction.paymentMethod)
+    setEditCategory(transaction.category)
+    setEditSubcategory(transaction.subcategory ?? '')
+    setEditDate(toDateInputValue(transaction.date))
+    setEditTime(toTimeInputValue(transaction.date))
   }
 
   const cancelEdit = (e: React.MouseEvent) => {
@@ -59,14 +112,22 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
     setEditDescription(transaction.description)
     setEditAmount(String(transaction.amount))
     setEditPaymentMethod(transaction.paymentMethod)
+    setEditCategory(transaction.category)
+    setEditSubcategory(transaction.subcategory ?? '')
+    setEditDate(toDateInputValue(transaction.date))
+    setEditTime(toTimeInputValue(transaction.date))
   }
 
   const saveEdit = (e: React.MouseEvent) => {
     e.stopPropagation()
+    const nextDate = combineDateTime(editDate, editTime, transaction.date)
     onUpdate?.(transaction.id, {
       description: editDescription,
       amount: parseAmountInput(editAmount),
       paymentMethod: isMove ? undefined : editPaymentMethod,
+      category: isMove ? undefined : editCategory,
+      subcategory: isMove ? undefined : editSubcategory,
+      date: nextDate,
     })
     setEditing(false)
   }
@@ -220,6 +281,78 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
                     aria-label="Edit nominal transaksi"
                   />
                 </div>
+
+                {/* Tanggal & Jam */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                      Tanggal
+                    </label>
+                    <input
+                      type="date"
+                      value={editDate}
+                      onChange={e => setEditDate(e.target.value)}
+                      className="mt-1 w-full h-10 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] px-3 text-sm text-[var(--sk-text)] outline-none focus:border-[var(--sk-cyan)]"
+                      aria-label="Edit tanggal transaksi"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                      Jam
+                    </label>
+                    <input
+                      type="time"
+                      value={editTime}
+                      onChange={e => setEditTime(e.target.value)}
+                      className="mt-1 w-full h-10 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] px-3 text-sm text-[var(--sk-text)] outline-none focus:border-[var(--sk-cyan)]"
+                      aria-label="Edit jam transaksi"
+                    />
+                  </div>
+                </div>
+
+                {/* Kategori — grid tombol dengan icon */}
+                {!isMove && (
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                      Kategori
+                    </label>
+                    <div className="mt-1 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                      {categoryOptions.map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setEditCategory(cat.id)}
+                          className={cn(
+                            'flex items-center gap-1.5 rounded-lg px-2 py-2 text-[11px] font-medium transition-colors truncate border',
+                            editCategory === cat.id
+                              ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
+                              : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent hover:text-[var(--sk-text)]'
+                          )}
+                        >
+                          <CategoryIcon category={cat.id} size="sm" />
+                          <span className="truncate">{cat.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Sub-kategori */}
+                {!isMove && (
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                      Sub kategori (opsional)
+                    </label>
+                    <input
+                      value={editSubcategory}
+                      onChange={e => setEditSubcategory(e.target.value)}
+                      placeholder="mis. Kopi, Ojol, Streaming..."
+                      className="mt-1 w-full h-10 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] px-3 text-sm text-[var(--sk-text)] outline-none focus:border-[var(--sk-cyan)]"
+                      aria-label="Edit sub kategori transaksi"
+                    />
+                  </div>
+                )}
+
                 {!isMove && wallets.length > 0 && (
                   <div>
                     <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">

@@ -11,6 +11,7 @@ import { formatIDR } from '@/lib/parser'
 import { DataPortability } from '@/components/data-portability'
 import { AvatarCropper } from '@/components/avatar-cropper'
 import { ReportPreview } from '@/components/report-preview'
+import { FilteredPdfExport } from '@/components/filtered-pdf-export'
 import { UserGuide } from '@/components/user-guide'
 import { TrophyCase } from '@/components/trophy-case'
 import { NotificationSettings } from '@/components/notification-settings'
@@ -486,6 +487,7 @@ export function TabProfil() {
               </div>
               <ChevronRight className="w-4 h-4 text-[var(--sk-text-dim)] flex-shrink-0" />
             </button>
+            <FilteredPdfExport />
             <DataPortability />
           </div>
         </div>

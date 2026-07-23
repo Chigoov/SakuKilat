@@ -62,6 +62,12 @@ export interface TransactionUpdateInput {
   description: string
   amount: number
   paymentMethod?: string
+  /** Waktu kejadian transaksi. Kalau tidak dikirim, transaksi.date tetap tidak berubah. */
+  date?: Date
+  /** ID kategori (built-in atau custom). Kalau tidak dikirim, category tetap. */
+  category?: string
+  /** Sub-kategori bebas. String kosong = hapus sub-kategori. */
+  subcategory?: string
 }
 
 /** Pre-validated transaction payload used by the manual-entry escape hatch.
@@ -1087,11 +1093,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const nextPaymentMethod = !isMove && updates.paymentMethod
         ? updates.paymentMethod
         : transaction.paymentMethod
+
+      // Kategori & sub-kategori hanya boleh berubah untuk transaksi normal (bukan
+      // transfer/tabungan yang kind !== 'transaction').
+      const nextCategory = !isMove && updates.category
+        ? updates.category
+        : transaction.category
+      const nextSubcategory = isMove
+        ? transaction.subcategory
+        : updates.subcategory === undefined
+          ? transaction.subcategory
+          : updates.subcategory.trim() === ''
+            ? undefined
+            : updates.subcategory.trim()
+
+      // Tanggal: kalau input valid, pakai. Jaga-jaga terhadap Date invalid.
+      const nextDate = updates.date instanceof Date && !Number.isNaN(updates.date.getTime())
+        ? updates.date
+        : transaction.date
+
       const updated: Transaction = {
         ...transaction,
         description,
         amount,
         paymentMethod: nextPaymentMethod,
+        category: nextCategory,
+        subcategory: nextSubcategory,
+        date: nextDate,
         isPending: false,
       }
       // Soft balance gate — editing may push a wallet minus; we allow it

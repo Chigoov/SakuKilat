@@ -221,7 +221,7 @@ export const TabBeranda = memo(function TabBeranda() {
                   <p className="truncate text-[23px] font-bold text-[var(--sk-text)]">SakuKilat</p>
                   <p className="mt-1 text-[15px] text-[var(--sk-text-muted)]">{greetingLabel(now)}</p>
                   <p className="mt-1 whitespace-nowrap text-[12px] text-[var(--sk-text-dim)]">
-                    {fullDateLabel(now)} | Hari ke-{now.getDate()} dari {budgetStatus.daysInMonth}
+                    {fullDateLabel(now)} | Hari ke-{now.getDate()} dari {budgetStatus.daysInMonth} ({budgetStatus.remainingDays} hari lagi)
                   </p>
                 </div>
               </div>

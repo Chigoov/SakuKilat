@@ -10,7 +10,6 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
     "build:mobile": "cross-env BUILD_TARGET=mobile next build",
     "sync:mobile": "pnpm build:mobile && npx cap sync android",
     "open:android": "npx cap open android"

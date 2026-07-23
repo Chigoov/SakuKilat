@@ -20,7 +20,7 @@ function monthBounds(ref: Date): { start: Date; end: Date } {
   }
 }
 
-// ── Monthly totals (current calendar month) ───────────────────────────────────
+// -- Monthly totals (current calendar month) -----------------------------------
 export function monthlyTotals(transactions: Transaction[], ref = new Date()) {
   const { start, end } = monthBounds(ref)
   const inMonth = transactions.filter(t => t.date >= start && t.date < end && !isMoneyMove(t))
@@ -42,7 +42,7 @@ export function rangeTotals(transactions: Transaction[], start: Date, end: Date)
   return { income, expense, balance: income - expense }
 }
 
-// ── Category breakdown for the donut (expenses only, current month) ────────────
+// -- Category breakdown for the donut (expenses only, current month) ------------
 export interface CategorySlice {
   category: string
   total: number
@@ -92,7 +92,7 @@ export function rangeCategoryBreakdown(
     .sort((a, b) => b.total - a.total)
 }
 
-// ── Perbandingan pengeluaran per kategori vs bulan sebelumnya ────────────────────
+// -- Perbandingan pengeluaran per kategori vs bulan sebelumnya --------------------
 export interface CategoryComparison {
   category: string
   current: number // total bulan yang dipilih
@@ -138,7 +138,7 @@ export function categoryMonthlyComparison(
   return rows.sort((a, b) => b.current - a.current)
 }
 
-// ── Per-day aggregates for the calendar heatmap ────────────────────────────────
+// -- Per-day aggregates for the calendar heatmap --------------------------------
 export interface DayAgg {
   expense: number
   income: number
@@ -220,7 +220,7 @@ export function subcategoryBreakdownForRange(
   return Array.from(bucket.values()).sort((left, right) => right.total - left.total)
 }
 
-// ── Trend series for charts ────────────────────────────────────────────────────
+// -- Trend series for charts ----------------------------------------------------
 export type TrendRange = '7d' | '30d' | '1y'
 
 export interface TrendPoint {
@@ -321,7 +321,7 @@ export function trendSeries(transactions: Transaction[], range: TrendRange): Tre
   return points
 }
 
-// ── Supportive insight: which category improved most week-over-week ────────────
+// -- Supportive insight: which category improved most week-over-week ------------
 export function topSavedCategory(transactions: Transaction[]): string | null {
   const now = new Date()
   const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
@@ -358,15 +358,34 @@ export interface BudgetStatus {
   remaining: number
   daysInMonth: number
   dayOfMonth: number
+  /** Sisa hari SETELAH hari ini (tidak menghitung hari ini). Untuk display "Sisa X hari lagi". */
   remainingDays: number
+  /** Sisa hari termasuk hari ini (dipakai untuk pembagi jatah, karena hari ini masih berjalan). */
+  remainingDaysInclusive: number
   weekOfMonth: number
   totalWeeks: number
   weekStartDay: number
   weekEndDay: number
+  /** Sisa hari di minggu berjalan (termasuk hari ini). Pembagi jatah harian. */
   remainingWeekDays: number
+  /** Alokasi datar: budget dibagi rata jumlah hari sebulan (referensi awal). */
   baseDailyBudget: number
+  /** Alokasi datar: budget dibagi rata jumlah minggu (referensi awal). */
   baseWeeklyBudget: number
+  /** Jatah mingguan HIDUP untuk minggu berjalan, di-recompute dari sisa budget bulan
+   *  dibagi jumlah minggu yang tersisa (termasuk minggu berjalan). */
+  dynamicWeeklyBudget: number
+  /** Jatah harian HIDUP untuk hari ini, dihitung dari sisa jatah minggu berjalan
+   *  dibagi hari tersisa di minggu itu (termasuk hari ini). */
   dynamicDailyBudget: number
+  /** Batas awal jatah harian SEBELUM pengeluaran hari ini dihitung.
+   *  Rumusnya: (dynamicWeeklyBudget - pengeluaran_di_minggu_ini_KECUALI_hari_ini) / sisa_hari_minggu.
+   *  Field ini yang dipakai untuk menentukan `todayOverBase` -- supaya hari ini tidak
+   *  dianggap "boros" karena rumus dibagi sebelum hari ini sendiri berjalan.
+   *  Kalau nilainya = X dan hari ini keluar <= X -> masih aman. */
+  todayBudgetLimit: number
+  /** Total pengeluaran di minggu-minggu SEBELUM minggu berjalan (data historis mingguan). */
+  spentBeforeThisWeek: number
   weeklySpent: number
   weeklyRemaining: number
   todayExpense: number
@@ -384,6 +403,27 @@ const BUDGET_ROASTS = [
   'Ini bukan bocor halus lagi, ini keran finansial kebuka penuh.',
 ]
 
+/**
+ * Status budget bulan berjalan dengan logika HIERARKIS DINAMIS.
+ *
+ * Hierarki: budget_bulan -> jatah_mingguan (dinamis) -> jatah_harian (dinamis).
+ *
+ * ------------------------------------------------------------
+ *  1. `dynamicWeeklyBudget` (jatah minggu berjalan)
+ *     = (budget_bulan - pengeluaran_di_minggu_sebelumnya) / minggu_yang_tersisa
+ *     Jadi kalau minggu 1-2 sudah boros, jatah minggu 3-4 otomatis mengecil.
+ *
+ *  2. `dynamicDailyBudget` (jatah hari ini)
+ *     = (dynamicWeeklyBudget - pengeluaran_minggu_ini) / sisa_hari_minggu_ini
+ *     Jadi patokan HARIAN mengikuti sisa jatah MINGGUAN, bukan bulanan langsung.
+ *     Kalau di minggu ini sudah kelewat batas, jatah harian sisa hari di minggu
+ *     itu di-clamp ke 0 (dan warning aktif).
+ *
+ *  Kalau angka jadi negatif (defisit), di-clamp ke 0 supaya UI tidak nampilkan
+ *  angka aneh. Minggu berikutnya nanti otomatis re-compute dari sisa budget
+ *  yang tersisa (bisa nol kalau sudah kelewat bulanan).
+ * ------------------------------------------------------------
+ */
 export function monthlyBudgetStatus(
   transactions: Transaction[],
   budget: number,
@@ -391,7 +431,12 @@ export function monthlyBudgetStatus(
 ): BudgetStatus {
   const daysInMonth = new Date(ref.getFullYear(), ref.getMonth() + 1, 0).getDate()
   const dayOfMonth = ref.getDate()
-  const remainingDays = Math.max(1, daysInMonth - dayOfMonth + 1)
+  // "Sisa hari lagi" untuk display = tidak menghitung hari ini
+  // (biar `dayOfMonth + remainingDays === daysInMonth`, tidak lagi = daysInMonth + 1)
+  const remainingDays = Math.max(0, daysInMonth - dayOfMonth)
+  // Sisa hari INKLUSIF (untuk pembagian jatah, karena hari ini masih berjalan)
+  const remainingDaysInclusive = Math.max(1, daysInMonth - dayOfMonth + 1)
+
   const start = new Date(ref.getFullYear(), ref.getMonth(), 1)
   const tomorrow = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() + 1)
   const todayKey = dayKey(ref)
@@ -405,12 +450,18 @@ export function monthlyBudgetStatus(
 
   let spent = 0
   let weeklySpent = 0
+  let spentBeforeThisWeek = 0
   let todayExpense = 0
 
   for (const t of transactions) {
     if (isMoneyMove(t) || t.type !== 'expense' || t.date < start || t.date >= tomorrow) continue
     spent += t.amount
-    if (t.date >= weekStart && t.date < weekEndExclusive) weeklySpent += t.amount
+    if (t.date >= weekStart && t.date < weekEndExclusive) {
+      weeklySpent += t.amount
+    } else if (t.date < weekStart) {
+      // Minggu-minggu sebelumnya (sudah selesai)
+      spentBeforeThisWeek += t.amount
+    }
     if (dayKey(t.date) === todayKey) todayExpense += t.amount
   }
 
@@ -418,8 +469,40 @@ export function monthlyBudgetStatus(
   const remaining = safeBudget - spent
   const baseDailyBudget = safeBudget / daysInMonth
   const baseWeeklyBudget = safeBudget / totalWeeks
-  const weeklyRemaining = baseWeeklyBudget - weeklySpent
-  const dynamicDailyBudget = Math.max(0, weeklyRemaining / remainingWeekDays)
+
+  // -- HIERARCHICAL DYNAMIC BUDGETS --------------------------------
+  // Jatah mingguan HIDUP = sisa budget bulan (setelah pengeluaran di minggu-minggu
+  // yang sudah selesai) / minggu yang tersisa (termasuk minggu berjalan).
+  const weeksRemaining = Math.max(1, totalWeeks - weekOfMonth + 1)
+  const dynamicWeeklyBudget = Math.max(0, (safeBudget - spentBeforeThisWeek) / weeksRemaining)
+
+  // [!]  Dua konsep yang HARUS dipisahkan:
+  //
+  //  A. `todayBudgetLimit` -- BATAS AWAL hari ini SEBELUM pengeluaran hari ini
+  //     dihitung. Ini adalah "kuota hari ini" saat kamu bangun tidur.
+  //     Formula: (sisa jatah minggu YANG TERPAKAI SEBELUM HARI INI) / hari-tersisa-minggu.
+  //     Field ini yang benar untuk membandingkan `todayExpense > limit` -> over-base.
+  //     Kalau kita pakai `dynamicDailyBudget` (sudah dikurangi todayExpense sendiri),
+  //     hari ini bisa dianggap over terlalu cepat.
+  //
+  //  B. `dynamicDailyBudget` -- SISA jatah harian setelah pengeluaran hari ini.
+  //     Ini "batas aman kamu ke depan sampai minggu ini selesai".
+  //     Dipakai untuk display info hint, BUKAN untuk cek over-base.
+  const spentEarlierThisWeek = weeklySpent - todayExpense
+  const todayBudgetLimit = Math.max(
+    0,
+    (dynamicWeeklyBudget - spentEarlierThisWeek) / remainingWeekDays
+  )
+
+  // Jatah harian HIDUP = sisa jatah mingguan (setelah pengeluaran minggu ini) /
+  // sisa hari di minggu ini (termasuk hari ini).
+  const weeklyRemainingDynamic = dynamicWeeklyBudget - weeklySpent
+  const dynamicDailyBudget = Math.max(0, weeklyRemainingDynamic / remainingWeekDays)
+
+  // Untuk backward compat + display: weeklyRemaining pakai baseline mingguan yang
+  // di-recompute dinamis juga (bukan `baseWeeklyBudget` mati).
+  const weeklyRemaining = weeklyRemainingDynamic
+
   const overBudget = spent > safeBudget && safeBudget > 0
   const roastIndex = safeBudget > 0 ? Math.min(BUDGET_ROASTS.length - 1, Math.floor((spent / safeBudget - 1) * 4)) : 0
 
@@ -430,6 +513,7 @@ export function monthlyBudgetStatus(
     daysInMonth,
     dayOfMonth,
     remainingDays,
+    remainingDaysInclusive,
     weekOfMonth,
     totalWeeks,
     weekStartDay,
@@ -437,19 +521,27 @@ export function monthlyBudgetStatus(
     remainingWeekDays,
     baseDailyBudget,
     baseWeeklyBudget,
+    dynamicWeeklyBudget,
     dynamicDailyBudget,
+    todayBudgetLimit,
+    spentBeforeThisWeek,
     weeklySpent,
     weeklyRemaining,
     todayExpense,
-    todayOverBase: todayExpense > baseDailyBudget && safeBudget > 0,
-    weekOverBase: weeklySpent > baseWeeklyBudget && safeBudget > 0,
+    // Patokan "kelewat harian" pakai BATAS AWAL hari ini (todayBudgetLimit),
+    // BUKAN dynamicDailyBudget yang sudah dikurangi pengeluaran hari ini sendiri.
+    // Kalau pakai dynamicDailyBudget, hari ini bisa auto-flag "boros" begitu ada
+    // pengeluaran, padahal masih di bawah batas awal harian.
+    todayOverBase: todayExpense > todayBudgetLimit && safeBudget > 0,
+    // Patokan "kelewat mingguan" pakai jatah mingguan HIDUP
+    weekOverBase: weeklySpent > dynamicWeeklyBudget && safeBudget > 0,
     pctUsed: safeBudget > 0 ? spent / safeBudget : 0,
-    pctWeekUsed: baseWeeklyBudget > 0 ? weeklySpent / baseWeeklyBudget : 0,
+    pctWeekUsed: dynamicWeeklyBudget > 0 ? weeklySpent / dynamicWeeklyBudget : 0,
     roast: overBudget ? BUDGET_ROASTS[roastIndex] : null,
   }
 }
 
-// ── Streak & "Nyawa" (Duolingo-style) ─────────────────────────────────────────
+// -- Streak & "Nyawa" (Duolingo-style) -----------------------------------------
 export interface StreakStatus {
   /** Hari beruntun mencatat, dihitung mundur dari hari ini (atau kemarin). */
   current: number
@@ -479,7 +571,7 @@ function startOfLocalDay(date: Date, offset = 0): Date {
  *  - Streak dihitung dari hari ini; kalau hari ini belum catat tapi kemarin
  *    catat, streak masih dianggap hidup (hari ini belum "hangus").
  *  - Setiap hari absen beruntun TERAKHIR (gap sejak catatan terakhir) memecah
- *    satu nyawa. Lewat 5 hari absen → semua nyawa pecah (streak benar-benar 0).
+ *    satu nyawa. Lewat 5 hari absen -> semua nyawa pecah (streak benar-benar 0).
  */
 export function streakStatus(transactions: Transaction[], ref = new Date()): StreakStatus {
   const dayKeys = new Set(transactions.map(t => dayKey(t.date)))
@@ -498,7 +590,7 @@ export function streakStatus(transactions: Transaction[], ref = new Date()): Str
     }
   }
 
-  // Hari absen beruntun sejak catatan terakhir → menentukan nyawa yang pecah.
+  // Hari absen beruntun sejak catatan terakhir -> menentukan nyawa yang pecah.
   // User baru (belum pernah catat) mulai dengan nyawa penuh, bukan 0.
   let daysSinceLast = 0
   if (dayKeys.size === 0) {
@@ -538,7 +630,7 @@ export function streakStatus(transactions: Transaction[], ref = new Date()): Str
   }
 }
 
-// ── Analisis Keuangan Mingguan & Bulanan ──────────────────────────────────────
+// -- Analisis Keuangan Mingguan & Bulanan --------------------------------------
 export interface PeriodInsight {
   scope: 'minggu' | 'bulan'
   label: string
@@ -626,8 +718,8 @@ export function periodInsight(
     takeaways.push(`Rata-rata pengeluaran ${rupiah(avgPerDay)} per hari.`)
     if (cur.income > 0) {
       takeaways.push(cur.income - cur.expense >= 0
-        ? `Surplus ${rupiah(cur.income - cur.expense)} — pemasukan menutup pengeluaran.`
-        : `Defisit ${rupiah(cur.expense - cur.income)} — pengeluaran melebihi pemasukan.`)
+        ? `Surplus ${rupiah(cur.income - cur.expense)} -- pemasukan menutup pengeluaran.`
+        : `Defisit ${rupiah(cur.expense - cur.income)} -- pengeluaran melebihi pemasukan.`)
     }
   }
 

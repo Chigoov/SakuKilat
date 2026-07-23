@@ -311,19 +311,32 @@ export const TabRekapan = memo(function TabRekapan() {
     [bounds.end, bounds.start, transactions]
   )
 
+  // ── Trend/Kalender data SUMBER: ────────────────────────────────────────
+  // - Kalender: SELALU pakai selectedMonth (bulan yang dipilih chevron).
+  // - Tren    : pakai `bounds` (rangeMode-aware). Kalau rangeMode==='month',
+  //   `bounds.start/end` sudah otomatis = selectedMonth atau bulan berjalan.
+  //   Jadi tombol "Bulan ini / 7 Hari / 30 Hari / 1 Tahun / Periode" berfungsi.
   const monthlyStart = monthStart(selectedMonth)
   const monthlyEnd = monthEndExclusive(selectedMonth)
   const monthTransactions = useMemo(
     () => transactionsForRange(transactions, monthlyStart, monthlyEnd),
     [monthlyEnd, monthlyStart, transactions]
   )
-  const monthlyTotalsData = useMemo(
-    () => rangeTotals(transactions, monthlyStart, monthlyEnd),
-    [monthlyEnd, monthlyStart, transactions]
+
+  // ── Data untuk mode Tren (rangeMode-aware): ────────────────────────────
+  const trendStart = bounds.start
+  const trendEnd = bounds.end
+  const trendTransactions = useMemo(
+    () => transactionsForRange(transactions, trendStart, trendEnd),
+    [transactions, trendStart, trendEnd]
   )
-  const monthAllocation = useMemo(
-    () => rangeCategoryBreakdown(transactions, monthlyStart, monthlyEnd, allocationType),
-    [allocationType, monthlyEnd, monthlyStart, transactions]
+  const trendTotals = useMemo(
+    () => rangeTotals(transactions, trendStart, trendEnd),
+    [transactions, trendStart, trendEnd]
+  )
+  const trendAllocation = useMemo(
+    () => rangeCategoryBreakdown(transactions, trendStart, trendEnd, allocationType),
+    [allocationType, transactions, trendStart, trendEnd]
   )
   const categoryComparison = useMemo(
     () => categoryMonthlyComparison(transactions, selectedMonth, allocationType, 3),
@@ -376,7 +389,10 @@ export const TabRekapan = memo(function TabRekapan() {
     }))
   ), [rangeIncomeBreakdown, rangeTransactions])
 
-  const allocationEmpty = monthAllocation.length === 0
+  const allocationEmpty = trendAllocation.length === 0
+  // Chevron bulan hanya relevan saat rangeMode==='month' — di rangeMode lain
+  // (7 Hari / 30 Hari / 1 Tahun / Periode) kita sembunyikan supaya nggak bingung.
+  const trendUsesMonthPicker = rangeMode === 'month'
 
   return (
     <div className="flex min-h-full flex-col md:ml-[72px]">
@@ -616,57 +632,73 @@ export const TabRekapan = memo(function TabRekapan() {
         )}
 
         {mode === 'trend' && (
-          <section className="space-y-5">
-            <div className="rounded-[32px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
-              <div className="flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSelectedMonth((current) => addMonths(current, -1))}
-                  className="flex h-14 w-14 items-center justify-center rounded-3xl bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]"
-                >
-                  <ChevronLeft className="h-6 w-6" />
-                </button>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-[var(--sk-text)]">
-                    {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth)}
-                  </p>
-                  <p className="mt-1 text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Alokasi Bulanan</p>
+          <section className="space-y-4">
+            {/* ── Font-size di section Tren sengaja diperkecil supaya lebih ringkas.
+                 - Judul bulan / label rentang: text-lg (dari text-2xl)
+                 - Nominal besar: text-xl (dari text-3xl)
+                 - Label uppercase: text-[11px] (dari text-[13px])
+                 - Chevron bulan hanya muncul saat rangeMode === 'month' */}
+            <div className="rounded-[28px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
+              {trendUsesMonthPicker ? (
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMonth((current) => addMonths(current, -1))}
+                    className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]"
+                    aria-label="Bulan sebelumnya"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-[var(--sk-text)]">
+                      {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth)}
+                    </p>
+                    <p className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)]">Alokasi Bulanan</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMonth((current) => addMonths(current, 1))}
+                    className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]"
+                    aria-label="Bulan berikutnya"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedMonth((current) => addMonths(current, 1))}
-                  className="flex h-14 w-14 items-center justify-center rounded-3xl bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]"
-                >
-                  <ChevronRight className="h-6 w-6" />
-                </button>
-              </div>
+              ) : (
+                <div className="text-center">
+                  <p className="text-lg font-bold text-[var(--sk-text)]">{bounds.label}</p>
+                  <p className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)]">
+                    Alokasi {rangeMode === '7d' ? '7 Hari' : rangeMode === '30d' ? '30 Hari' : rangeMode === '1y' ? '1 Tahun' : 'Periode'}
+                  </p>
+                </div>
+              )}
 
               <div className="mt-6 grid grid-cols-2 gap-4">
                 <button
                   type="button"
                   onClick={() => setAllocationType('income')}
                   className={cn(
-                    'rounded-[26px] border p-5 text-left transition-colors',
+                    'rounded-[22px] border p-4 text-left transition-colors',
                     allocationType === 'income'
                       ? 'border-[rgba(52,211,153,0.4)] bg-[var(--sk-surface-2)]'
                       : 'border-[var(--sk-border)] bg-[var(--sk-surface)]'
                   )}
                 >
-                  <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pendapatan</p>
-                  <p className="mt-4 text-3xl font-bold text-[var(--sk-green)]">{formatIDR(monthlyTotalsData.income)}</p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)]">Pendapatan</p>
+                  <p className="mt-4 text-xl font-bold text-[var(--sk-green)]">{formatIDR(trendTotals.income)}</p>
                 </button>
                 <button
                   type="button"
                   onClick={() => setAllocationType('expense')}
                   className={cn(
-                    'rounded-[26px] border p-5 text-left transition-colors',
+                    'rounded-[22px] border p-4 text-left transition-colors',
                     allocationType === 'expense'
                       ? 'border-[rgba(248,113,113,0.55)] bg-[var(--sk-surface-2)] shadow-[inset_0_-4px_0_rgba(248,113,113,0.55)]'
                       : 'border-[var(--sk-border)] bg-[var(--sk-surface)]'
                   )}
                 >
-                  <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pengeluaran</p>
-                  <p className="mt-4 text-3xl font-bold text-[var(--sk-red)]">{formatIDR(monthlyTotalsData.expense)}</p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)]">Pengeluaran</p>
+                  <p className="mt-4 text-xl font-bold text-[var(--sk-red)]">{formatIDR(trendTotals.expense)}</p>
                 </button>
               </div>
 
@@ -681,14 +713,14 @@ export const TabRekapan = memo(function TabRekapan() {
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
-                            data={monthAllocation.slice(0, 6)}
+                            data={trendAllocation.slice(0, 6)}
                             dataKey="total"
                             innerRadius={58}
                             outerRadius={92}
                             paddingAngle={3}
                             strokeWidth={0}
                           >
-                            {monthAllocation.slice(0, 6).map((slice) => (
+                            {trendAllocation.slice(0, 6).map((slice) => (
                               <Cell key={slice.category} fill={getCategoryHex(slice.category)} />
                             ))}
                           </Pie>
@@ -696,20 +728,20 @@ export const TabRekapan = memo(function TabRekapan() {
                       </ResponsiveContainer>
                     </div>
                     <div className="space-y-2">
-                      {monthAllocation.slice(0, 4).map((slice) => (
+                      {trendAllocation.slice(0, 4).map((slice) => (
                         <button
                           key={slice.category}
                           type="button"
                           onClick={() => openTransactions(
                             getCategoryConfig(slice.category).label,
-                            monthTransactions.filter((transaction) => transaction.type === allocationType && transaction.category === slice.category),
+                            trendTransactions.filter((transaction) => transaction.type === allocationType && transaction.category === slice.category),
                             new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth),
-                            subcategoryBreakdownForRange(transactions, monthlyStart, monthlyEnd, slice.category, allocationType),
+                            subcategoryBreakdownForRange(transactions, trendStart, trendEnd, slice.category, allocationType),
                           )}
                           className="flex w-full items-center gap-3 rounded-2xl bg-[var(--sk-surface)] px-3 py-3 text-left"
                         >
                           <span className="h-3 w-3 rounded-full" style={{ background: getCategoryHex(slice.category) }} />
-                          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--sk-text)]">
+                          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--sk-text)]">
                             {getCategoryConfig(slice.category).label}
                           </span>
                           <span className="text-xs font-bold text-[var(--sk-text)]">
@@ -725,46 +757,46 @@ export const TabRekapan = memo(function TabRekapan() {
               <div className="mt-5 rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[18px] font-semibold text-[var(--sk-text)]">
+                    <p className="text-[15px] font-semibold text-[var(--sk-text)]">
                       Alokasi {allocationType === 'expense' ? 'pengeluaran' : 'pemasukan'}
                     </p>
-                    <p className="mt-1 text-sm text-[var(--sk-text-dim)]">{monthAllocation.length} kategori tercatat</p>
+                    <p className="mt-1 text-sm text-[var(--sk-text-dim)]">{trendAllocation.length} kategori tercatat</p>
                   </div>
                   <p className={cn(
-                    'text-3xl font-bold',
+                    'text-xl font-bold',
                     allocationType === 'expense' ? 'text-[var(--sk-red)]' : 'text-[var(--sk-green)]'
                   )}>
                     {formatIDR(
-                      allocationType === 'expense' ? monthlyTotalsData.expense : monthlyTotalsData.income
+                      allocationType === 'expense' ? trendTotals.expense : trendTotals.income
                     )}
                   </p>
                 </div>
 
                 <div className="my-4 h-px bg-[var(--sk-border)]" />
 
-                {monthAllocation.length === 0 ? (
-                  <p className="text-lg text-[var(--sk-text-dim)]">
-                    Belum ada {allocationType === 'expense' ? 'pengeluaran' : 'pemasukan'} di bulan ini.
+                {trendAllocation.length === 0 ? (
+                  <p className="text-sm text-[var(--sk-text-dim)]">
+                    Belum ada {allocationType === 'expense' ? 'pengeluaran' : 'pemasukan'} di rentang ini.
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {monthAllocation.slice(0, 5).map((slice) => (
+                    {trendAllocation.slice(0, 5).map((slice) => (
                       <button
                         key={slice.category}
                         type="button"
                         onClick={() => openTransactions(
                           getCategoryConfig(slice.category).label,
-                          monthTransactions.filter((transaction) => transaction.type === allocationType && transaction.category === slice.category),
+                          trendTransactions.filter((transaction) => transaction.type === allocationType && transaction.category === slice.category),
                           new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth),
-                          subcategoryBreakdownForRange(transactions, monthlyStart, monthlyEnd, slice.category, allocationType),
+                          subcategoryBreakdownForRange(transactions, trendStart, trendEnd, slice.category, allocationType),
                         )}
                         className="flex w-full items-center gap-3 text-left"
                       >
                         <span className="h-3 w-3 rounded-full" style={{ background: getCategoryHex(slice.category) }} />
-                        <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--sk-text-muted)]">
+                        <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--sk-text-muted)]">
                           {getCategoryConfig(slice.category).label}
                         </span>
-                        <span className="text-sm font-semibold text-[var(--sk-text)]">
+                        <span className="text-xs font-semibold text-[var(--sk-text)]">
                           {Math.round(slice.pct * 100)}%
                         </span>
                       </button>
@@ -774,9 +806,9 @@ export const TabRekapan = memo(function TabRekapan() {
               </div>
             </div>
 
-            <div className="rounded-[32px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
+            <div className="rounded-[28px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
               <div>
-                <p className="text-[18px] font-semibold text-[var(--sk-text)]">Dibanding bulan lalu</p>
+                <p className="text-[15px] font-semibold text-[var(--sk-text)]">Dibanding bulan lalu</p>
                 <p className="mt-1 text-sm text-[var(--sk-text-dim)]">
                   {allocationType === 'expense' ? 'Pengeluaran' : 'Pemasukan'} per kategori vs {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(addMonths(selectedMonth, -1))}
                 </p>
@@ -813,10 +845,10 @@ export const TabRekapan = memo(function TabRekapan() {
                       <div key={row.category}>
                         <div className="flex items-center gap-3">
                           <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: getCategoryHex(row.category) }} />
-                          <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--sk-text-muted)]">
+                          <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--sk-text-muted)]">
                             {getCategoryConfig(row.category).label}
                           </span>
-                          <span className="shrink-0 text-sm font-semibold text-[var(--sk-text)] tabular-nums">
+                          <span className="shrink-0 text-xs font-semibold text-[var(--sk-text)] tabular-nums">
                             {formatIDRCompact(row.current)}
                           </span>
                         </div>
@@ -839,23 +871,23 @@ export const TabRekapan = memo(function TabRekapan() {
               <button
                 type="button"
                 onClick={() => openCategorySummary('expense', `Kategori pengeluaran ${bounds.label}`, rangeExpenseRows)}
-                className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5 text-left"
+                className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4 text-left"
               >
-                <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pengeluaran</p>
-                <p className="mt-4 text-3xl font-bold text-[var(--sk-red)]">{formatIDR(rangeTotalsData.expense)}</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)]">Pengeluaran</p>
+                <p className="mt-4 text-xl font-bold text-[var(--sk-red)]">{formatIDR(rangeTotalsData.expense)}</p>
               </button>
               <button
                 type="button"
                 onClick={() => openCategorySummary('income', `Kategori pemasukan ${bounds.label}`, rangeIncomeRows)}
-                className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5 text-left"
+                className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4 text-left"
               >
-                <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pemasukan</p>
-                <p className="mt-4 text-3xl font-bold text-[var(--sk-green)]">{formatIDR(rangeTotalsData.income)}</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)]">Pemasukan</p>
+                <p className="mt-4 text-xl font-bold text-[var(--sk-green)]">{formatIDR(rangeTotalsData.income)}</p>
               </button>
             </div>
 
-            <div className="rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
-              <h3 className="text-[17px] font-semibold text-[var(--sk-text)]">Dibanding periode sebelumnya</h3>
+            <div className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
+              <h3 className="text-[14px] font-semibold text-[var(--sk-text)]">Dibanding periode sebelumnya</h3>
               <p className="mt-1 text-[12px] text-[var(--sk-text-dim)]">
                 {formatRangeDate(previousTotals.start)} - {formatRangeDate(new Date(previousTotals.end.getTime() - 86400000))}
               </p>
@@ -901,7 +933,7 @@ export const TabRekapan = memo(function TabRekapan() {
               </div>
             </div>
 
-            <div className="rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
+            <div className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
               <h3 className="text-2xl font-semibold text-[var(--sk-text)]">Pengeluaran vs Pemasukan</h3>
               <div className="mt-4 h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -917,7 +949,7 @@ export const TabRekapan = memo(function TabRekapan() {
               </div>
             </div>
 
-            <div className="rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
+            <div className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
               <h3 className="text-2xl font-semibold text-[var(--sk-text)]">Tren Pengeluaran</h3>
               <div className="mt-4 rounded-[20px] border border-[rgba(255,255,255,0.12)] p-3">
                 <div className="h-[260px]">

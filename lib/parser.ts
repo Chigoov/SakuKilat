@@ -1104,7 +1104,7 @@ export function formatIDRShort(amount: number): string {
 export function formatDate(date: Date): string {
   return new Intl.DateTimeFormat('id-ID', {
     day: 'numeric',
-    month: 'short',
+    month: 'long',
     year: 'numeric',
   }).format(date)
 }
@@ -1116,14 +1116,12 @@ export function formatTime(date: Date): string {
   }).format(date)
 }
 
+/**
+ * Konsistensi tanggal di seluruh aplikasi: SELALU tampilkan format
+ * "1 Juli 2026" — tidak ada lagi "Hari ini", "Kemarin", "3 hari lalu".
+ * Fungsi ini dipertahankan agar call-site lama tetap kompatibel, tapi
+ * secara efektif sama dengan `formatDate`.
+ */
 export function formatRelativeDate(date: Date): string {
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const diff = Math.floor((today.getTime() - d.getTime()) / 86400000)
-
-  if (diff === 0) return 'Hari ini'
-  if (diff === 1) return 'Kemarin'
-  if (diff < 7) return `${diff} hari lalu`
   return formatDate(date)
 }
