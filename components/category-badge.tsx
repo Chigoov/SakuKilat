@@ -1,7 +1,10 @@
 import {
   UtensilsCrossed,
+  Coffee,
   Car,
+  Bike,
   ShoppingBag,
+  ShoppingCart,
   Gamepad2,
   Heart,
   BookOpen,
@@ -11,6 +14,15 @@ import {
   ArrowRightLeft,
   MoreHorizontal,
   Tag,
+  House,
+  Smartphone,
+  Fuel,
+  Shirt,
+  Gift,
+  PawPrint,
+  PiggyBank,
+  Plane,
+  Dumbbell,
 } from 'lucide-react'
 import type { Category, PaymentMethod } from '@/lib/parser'
 import { BUILTIN_CATEGORY_CHART_COLORS, getBaseChartColor } from '@/lib/chart-colors'
@@ -72,6 +84,61 @@ const CUSTOM_PALETTE = [
   { color: 'text-[#FB923C]', bg: 'bg-[rgba(251,146,60,0.12)]' },
 ]
 
+export const CATEGORY_ICON_LIBRARY = {
+  utensils: UtensilsCrossed,
+  coffee: Coffee,
+  car: Car,
+  bike: Bike,
+  bag: ShoppingBag,
+  cart: ShoppingCart,
+  gamepad: Gamepad2,
+  heart: Heart,
+  book: BookOpen,
+  zap: Zap,
+  briefcase: Briefcase,
+  trend: TrendingUp,
+  transfer: ArrowRightLeft,
+  house: House,
+  phone: Smartphone,
+  fuel: Fuel,
+  shirt: Shirt,
+  gift: Gift,
+  paw: PawPrint,
+  piggy: PiggyBank,
+  plane: Plane,
+  dumbbell: Dumbbell,
+  tag: Tag,
+  more: MoreHorizontal,
+} as const
+
+export type CategoryIconKey = keyof typeof CATEGORY_ICON_LIBRARY
+export const CATEGORY_ICON_KEYS = Object.keys(CATEGORY_ICON_LIBRARY) as CategoryIconKey[]
+
+const CATEGORY_ICON_SUGGESTIONS: Array<{ key: CategoryIconKey; words: string[] }> = [
+  { key: 'utensils', words: ['makan', 'makanan', 'lunch', 'dinner', 'warteg', 'nasi'] },
+  { key: 'coffee', words: ['kopi', 'coffee', 'cafe', 'minum', 'boba'] },
+  { key: 'fuel', words: ['bensin', 'bbm', 'pertalite', 'pertamax', 'solar'] },
+  { key: 'car', words: ['mobil', 'taksi', 'taxi', 'grabcar'] },
+  { key: 'bike', words: ['motor', 'ojek', 'gojek', 'grab', 'sepeda'] },
+  { key: 'bag', words: ['belanja', 'shopping', 'mall', 'toko'] },
+  { key: 'cart', words: ['sembako', 'groceries', 'market', 'supermarket'] },
+  { key: 'gamepad', words: ['game', 'gaming', 'steam', 'playstation', 'hiburan'] },
+  { key: 'heart', words: ['kesehatan', 'obat', 'dokter', 'klinik', 'vitamin'] },
+  { key: 'book', words: ['buku', 'kursus', 'kelas', 'pendidikan', 'sekolah'] },
+  { key: 'zap', words: ['listrik', 'air', 'internet', 'wifi', 'pulsa', 'tagihan'] },
+  { key: 'briefcase', words: ['gaji', 'usaha', 'kerja', 'kantor', 'freelance'] },
+  { key: 'trend', words: ['investasi', 'saham', 'crypto', 'reksa', 'trading'] },
+  { key: 'transfer', words: ['transfer', 'refund', 'cashback', 'mutasi'] },
+  { key: 'house', words: ['rumah', 'kontrakan', 'kos', 'sewa', 'cicilan'] },
+  { key: 'phone', words: ['hp', 'phone', 'gadget', 'kuota'] },
+  { key: 'shirt', words: ['baju', 'celana', 'sepatu', 'fashion', 'pakaian'] },
+  { key: 'gift', words: ['hadiah', 'gift', 'kado', 'bonus'] },
+  { key: 'paw', words: ['pet', 'peliharaan', 'kucing', 'anjing'] },
+  { key: 'piggy', words: ['tabungan', 'menabung', 'saving', 'simpanan'] },
+  { key: 'plane', words: ['travel', 'liburan', 'pesawat', 'hotel', 'jalan'] },
+  { key: 'dumbbell', words: ['gym', 'olahraga', 'fitness', 'workout'] },
+]
+
 const customCategoryRegistry = new Map<string, CategoryConfig>()
 const customPaymentRegistry = new Map<string, string>()
 
@@ -81,7 +148,18 @@ function hashIndex(id: string, mod: number): number {
   return h % mod
 }
 
-export function registerCustomCategories(cats: { id: string; label: string }[]) {
+function resolveCategoryIcon(key?: string | null) {
+  if (!key) return null
+  return CATEGORY_ICON_LIBRARY[key as CategoryIconKey] ?? null
+}
+
+export function suggestCategoryIconKey(label: string, keywords: string[] = []): CategoryIconKey {
+  const text = `${label} ${keywords.join(' ')}`.toLowerCase()
+  const match = CATEGORY_ICON_SUGGESTIONS.find((entry) => entry.words.some((word) => text.includes(word)))
+  return match?.key ?? 'tag'
+}
+
+export function registerCustomCategories(cats: Array<{ id: string; label: string; keywords?: string[]; icon?: string | null }>) {
   customCategoryRegistry.clear()
   for (const c of cats) {
     const base = CATEGORY_CONFIG[c.id as Category]
@@ -90,7 +168,12 @@ export function registerCustomCategories(cats: { id: string; label: string }[]) 
       continue
     }
     const palette = CUSTOM_PALETTE[hashIndex(c.id, CUSTOM_PALETTE.length)]
-    customCategoryRegistry.set(c.id, { icon: Tag, label: c.label, ...palette })
+    const iconKey = c.icon?.trim() || suggestCategoryIconKey(c.label, c.keywords)
+    customCategoryRegistry.set(c.id, {
+      icon: resolveCategoryIcon(iconKey) ?? Tag,
+      label: c.label,
+      ...palette,
+    })
   }
 }
 

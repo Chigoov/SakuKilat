@@ -79,7 +79,7 @@ export function TabProfil() {
   const { user, updateProfile, updateProfileAvatar } = useAuthStore()
   const { showToast } = useFeedbackStore()
   const { transactions } = useTransactionData()
-  const { zenMode, themeMode, toggleZen, setThemeMode } = usePreferenceStore()
+  const { themeMode, setThemeMode } = usePreferenceStore()
   const [profileNameDraft, setProfileNameDraft] = useState(user?.name ?? '')
   const [avatarBusy, setAvatarBusy] = useState(false)
   const [cropUrl, setCropUrl] = useState<string | null>(null)
@@ -447,27 +447,6 @@ export function TabProfil() {
                 ))}
               </div>
             </div>
-            <SettingRow
-              icon={Moon}
-              label="Zen Mode"
-              description="Sembunyikan semua angka untuk ketenangan finansial"
-              onClick={toggleZen}
-              right={
-                <div
-                  className={cn(
-                    'w-10 h-5 rounded-full transition-colors relative flex-shrink-0',
-                    zenMode ? 'bg-[var(--sk-cyan)]' : 'bg-[var(--sk-surface-3)]'
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all',
-                      zenMode ? 'left-5' : 'left-0.5'
-                    )}
-                  />
-                </div>
-              }
-            />
           </div>
         </div>
 

@@ -15,15 +15,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Minus, Search, TrendingDown, TrendingUp, X } from 'lucide-react'
 import { BottomSheet } from '@/components/bottom-sheet'
 import { FilterTabs, type FilterTab } from '@/components/filter-tabs'
 import { TransactionList } from '@/components/transaction-list'
 import { getCategoryConfig, getCategoryHex } from '@/components/category-badge'
-import { formatIDR, formatIDRCompact } from '@/lib/parser'
+import { formatIDR, formatIDRCompact, formatIDRShort } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import { useTransactionActions, useTransactionData, useTransactionStatus } from '@/lib/store'
 import {
+  categoryMonthlyComparison,
   dailyAggregates,
   dayKey,
   rangeCategoryBreakdown,
@@ -86,6 +87,20 @@ function formatRangeDate(date: Date): string {
   }).format(date)
 }
 
+function toDateInputValue(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function fromDateInputValue(value: string): Date | null {
+  if (!value) return null
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
+}
+
 function parseDayLabel(key: string): string {
   const [year, month, day] = key.split('-').map(Number)
   const date = new Date(year, month - 1, day)
@@ -96,9 +111,26 @@ function parseDayLabel(key: string): string {
   }).format(date)
 }
 
-function rangeBounds(mode: RangeMode, selectedMonth: Date): { start: Date; end: Date; label: string } {
+function rangeBounds(
+  mode: RangeMode,
+  selectedMonth: Date,
+  period?: { start: Date; end: Date }
+): { start: Date; end: Date; label: string } {
   const now = new Date()
   const today = dateOnly(now)
+
+  if (mode === 'period') {
+    let start = dateOnly(period?.start ?? monthStart(selectedMonth))
+    let endLabel = dateOnly(period?.end ?? today)
+    if (endLabel < start) {
+      const tmp = start
+      start = endLabel
+      endLabel = tmp
+    }
+    // end is exclusive: include the whole "sampai" day
+    const end = new Date(endLabel.getFullYear(), endLabel.getMonth(), endLabel.getDate() + 1)
+    return { start, end, label: `${formatRangeDate(start)} - ${formatRangeDate(endLabel)}` }
+  }
 
   if (mode === 'month') {
     const start = new Date(today.getFullYear(), today.getMonth(), 1)
@@ -187,7 +219,10 @@ export const TabRekapan = memo(function TabRekapan() {
   const [mode, setMode] = useState<RecapMode>('history')
   const [rangeMode, setRangeMode] = useState<RangeMode>('month')
   const [filter, setFilter] = useState<FilterType>('semua')
+  const [search, setSearch] = useState('')
   const [selectedMonth, setSelectedMonth] = useState(() => monthStart(new Date()))
+  const [periodStart, setPeriodStart] = useState<Date>(() => monthStart(new Date()))
+  const [periodEnd, setPeriodEnd] = useState<Date>(() => dateOnly(new Date()))
   const [allocationType, setAllocationType] = useState<'expense' | 'income'>('expense')
   const [detailSheet, setDetailSheet] = useState<DetailSheetState | null>(null)
 
@@ -199,29 +234,66 @@ export const TabRekapan = memo(function TabRekapan() {
     })
   }, [])
 
-  const bounds = useMemo(() => rangeBounds(rangeMode, selectedMonth), [rangeMode, selectedMonth])
+  const bounds = useMemo(
+    () => rangeBounds(rangeMode, selectedMonth, { start: periodStart, end: periodEnd }),
+    [rangeMode, selectedMonth, periodStart, periodEnd]
+  )
   const rangeTransactions = useMemo(
     () => transactionsForRange(transactions, bounds.start, bounds.end),
     [bounds.end, bounds.start, transactions]
   )
+  const searchedTransactions = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    if (!query) return rangeTransactions
+    const digits = query.replace(/[^0-9]/g, '')
+    return rangeTransactions.filter((transaction) => {
+      const haystack = [
+        transaction.description,
+        getCategoryConfig(transaction.category).label,
+        transaction.subcategory ?? '',
+        transaction.paymentMethod ?? '',
+      ]
+        .join(' ')
+        .toLowerCase()
+      if (haystack.includes(query)) return true
+      if (digits && String(transaction.amount).includes(digits)) return true
+      return false
+    })
+  }, [search, rangeTransactions])
   const filteredHistory = useMemo(() => {
-    if (filter === 'pengeluaran') return rangeTransactions.filter((transaction) => transaction.type === 'expense')
-    if (filter === 'pemasukan') return rangeTransactions.filter((transaction) => transaction.type === 'income')
-    return rangeTransactions
-  }, [filter, rangeTransactions])
+    if (filter === 'pengeluaran') return searchedTransactions.filter((transaction) => transaction.type === 'expense')
+    if (filter === 'pemasukan') return searchedTransactions.filter((transaction) => transaction.type === 'income')
+    return searchedTransactions
+  }, [filter, searchedTransactions])
   const historyCounts = useMemo(
     () => ({
-      semua: rangeTransactions.length,
-      pengeluaran: rangeTransactions.filter((transaction) => transaction.type === 'expense').length,
-      pemasukan: rangeTransactions.filter((transaction) => transaction.type === 'income').length,
+      semua: searchedTransactions.length,
+      pengeluaran: searchedTransactions.filter((transaction) => transaction.type === 'expense').length,
+      pemasukan: searchedTransactions.filter((transaction) => transaction.type === 'income').length,
     }),
-    [rangeTransactions]
+    [searchedTransactions]
   )
 
   const rangeTotalsData = useMemo(
     () => rangeTotals(transactions, bounds.start, bounds.end),
     [bounds.end, bounds.start, transactions]
   )
+  const previousTotals = useMemo(() => {
+    const durationMs = bounds.end.getTime() - bounds.start.getTime()
+    const prevEnd = new Date(bounds.start.getTime())
+    const prevStart = new Date(bounds.start.getTime() - durationMs)
+    return { ...rangeTotals(transactions, prevStart, prevEnd), start: prevStart, end: prevEnd }
+  }, [bounds.end, bounds.start, transactions])
+  const comparison = useMemo(() => {
+    const delta = (current: number, previous: number) => {
+      if (previous <= 0) return current > 0 ? 1 : 0
+      return (current - previous) / previous
+    }
+    return {
+      expenseDelta: delta(rangeTotalsData.expense, previousTotals.expense),
+      incomeDelta: delta(rangeTotalsData.income, previousTotals.income),
+    }
+  }, [rangeTotalsData, previousTotals])
   const rangeExpenseBreakdown = useMemo(
     () => rangeCategoryBreakdown(transactions, bounds.start, bounds.end, 'expense'),
     [bounds.end, bounds.start, transactions]
@@ -252,6 +324,10 @@ export const TabRekapan = memo(function TabRekapan() {
   const monthAllocation = useMemo(
     () => rangeCategoryBreakdown(transactions, monthlyStart, monthlyEnd, allocationType),
     [allocationType, monthlyEnd, monthlyStart, transactions]
+  )
+  const categoryComparison = useMemo(
+    () => categoryMonthlyComparison(transactions, selectedMonth, allocationType, 3),
+    [allocationType, selectedMonth, transactions]
   )
   const monthDayMap = useMemo(() => dailyAggregates(monthTransactions), [monthTransactions])
   const savedCategory = useMemo(() => topSavedCategory(transactions), [transactions])
@@ -359,6 +435,41 @@ export const TabRekapan = memo(function TabRekapan() {
           </div>
         )}
 
+        {(mode === 'history' || mode === 'trend') && rangeMode === 'period' && (
+          <div className="mb-4 grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--sk-text-dim)]">
+                Dari tanggal
+              </span>
+              <input
+                type="date"
+                value={toDateInputValue(periodStart)}
+                max={toDateInputValue(periodEnd)}
+                onChange={(event) => {
+                  const next = fromDateInputValue(event.target.value)
+                  if (next) setPeriodStart(next)
+                }}
+                className="rounded-[16px] border border-[var(--sk-border)] bg-[var(--sk-surface)] px-3.5 py-2.5 text-[14px] font-semibold text-[var(--sk-text)]"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--sk-text-dim)]">
+                Sampai tanggal
+              </span>
+              <input
+                type="date"
+                value={toDateInputValue(periodEnd)}
+                min={toDateInputValue(periodStart)}
+                onChange={(event) => {
+                  const next = fromDateInputValue(event.target.value)
+                  if (next) setPeriodEnd(next)
+                }}
+                className="rounded-[16px] border border-[var(--sk-border)] bg-[var(--sk-surface)] px-3.5 py-2.5 text-[14px] font-semibold text-[var(--sk-text)]"
+              />
+            </label>
+          </div>
+        )}
+
         {mode === 'history' && (
           <section>
             <p className="mb-4 text-[14px] text-[var(--sk-text-dim)]">History: {bounds.label}</p>
@@ -386,6 +497,26 @@ export const TabRekapan = memo(function TabRekapan() {
               </button>
             </div>
 
+            <div className="mt-5 flex items-center gap-2 rounded-[18px] border border-[var(--sk-border)] bg-[var(--sk-surface)] px-3.5 py-2.5">
+              <Search className="h-4 w-4 shrink-0 text-[var(--sk-text-dim)]" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Cari keterangan, kategori, nominal…"
+                className="min-w-0 flex-1 bg-transparent text-sm text-[var(--sk-text)] outline-none placeholder:text-[var(--sk-text-dim)]"
+              />
+              {search ? (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  aria-label="Hapus pencarian"
+                  className="shrink-0 text-[var(--sk-text-dim)]"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+
             <div className="my-5 border-t border-[var(--sk-border)] pt-5">
               <FilterTabs active={filter} onChange={setFilter} counts={historyCounts} />
             </div>
@@ -398,6 +529,7 @@ export const TabRekapan = memo(function TabRekapan() {
               className="px-0 pb-0 md:px-0"
               initialVisibleCount={80}
               loadMoreCount={80}
+              showDailyTotal
             />
           </section>
         )}
@@ -465,15 +597,13 @@ export const TabRekapan = memo(function TabRekapan() {
                     {hasActivity && (
                       <div className="mt-1 space-y-1">
                         {agg?.expense ? (
-                          <div className="text-[10px] leading-tight text-[var(--sk-red)]">
-                            <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[var(--sk-red)] align-middle" />
-                            -{formatIDRCompact(agg.expense)}
+                          <div className="text-[9px] leading-tight tracking-tight tabular-nums text-[var(--sk-red)]">
+                            -{formatIDRShort(agg.expense)}
                           </div>
                         ) : null}
                         {agg?.income ? (
-                          <div className="text-[10px] leading-tight text-[var(--sk-green)]">
-                            <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[var(--sk-green)] align-middle" />
-                            +{formatIDRCompact(agg.income)}
+                          <div className="text-[9px] leading-tight tracking-tight tabular-nums text-[var(--sk-green)]">
+                            +{formatIDRShort(agg.income)}
                           </div>
                         ) : null}
                       </div>
@@ -644,6 +774,67 @@ export const TabRekapan = memo(function TabRekapan() {
               </div>
             </div>
 
+            <div className="rounded-[32px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
+              <div>
+                <p className="text-[18px] font-semibold text-[var(--sk-text)]">Dibanding bulan lalu</p>
+                <p className="mt-1 text-sm text-[var(--sk-text-dim)]">
+                  {allocationType === 'expense' ? 'Pengeluaran' : 'Pemasukan'} per kategori vs {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(addMonths(selectedMonth, -1))}
+                </p>
+              </div>
+
+              <div className="my-4 h-px bg-[var(--sk-border)]" />
+
+              {categoryComparison.length === 0 ? (
+                <p className="text-sm text-[var(--sk-text-dim)]">
+                  Belum ada data untuk dibandingkan dengan bulan sebelumnya.
+                </p>
+              ) : (
+                <div className="space-y-3.5">
+                  {categoryComparison.slice(0, 6).map((row) => {
+                    const deltaPct = row.deltaVsPrev === null ? null : Math.round(row.deltaVsPrev * 100)
+                    const good = allocationType === 'expense'
+                      ? (deltaPct !== null && deltaPct < 0)
+                      : (deltaPct !== null && deltaPct > 0)
+                    const badgeColor = deltaPct === null
+                      ? 'text-[var(--sk-cyan)]'
+                      : deltaPct === 0
+                        ? 'text-[var(--sk-text-dim)]'
+                        : good
+                          ? 'text-[var(--sk-green)]'
+                          : 'text-[var(--sk-red)]'
+                    const badgeText = deltaPct === null
+                      ? 'Baru'
+                      : deltaPct > 0
+                        ? `Naik ${deltaPct}%`
+                        : deltaPct < 0
+                          ? `Turun ${Math.abs(deltaPct)}%`
+                          : 'Sama'
+                    return (
+                      <div key={row.category}>
+                        <div className="flex items-center gap-3">
+                          <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: getCategoryHex(row.category) }} />
+                          <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--sk-text-muted)]">
+                            {getCategoryConfig(row.category).label}
+                          </span>
+                          <span className="shrink-0 text-sm font-semibold text-[var(--sk-text)] tabular-nums">
+                            {formatIDRCompact(row.current)}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between gap-2 pl-6 text-xs">
+                          <span className="text-[var(--sk-text-dim)] tabular-nums">
+                            Bln lalu {formatIDRCompact(row.previous)}
+                          </span>
+                          <span className={cn('shrink-0 font-semibold', badgeColor)}>
+                            {badgeText}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <button
                 type="button"
@@ -661,6 +852,53 @@ export const TabRekapan = memo(function TabRekapan() {
                 <p className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pemasukan</p>
                 <p className="mt-4 text-3xl font-bold text-[var(--sk-green)]">{formatIDR(rangeTotalsData.income)}</p>
               </button>
+            </div>
+
+            <div className="rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
+              <h3 className="text-[17px] font-semibold text-[var(--sk-text)]">Dibanding periode sebelumnya</h3>
+              <p className="mt-1 text-[12px] text-[var(--sk-text-dim)]">
+                {formatRangeDate(previousTotals.start)} - {formatRangeDate(new Date(previousTotals.end.getTime() - 86400000))}
+              </p>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                {([
+                  ['Keluar', rangeTotalsData.expense, previousTotals.expense, comparison.expenseDelta, 'expense'],
+                  ['Masuk', rangeTotalsData.income, previousTotals.income, comparison.incomeDelta, 'income'],
+                ] as const).map(([label, current, previous, delta, kind]) => {
+                  const up = delta > 0.0001
+                  const down = delta < -0.0001
+                  const hasPrev = previous > 0
+                  // Pengeluaran naik = kurang baik (merah); pemasukan naik = baik (hijau).
+                  const good = kind === 'expense' ? down : up
+                  const DeltaIcon = up ? TrendingUp : down ? TrendingDown : Minus
+                  const deltaColor = !hasPrev
+                    ? 'text-[var(--sk-text-dim)]'
+                    : !up && !down
+                      ? 'text-[var(--sk-text-dim)]'
+                      : good
+                        ? 'text-[var(--sk-green)]'
+                        : 'text-[var(--sk-red)]'
+                  return (
+                    <div key={label} className="rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-4">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--sk-text-dim)]">{label}</p>
+                      <p className={cn(
+                        'mt-2 text-[17px] font-bold leading-tight break-words [overflow-wrap:anywhere]',
+                        kind === 'expense' ? 'text-[var(--sk-red)]' : 'text-[var(--sk-green)]'
+                      )}>
+                        {formatIDR(current)}
+                      </p>
+                      <div className={cn('mt-2 inline-flex items-center gap-1 text-[12px] font-semibold', deltaColor)}>
+                        <DeltaIcon className="h-3.5 w-3.5" />
+                        {!hasPrev
+                          ? 'Baru'
+                          : !up && !down
+                            ? 'Sama'
+                            : `${delta > 0 ? '+' : ''}${Math.round(delta * 100)}%`}
+                      </div>
+                      <p className="mt-1 text-[11px] text-[var(--sk-text-dim)]">sebelumnya {formatIDR(previous)}</p>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
             <div className="rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">

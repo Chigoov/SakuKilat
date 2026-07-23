@@ -20,7 +20,7 @@ import { BottomSheet } from '@/components/bottom-sheet'
 import { FilterTabs, type FilterTab } from '@/components/filter-tabs'
 import { TransactionList } from '@/components/transaction-list'
 import { getCategoryConfig, getCategoryHex } from '@/components/category-badge'
-import { formatIDR, formatIDRCompact } from '@/lib/parser'
+import { formatIDR, formatIDRCompact, formatIDRShort } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import { useTransactionActions, useTransactionData, useTransactionStatus } from '@/lib/store'
 import {
@@ -487,15 +487,13 @@ export const TabRekapan = memo(function TabRekapan() {
                     {hasActivity && (
                       <div className="mt-0.5 space-y-0.5">
                         {agg?.expense ? (
-                          <div className="text-[8px] leading-tight text-[var(--sk-red)]">
-                            <span className="mr-0.5 inline-block h-1.5 w-1.5 rounded-full bg-[var(--sk-red)] align-middle" />
-                            -{formatIDRCompact(agg.expense)}
+                          <div className="text-[8px] leading-tight tracking-tight tabular-nums text-[var(--sk-red)]">
+                            -{formatIDRShort(agg.expense)}
                           </div>
                         ) : null}
                         {agg?.income ? (
-                          <div className="text-[8px] leading-tight text-[var(--sk-green)]">
-                            <span className="mr-0.5 inline-block h-1.5 w-1.5 rounded-full bg-[var(--sk-green)] align-middle" />
-                            +{formatIDRCompact(agg.income)}
+                          <div className="text-[8px] leading-tight tracking-tight tabular-nums text-[var(--sk-green)]">
+                            +{formatIDRShort(agg.income)}
                           </div>
                         ) : null}
                       </div>

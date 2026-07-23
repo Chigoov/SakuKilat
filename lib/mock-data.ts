@@ -19,6 +19,7 @@ export interface Transaction {
   type: TransactionType
   category: string // built-in or custom category id
   subcategory?: string
+  note?: string // catatan tambahan opsional
   paymentMethod: string // built-in or custom payment id
   kind?: TransactionKind
   fromWalletId?: string

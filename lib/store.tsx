@@ -37,6 +37,8 @@ import {
 import {
   registerCustomCategories,
   registerCustomPayments,
+  CATEGORY_CONFIG,
+  suggestCategoryIconKey,
 } from '@/components/category-badge'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -59,6 +61,7 @@ export interface Toast {
 export interface TransactionUpdateInput {
   description: string
   amount: number
+  paymentMethod?: string
 }
 
 /** Pre-validated transaction payload used by the manual-entry escape hatch.
@@ -69,6 +72,7 @@ export interface ManualTransactionInput {
   type: 'expense' | 'income'
   category: string
   subcategory?: string
+  note?: string
   paymentMethod: string
   date?: Date
 }
@@ -107,13 +111,15 @@ interface StoreValue {
   customPayments: CustomPayment[]
   customCategories: CustomCategory[]
   hiddenPaymentIds: string[]
+  hiddenCategoryIds: string[]
   addCustomPayment: (label: string, keywords: string[]) => void
   updateCustomPayment: (id: string, updates: { label: string; keywords: string[] }) => void
   removeCustomPayment: (id: string) => void
   restoreHiddenPayment: (id: string) => void
-  addCustomCategory: (label: string, keywords: string[], subcategories?: string[], type?: TransactionType) => void
-  updateCustomCategory: (id: string, updates: { label: string; keywords: string[]; subcategories?: string[]; type?: TransactionType }) => void
+  addCustomCategory: (label: string, keywords: string[], subcategories?: string[], type?: TransactionType, monthlyBudget?: number, icon?: string) => void
+  updateCustomCategory: (id: string, updates: { label: string; keywords: string[]; subcategories?: string[]; type?: TransactionType; monthlyBudget?: number; icon?: string }) => void
   removeCustomCategory: (id: string) => void
+  restoreHiddenCategory: (id: string) => void
   parserExtras: ParserExtras
 
   // ergonomics
@@ -173,13 +179,15 @@ interface CustomizationStore {
   customPayments: CustomPayment[]
   customCategories: CustomCategory[]
   hiddenPaymentIds: string[]
+  hiddenCategoryIds: string[]
   addCustomPayment: (label: string, keywords: string[]) => void
   updateCustomPayment: (id: string, updates: { label: string; keywords: string[] }) => void
   removeCustomPayment: (id: string) => void
   restoreHiddenPayment: (id: string) => void
-  addCustomCategory: (label: string, keywords: string[], subcategories?: string[], type?: TransactionType) => void
-  updateCustomCategory: (id: string, updates: { label: string; keywords: string[]; subcategories?: string[]; type?: TransactionType }) => void
+  addCustomCategory: (label: string, keywords: string[], subcategories?: string[], type?: TransactionType, monthlyBudget?: number, icon?: string) => void
+  updateCustomCategory: (id: string, updates: { label: string; keywords: string[]; subcategories?: string[]; type?: TransactionType; monthlyBudget?: number; icon?: string }) => void
   removeCustomCategory: (id: string) => void
+  restoreHiddenCategory: (id: string) => void
   parserExtras: ParserExtras
 }
 
@@ -264,6 +272,7 @@ interface PersistedState {
   customPayments?: CustomPayment[]
   customCategories?: CustomCategory[]
   hiddenPaymentIds?: string[]
+  hiddenCategoryIds?: string[]
   zenMode?: boolean
   themeMode?: ThemeMode
   profileName?: string | null
@@ -570,6 +579,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     !Array.isArray(persisted.customPayments) &&
     !Array.isArray(persisted.customCategories) &&
     !Array.isArray(persisted.hiddenPaymentIds) &&
+    !Array.isArray(persisted.hiddenCategoryIds) &&
     typeof persisted.zenMode !== 'boolean' &&
     !persisted.themeMode &&
     persisted.profileName === undefined &&
@@ -596,6 +606,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
   const [hiddenPaymentIds, setHiddenPaymentIds] = useState<string[]>(() =>
     Array.isArray(persisted.hiddenPaymentIds) ? persisted.hiddenPaymentIds : []
+  )
+  const [hiddenCategoryIds, setHiddenCategoryIds] = useState<string[]>(() =>
+    Array.isArray(persisted.hiddenCategoryIds) ? persisted.hiddenCategoryIds : []
   )
 
   const [zenMode, setZenMode] = useState(() => Boolean(persisted.zenMode))
@@ -639,6 +652,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (Array.isArray(next.customPayments)) setCustomPayments(next.customPayments)
     if (Array.isArray(next.customCategories)) setCustomCategories(next.customCategories)
     if (Array.isArray(next.hiddenPaymentIds)) setHiddenPaymentIds(next.hiddenPaymentIds)
+    if (Array.isArray(next.hiddenCategoryIds)) setHiddenCategoryIds(next.hiddenCategoryIds)
     if (typeof next.zenMode === 'boolean') setZenMode(next.zenMode)
     if (next.themeMode) setThemeModeState(next.themeMode)
     if ('profileName' in next) setProfileName(next.profileName ?? null)
@@ -655,6 +669,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     customPayments,
     customCategories,
     hiddenPaymentIds,
+    hiddenCategoryIds,
     zenMode,
     themeMode,
     profileName,
@@ -666,6 +681,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     customPayments,
     customCategories,
     hiddenPaymentIds,
+    hiddenCategoryIds,
     zenMode,
     themeMode,
     profileName,
@@ -766,6 +782,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         keywords: c.keywords,
         subcategories: c.subcategories,
         type: c.type,
+        icon: c.icon,
       })),
       lastActiveWalletId,
     }),
@@ -954,14 +971,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       // Soft balance gate. We INTENTIONALLY no longer block submission when
       // a wallet would drop below zero — credit cards exist, debt happens,
-      // and users routinely log expenses before income lands. We warn so
-      // the user notices, then let the transaction through.
-      if (optimistic.type === 'expense' && walletDropsBelowZero(wallets, optimistic)) {
-        showToast(
-          'Saldo saku ini jadi minus. Transaksi tetap tercatat — edit jika perlu.',
-          'error'
-        )
-      }
+      // and users routinely log expenses before income lands. The transaction
+      // is recorded silently even if the wallet goes minus (no minus warning).
       setTransactions(prev => [optimistic, ...prev])
       setWallets(prev => adjustWallets(prev, transactionImpact(optimistic, 1)))
       setLastActiveWalletId(optimistic.paymentMethod)
@@ -1012,17 +1023,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         type: input.type,
         category: input.category,
         subcategory: input.subcategory,
+        note: input.note?.trim() || undefined,
         paymentMethod: input.paymentMethod,
         date: input.date ?? new Date(),
       }
 
-      if (optimistic.type === 'expense' && walletDropsBelowZero(wallets, optimistic)) {
-        showToast(
-          'Saldo saku ini jadi minus. Transaksi tetap tercatat — edit jika perlu.',
-          'error'
-        )
-      }
-
+      // Soft balance gate — a wallet may go minus; we record silently without
+      // showing any minus warning.
       setTransactions(prev => [optimistic, ...prev])
       setWallets(prev => adjustWallets(prev, transactionImpact(optimistic, 1)))
       setLastActiveWalletId(optimistic.paymentMethod)
@@ -1076,17 +1083,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      const isMove = (transaction.kind ?? 'transaction') !== 'transaction'
+      const nextPaymentMethod = !isMove && updates.paymentMethod
+        ? updates.paymentMethod
+        : transaction.paymentMethod
       const updated: Transaction = {
         ...transaction,
         description,
         amount,
+        paymentMethod: nextPaymentMethod,
         isPending: false,
       }
-      const walletsWithoutCurrent = adjustWallets(wallets, transactionImpact(transaction, -1))
-      if (walletDropsBelowZero(walletsWithoutCurrent, updated)) {
-        showToast('Perubahan ini membuat saldo saku minus.', 'error')
-        return
-      }
+      // Soft balance gate — editing may push a wallet minus; we allow it
+      // silently (consistent with adding a transaction) and no longer block.
 
       setTransactions(prev => prev.map(t => (t.id === id ? updated : t)))
       setWallets(prev =>
@@ -1164,12 +1173,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [showToast])
 
   const addCustomCategory = useCallback(
-    (label: string, keywords: string[], subcategories: string[] = [], type: TransactionType = 'expense') => {
+    (label: string, keywords: string[], subcategories: string[] = [], type: TransactionType = 'expense', monthlyBudget = 0, icon?: string) => {
       const id = buildCustomCategoryId(label, type)
       const kws = Array.from(new Set(keywords.map(k => k.toLowerCase().trim()).filter(Boolean)))
       const subs = Array.from(new Set(subcategories.map(item => item.trim()).filter(Boolean)))
+      const budget = Number.isFinite(monthlyBudget) && monthlyBudget > 0 ? monthlyBudget : 0
+      const iconKey = icon?.trim() || suggestCategoryIconKey(label, kws)
+      setHiddenCategoryIds(prev => prev.filter(item => item !== id))
       setCustomCategories(prev =>
-        prev.some(c => c.id === id) ? prev : [...prev, { id, label: label.trim(), keywords: kws, subcategories: subs, type }]
+        prev.some(c => c.id === id)
+          ? prev
+          : [...prev, { id, label: label.trim(), keywords: kws, subcategories: subs, type, monthlyBudget: budget, icon: iconKey }]
       )
       showToast(`Kategori "${label.trim()}" ditambahkan.`, 'success')
     },
@@ -1177,11 +1191,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const updateCustomCategory = useCallback(
-    (id: string, updates: { label: string; keywords: string[]; subcategories?: string[]; type?: TransactionType }) => {
+    (id: string, updates: { label: string; keywords: string[]; subcategories?: string[]; type?: TransactionType; monthlyBudget?: number; icon?: string }) => {
       const label = updates.label.trim()
       if (!label) return
       const kws = Array.from(new Set(updates.keywords.map(k => k.toLowerCase().trim()).filter(Boolean)))
       const subs = updates.subcategories?.map(item => item.trim()).filter(Boolean)
+      const budget = updates.monthlyBudget !== undefined
+        ? (Number.isFinite(updates.monthlyBudget) && updates.monthlyBudget > 0 ? updates.monthlyBudget : 0)
+        : undefined
+      setHiddenCategoryIds(prev => prev.filter(item => item !== id))
       setCustomCategories(prev =>
         prev.some(c => c.id === id)
           ? prev.map(c => (c.id === id ? {
@@ -1190,8 +1208,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             keywords: kws,
             subcategories: subs ?? c.subcategories ?? [],
             type: updates.type ?? c.type ?? customCategoryType(c),
+            monthlyBudget: budget ?? c.monthlyBudget ?? 0,
+            icon: updates.icon?.trim() || c.icon || suggestCategoryIconKey(label, kws),
           } : c))
-          : [...prev, { id, label, keywords: kws, subcategories: subs ?? [], type: updates.type ?? getBuiltinCategoryType(id) }]
+          : [...prev, {
+            id,
+            label,
+            keywords: kws,
+            subcategories: subs ?? [],
+            type: updates.type ?? getBuiltinCategoryType(id),
+            monthlyBudget: budget ?? 0,
+            icon: updates.icon?.trim() || suggestCategoryIconKey(label, kws),
+          }]
       )
       showToast(`Kategori "${label}" diperbarui.`, 'success')
     },
@@ -1199,8 +1227,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const removeCustomCategory = useCallback((id: string) => {
+    const isBuiltin = id in CATEGORY_CONFIG
+    if (isBuiltin && (id === 'lainnya' || id === 'transfer')) {
+      showToast('Kategori inti tidak bisa disembunyikan.', 'error')
+      return
+    }
     setCustomCategories(prev => prev.filter(c => c.id !== id))
-  }, [])
+    if (isBuiltin) {
+      setHiddenCategoryIds(prev => prev.includes(id) ? prev : [...prev, id])
+      showToast('Kategori bawaan disembunyikan.', 'success')
+      return
+    }
+    showToast('Kategori dihapus.', 'success')
+  }, [showToast])
+
+  const restoreHiddenCategory = useCallback((id: string) => {
+    setHiddenCategoryIds(prev => prev.filter(item => item !== id))
+    showToast('Kategori bawaan dimunculkan lagi.', 'success')
+  }, [showToast])
 
   const toggleZen = useCallback(() => setZenMode(z => {
     const next = !z
@@ -1256,6 +1300,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       customPayments,
       customCategories,
       hiddenPaymentIds,
+      hiddenCategoryIds,
       addCustomPayment,
       updateCustomPayment,
       removeCustomPayment,
@@ -1263,12 +1308,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addCustomCategory,
       updateCustomCategory,
       removeCustomCategory,
+      restoreHiddenCategory,
       parserExtras,
     }),
     [
       customPayments,
       customCategories,
       hiddenPaymentIds,
+      hiddenCategoryIds,
       addCustomPayment,
       updateCustomPayment,
       removeCustomPayment,
@@ -1276,6 +1323,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addCustomCategory,
       updateCustomCategory,
       removeCustomCategory,
+      restoreHiddenCategory,
       parserExtras,
     ]
   )
@@ -1315,6 +1363,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       customPayments,
       customCategories,
       hiddenPaymentIds,
+      hiddenCategoryIds,
       addCustomPayment,
       removeCustomPayment,
       updateCustomPayment,
@@ -1322,6 +1371,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addCustomCategory,
       updateCustomCategory,
       removeCustomCategory,
+      restoreHiddenCategory,
       parserExtras,
       zenMode,
       themeMode,
@@ -1336,8 +1386,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       transactions, addTransaction, addManualTransaction, updateTransaction, deleteTransaction, newTransactionId, isSubmitting,
       wallets, totalStored, addWallet, updateWallet, removeWallet, transferMoney, saveMoney,
       monthlyBudget, setMonthlyBudget,
-      customPayments, customCategories, hiddenPaymentIds, addCustomPayment, updateCustomPayment, removeCustomPayment,
-      restoreHiddenPayment, addCustomCategory, updateCustomCategory, removeCustomCategory, parserExtras,
+      customPayments, customCategories, hiddenPaymentIds, hiddenCategoryIds, addCustomPayment, updateCustomPayment, removeCustomPayment,
+      restoreHiddenPayment, addCustomCategory, updateCustomCategory, removeCustomCategory, restoreHiddenCategory, parserExtras,
       zenMode, themeMode, toggleZen, setThemeMode, toast, showToast, dismissToast,
     ]
   )

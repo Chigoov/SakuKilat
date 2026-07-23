@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { ArrowRightLeft, Check, ChevronDown, Gauge, Landmark, Pencil, PiggyBank, Plus, SlidersHorizontal, Trash2, Wallet, X } from 'lucide-react'
 import { useBudgetStore, useWalletStore } from '@/lib/store'
 import { GoalTracker } from '@/components/goal-tracker'
-import { RecurringManager } from '@/components/recurring-manager'
 import { CategoryManager } from '@/components/category-manager'
 import { PersonalizationSettings } from '@/components/personalization-settings'
 import { formatIDR } from '@/lib/parser'
@@ -423,7 +422,7 @@ export function TabSaku() {
       <div className="sticky top-0 z-20 bg-[var(--sk-bg)] border-b border-[var(--sk-border)] px-4 md:px-8 py-4">
         <h2 className="text-base font-semibold text-[var(--sk-text)]">Saku</h2>
         <p className="text-xs text-[var(--sk-text-dim)] mt-0.5">
-          Saldo, budget, pindah uang, kategori, dan otomatisasi.
+          Saldo, budget, pindah uang, dan kategori.
         </p>
       </div>
 
@@ -431,7 +430,6 @@ export function TabSaku() {
         <BudgetSettings />
         <WalletManager />
         <MoneyMovePanel />
-        <RecurringManager />
         <GoalTracker />
         <CollapsibleSection
           title="Metode Bayar"

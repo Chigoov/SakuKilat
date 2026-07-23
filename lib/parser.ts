@@ -97,6 +97,10 @@ export interface CustomCategory {
   keywords: string[]
   subcategories?: string[]
   type?: TransactionType
+  /** Kunci ikon custom, opsional. */
+  icon?: string
+  /** Batas pengeluaran per bulan untuk kategori ini. 0/undefined = tanpa batas. */
+  monthlyBudget?: number
 }
 export interface ParserExtras {
   payments?: CustomPayment[]
@@ -1084,6 +1088,17 @@ export function formatIDR(amount: number): string {
 
 export function formatIDRCompact(amount: number): string {
   return formatIDR(amount)
+}
+
+/**
+ * Angka rupiah tanpa prefix "Rp" dan tanpa penyingkatan (digit tetap penuh),
+ * mis. 138000 -> "138.000". Dipakai di UI padat seperti sel kalender.
+ */
+export function formatIDRShort(amount: number): string {
+  return new Intl.NumberFormat('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount)
 }
 
 export function formatDate(date: Date): string {

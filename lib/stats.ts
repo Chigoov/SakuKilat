@@ -9,7 +9,7 @@ export function dayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function isMoneyMove(t: Transaction): boolean {
+export function isMoneyMove(t: Transaction): boolean {
   return t.kind === 'transfer' || t.kind === 'saving'
 }
 
@@ -90,6 +90,52 @@ export function rangeCategoryBreakdown(
       pct: total > 0 ? value / total : 0,
     }))
     .sort((a, b) => b.total - a.total)
+}
+
+// ── Perbandingan pengeluaran per kategori vs bulan sebelumnya ────────────────────
+export interface CategoryComparison {
+  category: string
+  current: number // total bulan yang dipilih
+  previous: number // total bulan sebelumnya
+  avgPrev: number // rata-rata beberapa bulan sebelumnya
+  deltaVsPrev: number | null // fraksi perubahan vs bulan lalu; null = kategori baru
+}
+
+/** Membandingkan total per kategori pada bulan `ref` dengan bulan sebelumnya
+ *  dan rata-rata `prevMonths` bulan terakhir. Dipakai di Rekapan untuk melihat
+ *  kategori mana yang naik/turun dibanding bulan-bulan sebelumnya. */
+export function categoryMonthlyComparison(
+  transactions: Transaction[],
+  ref = new Date(),
+  type: 'expense' | 'income' = 'expense',
+  prevMonths = 3,
+): CategoryComparison[] {
+  const curStart = new Date(ref.getFullYear(), ref.getMonth(), 1)
+  const curEnd = new Date(ref.getFullYear(), ref.getMonth() + 1, 1)
+  const prevStart = new Date(ref.getFullYear(), ref.getMonth() - 1, 1)
+  const histStart = new Date(ref.getFullYear(), ref.getMonth() - prevMonths, 1)
+
+  const cur = new Map<string, number>()
+  const prev = new Map<string, number>()
+  const hist = new Map<string, number>()
+
+  for (const t of transactions) {
+    if (isMoneyMove(t) || t.type !== type) continue
+    if (t.date >= curStart && t.date < curEnd) cur.set(t.category, (cur.get(t.category) ?? 0) + t.amount)
+    if (t.date >= prevStart && t.date < curStart) prev.set(t.category, (prev.get(t.category) ?? 0) + t.amount)
+    if (t.date >= histStart && t.date < curStart) hist.set(t.category, (hist.get(t.category) ?? 0) + t.amount)
+  }
+
+  const categories = new Set<string>([...cur.keys(), ...prev.keys()])
+  const rows: CategoryComparison[] = []
+  for (const category of categories) {
+    const current = cur.get(category) ?? 0
+    const previous = prev.get(category) ?? 0
+    const avgPrev = (hist.get(category) ?? 0) / prevMonths
+    const deltaVsPrev = previous > 0 ? (current - previous) / previous : (current > 0 ? null : 0)
+    rows.push({ category, current, previous, avgPrev, deltaVsPrev })
+  }
+  return rows.sort((a, b) => b.current - a.current)
 }
 
 // ── Per-day aggregates for the calendar heatmap ────────────────────────────────

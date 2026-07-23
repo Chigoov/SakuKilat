@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { formatRelativeDate } from '@/lib/parser'
+import { formatIDR, formatRelativeDate } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import type { TransactionUpdateInput } from '@/lib/store'
+import { isMoneyMove } from '@/lib/stats'
 import { TransactionItem } from './transaction-item'
 import { ReceiptText } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -18,12 +19,16 @@ interface TransactionListProps {
   loadMoreCount?: number
   /** Tampilan ringkas (dipakai di rekap tahunan). Opsional; default false. */
   compact?: boolean
+  /** Tampilkan jumlah pengeluaran/pemasukan per hari di header tanggal. Opsional; default false. */
+  showDailyTotal?: boolean
 }
 
 interface GroupedTransactions {
   dateKey: string
   label: string
   transactions: Transaction[]
+  expenseTotal: number
+  incomeTotal: number
 }
 
 export function TransactionList({
@@ -34,6 +39,7 @@ export function TransactionList({
   className,
   initialVisibleCount = Number.POSITIVE_INFINITY,
   loadMoreCount = 40,
+  showDailyTotal = false,
 }: TransactionListProps) {
   const [visibleCount, setVisibleCount] = useState(initialVisibleCount)
 
@@ -60,11 +66,22 @@ export function TransactionList({
       map.get(key)!.push(txn)
     }
 
-    return Array.from(map.entries()).map(([key, txns]) => ({
-      dateKey: key,
-      label: formatRelativeDate(txns[0].date),
-      transactions: txns,
-    }))
+    return Array.from(map.entries()).map(([key, txns]) => {
+      let expenseTotal = 0
+      let incomeTotal = 0
+      for (const txn of txns) {
+        if (isMoneyMove(txn)) continue
+        if (txn.type === 'expense') expenseTotal += txn.amount
+        else incomeTotal += txn.amount
+      }
+      return {
+        dateKey: key,
+        label: formatRelativeDate(txns[0].date),
+        transactions: txns,
+        expenseTotal,
+        incomeTotal,
+      }
+    })
   }, [visibleTransactions])
 
   if (transactions.length === 0) {
@@ -96,6 +113,20 @@ export function TransactionList({
               {group.label}
             </span>
             <div className="flex-1 h-px bg-[var(--sk-border)]" />
+            {showDailyTotal && (group.expenseTotal > 0 || group.incomeTotal > 0) && (
+              <span className="flex items-center gap-2 tabular-nums whitespace-nowrap">
+                {group.expenseTotal > 0 && (
+                  <span className="text-xs font-semibold text-[var(--sk-red)]">
+                    -{formatIDR(group.expenseTotal)}
+                  </span>
+                )}
+                {group.incomeTotal > 0 && (
+                  <span className="text-xs font-semibold text-[var(--sk-green)]">
+                    +{formatIDR(group.incomeTotal)}
+                  </span>
+                )}
+              </span>
+            )}
             <span className="text-xs text-[var(--sk-text-dim)] tabular-nums whitespace-nowrap">
               {group.transactions.length} transaksi
             </span>

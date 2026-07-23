@@ -18,7 +18,7 @@ import {
   useWalletStore,
 } from '@/lib/store'
 import { CATEGORY_CONFIG, getCategoryConfig } from '@/components/category-badge'
-import { formatAmountFieldInput, formatNaturalAmountInput, parseAmountInput } from '@/lib/amount'
+import { formatAmountFieldInput, parseAmountInput } from '@/lib/amount'
 import { formatIDR, getBuiltinCategoryType } from '@/lib/parser'
 import { findPhraseSuggestions } from '@/lib/suggestions'
 import { cn } from '@/lib/utils'
@@ -53,11 +53,12 @@ export const ManualEntryForm = memo(function ManualEntryForm({
 }: ManualEntryFormProps) {
   const { wallets, transferMoney } = useWalletStore()
   const { transactions } = useTransactionData()
-  const { customCategories } = useCustomizationStore()
+  const { customCategories, hiddenCategoryIds } = useCustomizationStore()
   const { addManualTransaction } = useTransactionActions()
 
   const [type, setType] = useState<EntryType>('expense')
   const [description, setDescription] = useState('')
+  const [note, setNote] = useState('')
   const [amountRaw, setAmountRaw] = useState('')
   const [category, setCategory] = useState<string>('lainnya')
   const [subcategory, setSubcategory] = useState('')
@@ -71,6 +72,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     const from = wallets[0]?.id ?? 'tunai'
     setType('expense')
     setDescription(seedInput?.trim() ?? '')
+    setNote('')
     setAmountRaw('')
     setCategory('lainnya')
     setSubcategory('')
@@ -117,21 +119,25 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     })
     const filtered = builtIns.filter(item => {
       if (item.id === 'lainnya' || item.id === 'transfer') return true
+      if (hiddenCategoryIds.includes(item.id)) return false
       return getBuiltinCategoryType(item.id) === type
     })
     const custom = customCategories
       .filter(item => (item.type ?? 'expense') === type)
       .filter(item => !CATEGORY_CONFIG[item.id as keyof typeof CATEGORY_CONFIG])
-      .map(item => ({
-        id: item.id,
-        label: item.label,
-        icon: CATEGORY_CONFIG.lainnya.icon,
-        color: CATEGORY_CONFIG.lainnya.color,
-        bg: CATEGORY_CONFIG.lainnya.bg,
-        subcategories: item.subcategories ?? [],
-      }))
+      .map(item => {
+        const cfg = getCategoryConfig(item.id)
+        return {
+          id: item.id,
+          label: item.label,
+          icon: cfg.icon,
+          color: cfg.color,
+          bg: cfg.bg,
+          subcategories: item.subcategories ?? [],
+        }
+      })
     return [...filtered, ...custom]
-  }, [type, customCategories])
+  }, [type, customCategories, hiddenCategoryIds])
 
   const selectedCategory = useMemo(
     () => categoryOptions.find(item => item.id === category),
@@ -164,6 +170,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
           type,
           category,
           subcategory: subcategory || undefined,
+          note: note.trim() || undefined,
           paymentMethod,
           date: selectedDate,
         })
@@ -182,6 +189,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     transferMoney,
     selectedCategory,
     subcategory,
+    note,
     type,
   ])
 
@@ -208,7 +216,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
               Catat manual
             </h2>
             <p className="text-[11px] text-[var(--sk-text-dim)] mt-0.5">
-              Nominal, saku, kategori, lalu deskripsi.
+              Keterangan, nominal, saku, kategori, lalu catatan.
             </p>
           </div>
           <button
@@ -247,6 +255,33 @@ export const ManualEntryForm = memo(function ManualEntryForm({
                 {label}
               </button>
             ))}
+          </div>
+
+          <div>
+            <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+              {type === 'transfer' ? 'Catatan pindah' : 'Keterangan'}
+            </label>
+            <input
+              type="text"
+              value={description}
+              onChange={event => setDescription(event.target.value)}
+              placeholder={type === 'transfer' ? 'cth. Top up GoPay' : 'cth. kopi, mie ayam'}
+              className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] focus:outline-none focus:border-[var(--sk-cyan)] caret-[var(--sk-cyan)]"
+            />
+            {descriptionSuggestions.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {descriptionSuggestions.map((suggestion) => (
+                  <button
+                    key={`${suggestion.category}-${suggestion.value}`}
+                    type="button"
+                    onClick={() => setDescription(suggestion.value)}
+                    className="rounded-full border border-[var(--sk-border)] bg-[var(--sk-surface)] px-2.5 py-1 text-[10px] text-[var(--sk-text-muted)]"
+                  >
+                    {suggestion.value}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
@@ -397,32 +432,20 @@ export const ManualEntryForm = memo(function ManualEntryForm({
             />
           </div>
 
-          <div>
-            <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
-              {type === 'transfer' ? 'Catatan opsional' : 'Deskripsi opsional'}
-            </label>
-            <input
-              type="text"
-              value={description}
-              onChange={event => setDescription(event.target.value)}
-              placeholder={type === 'transfer' ? 'cth. Top up GoPay' : 'Boleh dikosongkan'}
-              className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] focus:outline-none focus:border-[var(--sk-cyan)] caret-[var(--sk-cyan)]"
-            />
-            {descriptionSuggestions.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {descriptionSuggestions.map((suggestion) => (
-                  <button
-                    key={`${suggestion.category}-${suggestion.value}`}
-                    type="button"
-                    onClick={() => setDescription(suggestion.value)}
-                    className="rounded-full border border-[var(--sk-border)] bg-[var(--sk-surface)] px-2.5 py-1 text-[10px] text-[var(--sk-text-muted)]"
-                  >
-                    {suggestion.value}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          {type !== 'transfer' && (
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                Catatan (opsional)
+              </label>
+              <input
+                type="text"
+                value={note}
+                onChange={event => setNote(event.target.value)}
+                placeholder="Boleh dikosongkan"
+                className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] focus:outline-none focus:border-[var(--sk-cyan)] caret-[var(--sk-cyan)]"
+              />
+            </div>
+          )}
         </div>
 
         <div className="px-4 py-2.5 border-t border-[var(--sk-border)] flex items-center gap-2 flex-shrink-0">

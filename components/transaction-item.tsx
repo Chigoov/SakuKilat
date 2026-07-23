@@ -6,6 +6,7 @@ import { formatNaturalAmountInput, parseAmountInput } from '@/lib/amount'
 import { formatIDR, formatTime } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import type { TransactionUpdateInput } from '@/lib/store'
+import { useWalletStore } from '@/lib/store'
 import { CategoryIcon, getCategoryConfig, getPaymentLabel } from './category-badge'
 import { cn } from '@/lib/utils'
 
@@ -22,6 +23,8 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
   const [editing, setEditing] = useState(false)
   const [editDescription, setEditDescription] = useState(transaction.description)
   const [editAmount, setEditAmount] = useState(String(transaction.amount))
+  const [editPaymentMethod, setEditPaymentMethod] = useState(transaction.paymentMethod)
+  const { wallets } = useWalletStore()
 
   const kind = transaction.kind ?? 'transaction'
   const isMove = kind === 'transfer' || kind === 'saving'
@@ -47,6 +50,7 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
     setEditing(true)
     setEditDescription(transaction.description)
     setEditAmount(String(transaction.amount))
+    setEditPaymentMethod(transaction.paymentMethod)
   }
 
   const cancelEdit = (e: React.MouseEvent) => {
@@ -54,6 +58,7 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
     setEditing(false)
     setEditDescription(transaction.description)
     setEditAmount(String(transaction.amount))
+    setEditPaymentMethod(transaction.paymentMethod)
   }
 
   const saveEdit = (e: React.MouseEvent) => {
@@ -61,6 +66,7 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
     onUpdate?.(transaction.id, {
       description: editDescription,
       amount: parseAmountInput(editAmount),
+      paymentMethod: isMove ? undefined : editPaymentMethod,
     })
     setEditing(false)
   }
@@ -173,6 +179,14 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
                   </span>
                 </div>
               )}
+              {!isMove && transaction.note && (
+                <div className="col-span-2">
+                  <span className="text-[var(--sk-text-dim)] block mb-0.5">Catatan</span>
+                  <span className="font-medium text-[var(--sk-text)] break-words">
+                    {transaction.note}
+                  </span>
+                </div>
+              )}
               <div>
                 <span className="text-[var(--sk-text-dim)] block mb-0.5">Status</span>
                 <span className="font-medium text-[var(--sk-text-muted)]">
@@ -182,20 +196,54 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
             </div>
 
             {editing && (
-              <div className="mt-3 grid gap-2" onClick={e => e.stopPropagation()}>
-                <input
-                  value={editDescription}
-                  onChange={e => setEditDescription(e.target.value)}
-                  className="h-10 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] px-3 text-sm text-[var(--sk-text)] outline-none focus:border-[var(--sk-cyan)]"
-                  aria-label="Edit deskripsi transaksi"
-                />
-                <input
-                  value={editAmount}
-                  onChange={e => setEditAmount(formatNaturalAmountInput(e.target.value))}
-                  inputMode="numeric"
-                  className="h-10 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] px-3 text-sm text-[var(--sk-text)] outline-none focus:border-[var(--sk-cyan)]"
-                  aria-label="Edit nominal transaksi"
-                />
+              <div className="mt-3 grid gap-2.5" onClick={e => e.stopPropagation()}>
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                    Nama (untuk apa)
+                  </label>
+                  <input
+                    value={editDescription}
+                    onChange={e => setEditDescription(e.target.value)}
+                    className="mt-1 w-full h-10 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] px-3 text-sm text-[var(--sk-text)] outline-none focus:border-[var(--sk-cyan)]"
+                    aria-label="Edit nama transaksi"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                    Nominal
+                  </label>
+                  <input
+                    value={editAmount}
+                    onChange={e => setEditAmount(formatNaturalAmountInput(e.target.value))}
+                    inputMode="numeric"
+                    className="mt-1 w-full h-10 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] px-3 text-sm text-[var(--sk-text)] outline-none focus:border-[var(--sk-cyan)]"
+                    aria-label="Edit nominal transaksi"
+                  />
+                </div>
+                {!isMove && wallets.length > 0 && (
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                      Metode pembayaran
+                    </label>
+                    <div className="mt-1 grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      {wallets.map(wallet => (
+                        <button
+                          key={wallet.id}
+                          type="button"
+                          onClick={() => setEditPaymentMethod(wallet.id)}
+                          className={cn(
+                            'px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors truncate text-left border',
+                            editPaymentMethod === wallet.id
+                              ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
+                              : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent hover:text-[var(--sk-text)]'
+                          )}
+                        >
+                          {wallet.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

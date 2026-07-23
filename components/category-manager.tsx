@@ -1,8 +1,14 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, FolderEdit, Pencil, Plus, RotateCcw, Tag, Trash2, X } from 'lucide-react'
+import { ChevronDown, FolderEdit, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useCustomizationStore } from '@/lib/store'
-import { CATEGORY_CONFIG } from '@/components/category-badge'
-import { getBuiltinCategoryType, type TransactionType } from '@/lib/parser'
+import {
+  CATEGORY_CONFIG,
+  CATEGORY_ICON_KEYS,
+  CATEGORY_ICON_LIBRARY,
+  getCategoryConfig,
+  suggestCategoryIconKey,
+} from '@/components/category-badge'
+import { getBuiltinCategoryType, formatIDR, type TransactionType } from '@/lib/parser'
 import { cn } from '@/lib/utils'
 import { BottomSheet } from '@/components/bottom-sheet'
 
@@ -14,11 +20,12 @@ interface CategoryTile {
   keywords: string[]
   subcategories: string[]
   type: TransactionType
+  monthlyBudget: number
+  iconKey: string
   icon: React.ComponentType<{ className?: string }>
   color: string
   bg: string
   isBuiltin: boolean
-  isOverridden: boolean
 }
 
 interface EditorState {
@@ -27,6 +34,8 @@ interface EditorState {
   keywords: string
   subcategory: string
   type: TransactionType
+  monthlyBudget: string
+  iconKey: string
   isBuiltin: boolean
 }
 
@@ -43,9 +52,11 @@ function parseKeywords(raw: string): string[] {
 export function CategoryManager() {
   const {
     customCategories,
+    hiddenCategoryIds,
     addCustomCategory,
     updateCustomCategory,
     removeCustomCategory,
+    restoreHiddenCategory,
   } = useCustomizationStore()
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -63,39 +74,46 @@ export function CategoryManager() {
   )
 
   const categories = useMemo<CategoryTile[]>(() => {
-    const builtins = Object.entries(CATEGORY_CONFIG).map(([id, config]) => {
-      const override = customById.get(id)
-      return {
-        id,
-        label: override?.label ?? config.label,
-        keywords: override?.keywords ?? [],
-        subcategories: override?.subcategories ?? [],
-        type: getBuiltinCategoryType(id),
-        icon: config.icon,
-        color: config.color,
-        bg: config.bg,
-        isBuiltin: true,
-        isOverridden: Boolean(override),
-      }
-    })
+    const builtins = Object.entries(CATEGORY_CONFIG)
+      .filter(([id]) => !hiddenCategoryIds.includes(id))
+      .map(([id, config]) => {
+        const override = customById.get(id)
+        return {
+          id,
+          label: override?.label ?? config.label,
+          keywords: override?.keywords ?? [],
+          subcategories: override?.subcategories ?? [],
+          type: getBuiltinCategoryType(id),
+          monthlyBudget: override?.monthlyBudget ?? 0,
+          iconKey: '',
+          icon: config.icon,
+          color: config.color,
+          bg: config.bg,
+          isBuiltin: true,
+        }
+      })
 
     const customs = customCategories
       .filter((item) => !CATEGORY_CONFIG[item.id as keyof typeof CATEGORY_CONFIG])
-      .map((item) => ({
-        id: item.id,
-        label: item.label,
-        keywords: item.keywords,
-        subcategories: item.subcategories ?? [],
-        type: item.type ?? 'expense',
-        icon: Tag,
-        color: 'text-[var(--sk-cyan)]',
-        bg: 'bg-[var(--sk-cyan-dim)]',
-        isBuiltin: false,
-        isOverridden: true,
-      }))
+      .map((item) => {
+        const config = getCategoryConfig(item.id)
+        return {
+          id: item.id,
+          label: item.label,
+          keywords: item.keywords,
+          subcategories: item.subcategories ?? [],
+          type: item.type ?? 'expense',
+          monthlyBudget: item.monthlyBudget ?? 0,
+          iconKey: item.icon ?? '',
+          icon: config.icon,
+          color: config.color,
+          bg: config.bg,
+          isBuiltin: false,
+        }
+      })
 
     return [...builtins, ...customs]
-  }, [customById, customCategories])
+  }, [customById, customCategories, hiddenCategoryIds])
 
   const selected = useMemo(
     () => categories.find((item) => item.id === selectedId) ?? null,
@@ -121,6 +139,8 @@ export function CategoryManager() {
       keywords: [],
       subcategories: [],
       type: 'expense' as TransactionType,
+      monthlyBudget: 0,
+      iconKey: '',
       isBuiltin: false,
     }
 
@@ -132,6 +152,8 @@ export function CategoryManager() {
       keywords: next.keywords.join(', '),
       subcategory: '',
       type: next.type,
+      monthlyBudget: next.monthlyBudget ? String(next.monthlyBudget) : '',
+      iconKey: next.iconKey,
       isBuiltin: next.isBuiltin,
     })
     setEditorSubcategories(next.subcategories)
@@ -158,9 +180,15 @@ export function CategoryManager() {
 
     const keywords = parseKeywords(editor.keywords)
     const subcategories = Array.from(new Set(editorSubcategories.map((item) => item.trim()).filter(Boolean)))
+    const effectiveType = editor.isBuiltin ? getBuiltinCategoryType(editor.id) : editor.type
+    const iconKey = editor.iconKey || suggestCategoryIconKey(label, keywords)
+    // Budget hanya berlaku untuk kategori pengeluaran.
+    const monthlyBudget = effectiveType === 'expense'
+      ? Math.max(0, Math.round(Number(editor.monthlyBudget.replace(/[^0-9]/g, '')) || 0))
+      : 0
 
     if (editor.id === NEW_CATEGORY_ID) {
-      addCustomCategory(label, keywords, subcategories, editor.type)
+      addCustomCategory(label, keywords, subcategories, editor.type, monthlyBudget, iconKey)
       closeSheet()
       return
     }
@@ -169,7 +197,9 @@ export function CategoryManager() {
       label,
       keywords,
       subcategories,
-      type: editor.isBuiltin ? getBuiltinCategoryType(editor.id) : editor.type,
+      type: effectiveType,
+      monthlyBudget,
+      icon: editor.isBuiltin ? undefined : iconKey,
     })
     closeSheet()
   }
@@ -187,7 +217,9 @@ export function CategoryManager() {
           <FolderEdit className="h-4 w-4 text-[var(--sk-amber)]" />
         </div>
         <h3 className="text-sm font-semibold text-[var(--sk-text)]">Kategori</h3>
-        <span className="ml-auto text-[10px] text-[var(--sk-text-dim)]">{customCategories.length} custom</span>
+        <span className="ml-auto text-[10px] text-[var(--sk-text-dim)]">
+          {customCategories.filter((item) => !(item.id in CATEGORY_CONFIG)).length} custom
+        </span>
       </div>
 
       <button
@@ -286,6 +318,52 @@ export function CategoryManager() {
               placeholder="Keyword, pisahkan koma"
               className="w-full rounded-xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-3 py-2 text-sm text-[var(--sk-text)] outline-none"
             />
+            {!editor.isBuiltin && (
+              <div>
+                <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-[var(--sk-text-dim)]">
+                  Ikon kategori
+                </label>
+                <div className="grid grid-cols-6 gap-2">
+                  {CATEGORY_ICON_KEYS.map((iconKey) => {
+                    const Icon = CATEGORY_ICON_LIBRARY[iconKey]
+                    const active = (editor.iconKey || suggestCategoryIconKey(editor.label, parseKeywords(editor.keywords))) === iconKey
+                    return (
+                      <button
+                        key={iconKey}
+                        type="button"
+                        onClick={() => setEditor((prev) => prev ? { ...prev, iconKey } : prev)}
+                        aria-label={`Pilih ikon ${iconKey}`}
+                        className={cn(
+                          'flex h-11 items-center justify-center rounded-xl border transition-colors',
+                          active
+                            ? 'border-[var(--sk-cyan)] bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)]'
+                            : 'border-[var(--sk-border)] bg-[var(--sk-surface-2)] text-[var(--sk-text-dim)]'
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            {(editor.isBuiltin ? getBuiltinCategoryType(editor.id) : editor.type) === 'expense' && (
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[var(--sk-text-dim)]">
+                  Batas per bulan (opsional)
+                </label>
+                <input
+                  inputMode="numeric"
+                  value={editor.monthlyBudget}
+                  onChange={(event) => setEditor((prev) => prev ? { ...prev, monthlyBudget: event.target.value.replace(/[^0-9]/g, '') } : prev)}
+                  placeholder="mis. 1000000 - kosongkan bila tanpa batas"
+                  className="w-full rounded-xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-3 py-2 text-sm text-[var(--sk-text)] outline-none"
+                />
+                {editor.monthlyBudget ? (
+                  <p className="mt-1 text-[11px] text-[var(--sk-text-dim)]">{formatIDR(Number(editor.monthlyBudget))} / bulan</p>
+                ) : null}
+              </div>
+            )}
             <div className="rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <div className="flex items-center gap-2">
                 <input
@@ -355,6 +433,13 @@ export function CategoryManager() {
               )
             })()}
 
+            {selected.type === 'expense' && selected.monthlyBudget > 0 ? (
+              <div className="rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-3 py-2.5">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--sk-text-dim)]">Batas per bulan</p>
+                <p className="mt-1 text-sm font-semibold text-[var(--sk-text)]">{formatIDR(selected.monthlyBudget)}</p>
+              </div>
+            ) : null}
+
             {selected.subcategories.length > 0 ? (
               <div>
                 <p className="mb-2 text-[11px] uppercase tracking-[0.22em] text-[var(--sk-text-dim)]">Sub kategori</p>
@@ -399,20 +484,33 @@ export function CategoryManager() {
               <button
                 type="button"
                 onClick={removeSelected}
-                className={cn(
-                  'inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold',
-                  selected.isBuiltin
-                    ? 'bg-[var(--sk-amber-dim)] text-[var(--sk-amber)]'
-                    : 'bg-[var(--sk-red-dim)] text-[var(--sk-red)]'
-                )}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--sk-red-dim)] px-3 py-2 text-sm font-semibold text-[var(--sk-red)]"
               >
-                {selected.isBuiltin ? <RotateCcw className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
-                {selected.isBuiltin ? 'Reset' : 'Hapus'}
+                <Trash2 className="h-4 w-4" />
+                Hapus
               </button>
             </div>
           </div>
         ) : null}
       </BottomSheet>
+
+      {hiddenCategoryIds.length > 0 ? (
+        <div className="mt-4 rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3">
+          <p className="mb-2 text-[11px] uppercase tracking-[0.22em] text-[var(--sk-text-dim)]">Kategori disembunyikan</p>
+          <div className="flex flex-wrap gap-2">
+            {hiddenCategoryIds.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => restoreHiddenCategory(id)}
+                className="rounded-full border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-3 py-1.5 text-[11px] font-semibold text-[var(--sk-text)]"
+              >
+                Munculkan {CATEGORY_CONFIG[id as keyof typeof CATEGORY_CONFIG]?.label ?? id}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

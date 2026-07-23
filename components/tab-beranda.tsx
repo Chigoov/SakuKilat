@@ -2,8 +2,9 @@
 
 import { memo, useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Eye, EyeOff, Flame, Lightbulb, TrendingDown, TrendingUp, Trophy, ChevronRight } from 'lucide-react'
+import { Flame, Lightbulb, TrendingDown, TrendingUp, Trophy, ChevronRight } from 'lucide-react'
 import { BudgetCard } from '@/components/budget-card'
+import { CategoryBudgetCard } from '@/components/category-budget-card'
 import { BottomSheet } from '@/components/bottom-sheet'
 import { FilterTabs, type FilterTab } from '@/components/filter-tabs'
 import { NotificationBell } from '@/components/notification-bell'
@@ -15,7 +16,6 @@ import type { Transaction } from '@/lib/mock-data'
 import {
   useBudgetStore,
   useCustomizationStore,
-  usePreferenceStore,
   useTransactionActions,
   useTransactionData,
   useTransactionStatus,
@@ -76,18 +76,6 @@ function deltaHeadline(deltaPct: number | null): string {
   return 'Stabil dibanding minggu lalu.'
 }
 
-function recommendationText(categoryLabel: string | null, pct: number | null, net: number): string {
-  if (!categoryLabel || pct === null) {
-    return net >= 0
-      ? 'Alur bulan ini masih aman. Pertahankan ritmenya dan lanjut catat serapi ini.'
-      : 'Belum ada pola kategori kuat. Fokus dulu jaga total keluar tetap rendah.'
-  }
-
-  if (pct >= 45) return `Fokus rem kategori ${categoryLabel} dulu. Porsinya sudah ${pct}% dari total keluar.`
-  if (pct >= 30) return `Kategori ${categoryLabel} mulai dominan. Aman kalau kamu cek lagi frekuensinya minggu ini.`
-  return `Sebaran pengeluaran masih cukup sehat. Tetap pantau ${categoryLabel} supaya tidak ikut melonjak.`
-}
-
 // recharts di-code-split: dimuat setelah shell Beranda tampil, bukan di critical
 // path. Placeholder ringan menjaga tinggi layout supaya tidak ada layout shift.
 const MonthHeroChart = dynamic(
@@ -109,7 +97,6 @@ export const TabBeranda = memo(function TabBeranda() {
   const { wallets } = useWalletStore()
   const { monthlyBudget } = useBudgetStore()
   const { customPayments, customCategories } = useCustomizationStore()
-  const { zenMode, toggleZen } = usePreferenceStore()
   const [filter, setFilter] = useState<FilterTab>('semua')
   const [analysisScope, setAnalysisScope] = useState<'minggu' | 'bulan'>('minggu')
   const [goals, setGoals] = useState<Goal[]>([])
@@ -221,7 +208,7 @@ export const TabBeranda = memo(function TabBeranda() {
   return (
     <div className="flex min-h-full flex-col md:ml-[72px]">
       <div className="mx-auto w-full max-w-[560px] px-4 pb-[176px] pt-5 md:max-w-[860px] md:px-8 md:pt-7">
-        <section className="mb-5">
+        <section className="mb-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-3">
@@ -242,73 +229,57 @@ export const TabBeranda = memo(function TabBeranda() {
 
             <div className="flex items-center gap-2">
               <NotificationBell />
-              <button
-                type="button"
-                onClick={toggleZen}
-                aria-label={zenMode ? 'Matikan Zen Mode' : 'Aktifkan Zen Mode'}
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface)] text-[var(--sk-text-muted)]"
-              >
-                {zenMode ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
             </div>
           </div>
         </section>
 
-        <section className="mb-5 rounded-[24px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3.5 shadow-[0_18px_40px_rgba(7,10,20,0.16)]">
-          <div className="flex items-start justify-between gap-3 border-b border-[var(--sk-border)] pb-3">
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 text-[13px] font-semibold text-[var(--sk-text)]">
-                <span className="h-3.5 w-3.5 rounded-full bg-[var(--sk-cyan)]" />
-                {streak.loggedToday ? `${streak.current} hari beruntun` : 'Mulai catat hari ini'}
-              </p>
-            </div>
-            <p className="text-right text-[12px] font-semibold text-[var(--sk-green)]">
+        <section className="mb-4 rounded-[24px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3 shadow-[0_18px_40px_rgba(7,10,20,0.16)]">
+          <div className="flex items-center justify-between gap-3">
+            <p className="flex min-w-0 items-center gap-2 text-[13px] font-semibold text-[var(--sk-text)]">
+              <span className="h-3 w-3 shrink-0 rounded-full bg-[var(--sk-cyan)]" />
+              <span className="truncate">{streak.loggedToday ? `${streak.current} hari beruntun` : 'Mulai catat hari ini'}</span>
+            </p>
+            <p className="shrink-0 text-right text-[12px] font-semibold text-[var(--sk-green)]">
               {deltaHeadline(weeklyInsight.deltaPct)}
             </p>
           </div>
 
-          <p className="py-3 text-[13px] leading-relaxed text-[var(--sk-text-dim)]">
-            {streak.loggedToday
-              ? 'Hari ini sudah tercatat. Pertahankan ritmenya dan jaga napas keuanganmu.'
-              : 'Catat hari ini untuk mulai streak beruntunmu lagi.'}
-          </p>
-
-          <div className="flex items-center justify-between gap-3 border-t border-[var(--sk-border)] pt-3">
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--sk-border)] pt-3">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-[rgba(250,204,21,0.16)] px-3 py-1.5 text-[13px] font-semibold text-[#facc15]">
-                <Trophy className="h-4 w-4" />
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(250,204,21,0.16)] px-2.5 py-1 text-[12px] font-semibold text-[#facc15]">
+                <Trophy className="h-3.5 w-3.5" />
                 {unlockedBadges}/{BADGES.length} lencana
               </div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-[var(--sk-surface-2)] px-3 py-1.5 text-[13px] font-semibold text-[var(--sk-text-muted)]">
-                <Flame className="h-4 w-4 text-[var(--sk-amber)]" />
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-[var(--sk-surface-2)] px-2.5 py-1 text-[12px] font-semibold text-[var(--sk-text-muted)]">
+                <Flame className="h-3.5 w-3.5 text-[var(--sk-amber)]" />
                 {streak.current} hari
               </div>
             </div>
             <button
               type="button"
               onClick={() => window.dispatchEvent(new CustomEvent('sakukilat:navigate', { detail: { tab: 'profil' } }))}
-              className="text-[13px] text-[var(--sk-text-dim)]"
+              className="shrink-0 text-[12px] text-[var(--sk-text-dim)]"
             >
               Detail di Profil
             </button>
           </div>
         </section>
 
-        <section className="mb-5 rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
+        <section className="mb-4 rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
           <MonthHeroChart empty={monthTotals.income === 0 && monthTotals.expense === 0} slices={expenseSlices} />
 
-          <div className="mt-3">
+          <div className="mt-2.5">
             <p className="text-[12px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">
               Saldo Bersih — {heroMonthLabel}
             </p>
             <p className={cn(
-              'mt-2 text-[42px] font-bold leading-none tracking-tight text-[var(--sk-text)] break-words [overflow-wrap:anywhere]',
+              'mt-1.5 text-[32px] font-bold leading-none tracking-tight text-[var(--sk-text)] break-words [overflow-wrap:anywhere]',
               monthTotals.balance < 0 && 'text-[var(--sk-red)]'
             )}>
               {monthTotals.balance < 0 ? `-${formatIDR(Math.abs(monthTotals.balance))}` : formatIDR(monthTotals.balance)}
             </p>
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="mt-3 grid grid-cols-2 gap-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--sk-green-dim)]">
                   <TrendingUp className="h-4 w-4 text-[var(--sk-green)]" />
@@ -339,6 +310,28 @@ export const TabBeranda = memo(function TabBeranda() {
         </section>
 
         <BudgetCard />
+        <CategoryBudgetCard />
+
+        <section className="mt-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-muted)]">Rekapan hari ini</h2>
+            <span className="text-[12px] text-[var(--sk-text-dim)]">{recentTransactions.length} transaksi</span>
+          </div>
+          <div className="mt-3">
+            <FilterTabs active={filter} onChange={setFilter} counts={counts} />
+          </div>
+          <div className="mt-4">
+            <TransactionList
+              transactions={filteredTransactions}
+              onDelete={deleteTransaction}
+              onUpdate={updateTransaction}
+              newTransactionId={newTransactionId}
+              className="px-0 pb-0 md:px-0"
+              initialVisibleCount={40}
+              loadMoreCount={40}
+            />
+          </div>
+        </section>
 
         <section className="mt-5 rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3.5">
           <div className="flex items-center justify-between gap-3">
@@ -435,42 +428,6 @@ export const TabBeranda = memo(function TabBeranda() {
               <span className="text-[var(--sk-text-dim)]">Jumlah transaksi</span>
               <span className="font-semibold text-[var(--sk-text)]">{activeInsight.txCount}</span>
             </div>
-          </div>
-
-          <div className="mt-4 rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-4">
-            <ul className="space-y-3 text-[14px] leading-relaxed text-[var(--sk-text-muted)]">
-              {activeInsight.takeaways.map((item) => (
-                <li key={item} className="flex gap-2">
-                  <span className="text-[var(--sk-cyan)]">*</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="mt-4 rounded-[22px] border border-[var(--sk-cyan-glow)] bg-[var(--sk-cyan-dim)] p-4">
-            <p className="text-[12px] uppercase tracking-[0.24em] text-[var(--sk-cyan)]">Rekomendasi</p>
-            <p className="mt-3 break-words text-[14px] leading-relaxed text-[var(--sk-text-muted)] [overflow-wrap:anywhere]">
-              {recommendationText(topCategoryLabel, topCategoryPct, activeInsight.net)}
-            </p>
-          </div>
-        </section>
-
-        <section className="mt-6">
-          <h2 className="text-[13px] uppercase tracking-[0.24em] text-[var(--sk-text-muted)]">History hari ini</h2>
-          <div className="mt-4">
-            <FilterTabs active={filter} onChange={setFilter} counts={counts} />
-          </div>
-          <div className="mt-5">
-            <TransactionList
-              transactions={filteredTransactions}
-              onDelete={deleteTransaction}
-              onUpdate={updateTransaction}
-              newTransactionId={newTransactionId}
-              className="px-0 pb-0 md:px-0"
-              initialVisibleCount={40}
-              loadMoreCount={40}
-            />
           </div>
         </section>
       </div>

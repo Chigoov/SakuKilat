@@ -83,20 +83,22 @@ export function BudgetCard() {
           </div>
           <div className="grid grid-cols-3 gap-2 text-xs">
             <div>
-              <p className="text-[var(--sk-text-dim)]">Jatah/minggu</p>
+              <p className="text-[var(--sk-text-dim)]">Jatah minggu ini</p>
               <p className="font-semibold tabular-nums text-[var(--sk-text)]">{formatIDRCompact(status.baseWeeklyBudget)}</p>
             </div>
             <div>
-              <p className="text-[var(--sk-text-dim)]">Keluar minggu</p>
+              <p className="text-[var(--sk-text-dim)]">Sudah keluar</p>
               <p className="font-semibold tabular-nums text-[var(--sk-red)]">{formatIDRCompact(status.weeklySpent)}</p>
             </div>
             <div>
-              <p className="text-[var(--sk-text-dim)]">Sisa minggu</p>
+              <p className="text-[var(--sk-text-dim)]">
+                {status.weeklyRemaining < 0 ? 'Lewat jatah' : 'Sisa jatah'}
+              </p>
               <p className={cn(
                 'font-semibold tabular-nums',
                 status.weeklyRemaining < 0 ? 'text-[var(--sk-red)]' : 'text-[var(--sk-green)]'
               )}>
-                {formatIDRCompact(Math.abs(status.weeklyRemaining))}
+                {status.weeklyRemaining < 0 ? '-' : ''}{formatIDRCompact(Math.abs(status.weeklyRemaining))}
               </p>
             </div>
           </div>
@@ -109,7 +111,7 @@ export function BudgetCard() {
         )}
         {!status.roast && status.weekOverBase && (
           <p className="mt-3 text-xs leading-relaxed text-[var(--sk-amber)]">
-            Minggu ini sudah lewat jatah. Tenang, remnya cukup di minggu ini dulu.
+            Pengeluaran minggu ini ({formatIDR(status.weeklySpent)}) sudah lewat {formatIDR(Math.max(0, status.weeklySpent - status.baseWeeklyBudget))} dari jatah mingguan {formatIDR(Math.round(status.baseWeeklyBudget))}.
           </p>
         )}
 
