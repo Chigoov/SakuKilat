@@ -36,9 +36,10 @@ import {
   trendSeriesForPeriod,
   type SubcategorySlice,
 } from '@/lib/stats'
+import { monthlyBreakdownForYear } from '@/lib/stats-rekapan-yearly'
 import { cn } from '@/lib/utils'
 
-type RecapMode = 'history' | 'calendar' | 'trend'
+type RecapMode = 'history' | 'calendar' | 'monthly' | 'trend'
 type RangeMode = 'month' | '7d' | '30d' | '1y' | 'period'
 type FilterType = FilterTab
 
@@ -221,6 +222,7 @@ export const TabRekapan = memo(function TabRekapan() {
   const [filter, setFilter] = useState<FilterType>('semua')
   const [search, setSearch] = useState('')
   const [selectedMonth, setSelectedMonth] = useState(() => monthStart(new Date()))
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear())
   const [periodStart, setPeriodStart] = useState<Date>(() => monthStart(new Date()))
   const [periodEnd, setPeriodEnd] = useState<Date>(() => dateOnly(new Date()))
   const [allocationType, setAllocationType] = useState<'expense' | 'income'>('expense')
@@ -343,6 +345,19 @@ export const TabRekapan = memo(function TabRekapan() {
     [allocationType, selectedMonth, transactions]
   )
   const monthDayMap = useMemo(() => dailyAggregates(monthTransactions), [monthTransactions])
+  const yearlyRows = useMemo(() => monthlyBreakdownForYear(transactions, selectedYear), [selectedYear, transactions])
+  const yearlyRowsNewestFirst = useMemo(() => [...yearlyRows].reverse(), [yearlyRows])
+  const yearlyTotals = useMemo(
+    () => yearlyRows.reduce(
+      (totals, row) => ({
+        income: totals.income + row.income,
+        expense: totals.expense + row.expense,
+        balance: totals.balance + row.balance,
+      }),
+      { income: 0, expense: 0, balance: 0 }
+    ),
+    [yearlyRows]
+  )
   const savedCategory = useMemo(() => topSavedCategory(transactions), [transactions])
 
   const openTransactions = (title: string, items: Transaction[], subtitle?: string, subcategories?: SubcategorySlice[]) => {
@@ -393,6 +408,7 @@ export const TabRekapan = memo(function TabRekapan() {
   // Chevron bulan hanya relevan saat rangeMode==='month' — di rangeMode lain
   // (7 Hari / 30 Hari / 1 Tahun / Periode) kita sembunyikan supaya nggak bingung.
   const trendUsesMonthPicker = rangeMode === 'month'
+  const todayKeyValue = dayKey(new Date())
 
   return (
     <div className="flex min-h-full flex-col md:ml-[72px]">
@@ -402,10 +418,11 @@ export const TabRekapan = memo(function TabRekapan() {
         </header>
 
         <div className="mb-5 overflow-x-auto pb-1">
-          <div className="inline-grid min-w-full grid-cols-3 gap-1 rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-1">
+          <div className="inline-grid min-w-full grid-cols-4 gap-1 rounded-[22px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-1">
             {([
-              ['history', 'History'],
+              ['history', 'Riwayat'],
               ['calendar', 'Kalender'],
+              ['monthly', 'Bulanan'],
               ['trend', 'Tren'],
             ] as const).map(([value, label]) => (
               <button
@@ -488,7 +505,7 @@ export const TabRekapan = memo(function TabRekapan() {
 
         {mode === 'history' && (
           <section>
-            <p className="mb-4 text-[14px] text-[var(--sk-text-dim)]">History: {bounds.label}</p>
+            <p className="mb-4 text-[14px] text-[var(--sk-text-dim)]">Riwayat: {bounds.label}</p>
 
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -551,47 +568,53 @@ export const TabRekapan = memo(function TabRekapan() {
         )}
 
         {mode === 'calendar' && (
-          <section className="rounded-[32px] border border-[var(--sk-border)] bg-[var(--sk-surface)] px-4 py-5">
-            <div className="mb-6 flex items-center justify-between gap-3">
+          <section className="overflow-hidden rounded-[24px] border border-[var(--sk-border)] bg-[var(--sk-surface)] shadow-[0_18px_40px_rgba(2,6,23,0.2)]">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--sk-border)] px-3 py-3">
               <button
                 type="button"
                 onClick={() => setSelectedMonth((current) => addMonths(current, -1))}
-                className="flex h-14 w-14 items-center justify-center rounded-3xl bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]"
+                aria-label="Bulan sebelumnya"
               >
-                <ChevronLeft className="h-6 w-6" />
+                <ChevronLeft className="h-5 w-5" />
               </button>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-[var(--sk-text)]">
+              <div className="min-w-0 text-center">
+                <p className="truncate text-lg font-bold text-[var(--sk-text)]">
                   {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth)}
+                </p>
+                <p className="mt-0.5 text-[11px] uppercase tracking-[0.18em] text-[var(--sk-text-dim)]">
+                  {monthTransactions.length} transaksi
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedMonth((current) => addMonths(current, 1))}
-                className="flex h-14 w-14 items-center justify-center rounded-3xl bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]"
+                aria-label="Bulan berikutnya"
               >
-                <ChevronRight className="h-6 w-6" />
+                <ChevronRight className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="mb-4 grid grid-cols-7 gap-2">
+            <div className="grid grid-cols-7 border-b border-[var(--sk-border)] bg-[var(--sk-surface-2)]/60">
               {WEEKDAY_LABELS.map((label) => (
-                <div key={label} className="pb-2 text-center text-sm font-medium text-[var(--sk-text-dim)]">
+                <div key={label} className="py-2 text-center text-[11px] font-semibold text-[var(--sk-text-dim)]">
                   {label}
                 </div>
               ))}
             </div>
 
-            <div className="grid grid-cols-7 gap-2">
+            <div className="grid grid-cols-7">
               {monthGrid(selectedMonth).map((cell) => {
                 if (!cell.date || cell.day === null) {
-                  return <div key={cell.key} className="h-[92px]" />
+                  return <div key={cell.key} className="min-h-[74px] border-b border-r border-[var(--sk-border)] bg-[var(--sk-bg)]/20 last:border-r-0" />
                 }
 
                 const cellDate = cell.date
                 const dateKeyValue = dayKey(cellDate)
                 const agg = monthDayMap.get(dateKeyValue)
                 const hasActivity = Boolean(agg && agg.count > 0)
+                const isToday = dateKeyValue === todayKeyValue
                 return (
                   <button
                     key={cell.key}
@@ -604,26 +627,115 @@ export const TabRekapan = memo(function TabRekapan() {
                         `${agg?.count ?? 0} transaksi`
                       )
                     }}
+                    disabled={!hasActivity}
                     className={cn(
-                      'h-[92px] rounded-[24px] px-2 py-2 text-center transition-colors',
-                      hasActivity ? 'bg-[var(--sk-surface-2)]' : 'bg-transparent'
+                      'min-h-[74px] border-b border-r border-[var(--sk-border)] px-1.5 py-2 text-left transition-colors last:border-r-0',
+                      hasActivity ? 'bg-[var(--sk-surface)] active:bg-[var(--sk-surface-2)]' : 'bg-transparent',
+                      isToday && 'bg-[var(--sk-cyan-dim)]'
                     )}
                   >
-                    <p className="text-[12px] font-semibold text-[var(--sk-text)]">{cell.day}</p>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className={cn('text-[12px] font-bold text-[var(--sk-text)]', isToday && 'text-[var(--sk-cyan)]')}>
+                        {cell.day}
+                      </span>
+                      {hasActivity ? <span className="h-1.5 w-1.5 rounded-full bg-[var(--sk-cyan)]" /> : null}
+                    </div>
                     {hasActivity && (
-                      <div className="mt-1 space-y-1">
-                        {agg?.expense ? (
-                          <div className="text-[9px] leading-tight tracking-tight tabular-nums text-[var(--sk-red)]">
-                            -{formatIDRShort(agg.expense)}
+                      <div className="mt-2 space-y-1 overflow-hidden">
+                        {agg?.income ? (
+                          <div className="truncate text-[9px] font-semibold leading-tight tabular-nums text-[var(--sk-green)]">
+                            +{formatIDRShort(agg.income)}
                           </div>
                         ) : null}
-                        {agg?.income ? (
-                          <div className="text-[9px] leading-tight tracking-tight tabular-nums text-[var(--sk-green)]">
-                            +{formatIDRShort(agg.income)}
+                        {agg?.expense ? (
+                          <div className="truncate text-[9px] font-semibold leading-tight tabular-nums text-[var(--sk-red)]">
+                            -{formatIDRShort(agg.expense)}
                           </div>
                         ) : null}
                       </div>
                     )}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {mode === 'monthly' && (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3 rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface)] px-3 py-3">
+              <button
+                type="button"
+                onClick={() => setSelectedYear((year) => year - 1)}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]"
+                aria-label="Tahun sebelumnya"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <p className="text-lg font-bold text-[var(--sk-text)]">{selectedYear}</p>
+              <button
+                type="button"
+                onClick={() => setSelectedYear((year) => year + 1)}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]"
+                aria-label="Tahun berikutnya"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 overflow-hidden rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface)]">
+              <div className="border-r border-[var(--sk-border)] px-2 py-3 text-center">
+                <p className="text-[11px] font-semibold text-[var(--sk-text-muted)]">Pendapatan</p>
+                <p className="mt-1 text-[13px] font-bold tabular-nums text-[var(--sk-green)]">{formatIDRCompact(yearlyTotals.income)}</p>
+              </div>
+              <div className="border-r border-[var(--sk-border)] px-2 py-3 text-center">
+                <p className="text-[11px] font-semibold text-[var(--sk-text-muted)]">Pengeluaran</p>
+                <p className="mt-1 text-[13px] font-bold tabular-nums text-[var(--sk-red)]">{formatIDRCompact(yearlyTotals.expense)}</p>
+              </div>
+              <div className="px-2 py-3 text-center">
+                <p className="text-[11px] font-semibold text-[var(--sk-text-muted)]">Total</p>
+                <p className={cn('mt-1 text-[13px] font-bold tabular-nums', yearlyTotals.balance >= 0 ? 'text-[var(--sk-text)]' : 'text-[var(--sk-red)]')}>
+                  {formatIDRCompact(yearlyTotals.balance)}
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface)]">
+              {yearlyRowsNewestFirst.map((row) => {
+                const hasData = row.income !== 0 || row.expense !== 0
+                const lastDay = new Date(selectedYear, row.monthIndex + 1, 0).getDate()
+                return (
+                  <button
+                    key={row.monthIndex}
+                    type="button"
+                    disabled={!hasData}
+                    onClick={() => openTransactions(
+                      `${row.label} ${selectedYear}`,
+                      transactionsForRange(
+                        transactions,
+                        new Date(selectedYear, row.monthIndex, 1),
+                        new Date(selectedYear, row.monthIndex + 1, 1),
+                      ),
+                      `${row.monthIndex + 1}.1 - ${row.monthIndex + 1}.${lastDay}`,
+                    )}
+                    className={cn(
+                      'flex w-full items-center gap-3 border-b border-[var(--sk-border)] px-4 py-3 text-left last:border-b-0',
+                      hasData ? 'active:bg-[var(--sk-surface-2)]' : 'opacity-45'
+                    )}
+                  >
+                    <div className="w-14 shrink-0">
+                      <p className="text-[18px] font-bold leading-none text-[var(--sk-text)]">{row.label}</p>
+                      <p className="mt-2 text-[11px] font-semibold text-[var(--sk-text-dim)]">{row.monthIndex + 1}.1 - {row.monthIndex + 1}.{lastDay}</p>
+                    </div>
+                    <div className="min-w-0 flex-1 text-right">
+                      <p className="truncate text-[14px] font-semibold tabular-nums text-[var(--sk-green)]">{formatIDR(row.income)}</p>
+                    </div>
+                    <div className="w-[132px] shrink-0 text-right">
+                      <p className="truncate text-[14px] font-semibold tabular-nums text-[var(--sk-red)]">{formatIDR(row.expense)}</p>
+                      <p className={cn('mt-1 truncate text-[12px] font-semibold tabular-nums', row.balance >= 0 ? 'text-[var(--sk-text-muted)]' : 'text-[var(--sk-red)]')}>
+                        {formatIDR(row.balance)}
+                      </p>
+                    </div>
                   </button>
                 )
               })}
@@ -673,32 +785,32 @@ export const TabRekapan = memo(function TabRekapan() {
                 </div>
               )}
 
-              <div className="mt-6 grid grid-cols-2 gap-4">
+              <div className="mt-6 grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setAllocationType('income')}
                   className={cn(
-                    'rounded-[22px] border p-4 text-left transition-colors',
+                    'min-w-0 overflow-hidden rounded-[22px] border p-3.5 text-left transition-colors',
                     allocationType === 'income'
                       ? 'border-[rgba(52,211,153,0.4)] bg-[var(--sk-surface-2)]'
                       : 'border-[var(--sk-border)] bg-[var(--sk-surface)]'
                   )}
                 >
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)]">Pendapatan</p>
-                  <p className="mt-4 text-xl font-bold text-[var(--sk-green)]">{formatIDR(trendTotals.income)}</p>
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pendapatan</p>
+                  <p className="mt-3 whitespace-nowrap text-[clamp(14px,4vw,18px)] font-bold leading-tight text-[var(--sk-green)]">{formatIDR(trendTotals.income)}</p>
                 </button>
                 <button
                   type="button"
                   onClick={() => setAllocationType('expense')}
                   className={cn(
-                    'rounded-[22px] border p-4 text-left transition-colors',
+                    'min-w-0 overflow-hidden rounded-[22px] border p-3.5 text-left transition-colors',
                     allocationType === 'expense'
                       ? 'border-[rgba(248,113,113,0.55)] bg-[var(--sk-surface-2)] shadow-[inset_0_-4px_0_rgba(248,113,113,0.55)]'
                       : 'border-[var(--sk-border)] bg-[var(--sk-surface)]'
                   )}
                 >
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)]">Pengeluaran</p>
-                  <p className="mt-4 text-xl font-bold text-[var(--sk-red)]">{formatIDR(trendTotals.expense)}</p>
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pengeluaran</p>
+                  <p className="mt-3 whitespace-nowrap text-[clamp(14px,4vw,18px)] font-bold leading-tight text-[var(--sk-red)]">{formatIDR(trendTotals.expense)}</p>
                 </button>
               </div>
 
@@ -867,22 +979,22 @@ export const TabRekapan = memo(function TabRekapan() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => openCategorySummary('expense', `Kategori pengeluaran ${bounds.label}`, rangeExpenseRows)}
-                className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4 text-left"
+                className="min-w-0 overflow-hidden rounded-[24px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3.5 text-left"
               >
-                <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)]">Pengeluaran</p>
-                <p className="mt-4 text-xl font-bold text-[var(--sk-red)]">{formatIDR(rangeTotalsData.expense)}</p>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pengeluaran</p>
+                <p className="mt-3 whitespace-nowrap text-[clamp(14px,4vw,18px)] font-bold leading-tight text-[var(--sk-red)]">{formatIDR(rangeTotalsData.expense)}</p>
               </button>
               <button
                 type="button"
                 onClick={() => openCategorySummary('income', `Kategori pemasukan ${bounds.label}`, rangeIncomeRows)}
-                className="rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4 text-left"
+                className="min-w-0 overflow-hidden rounded-[24px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3.5 text-left"
               >
-                <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)]">Pemasukan</p>
-                <p className="mt-4 text-xl font-bold text-[var(--sk-green)]">{formatIDR(rangeTotalsData.income)}</p>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">Pemasukan</p>
+                <p className="mt-3 whitespace-nowrap text-[clamp(14px,4vw,18px)] font-bold leading-tight text-[var(--sk-green)]">{formatIDR(rangeTotalsData.income)}</p>
               </button>
             </div>
 
@@ -963,7 +1075,7 @@ export const TabRekapan = memo(function TabRekapan() {
                         type="monotone"
                         dataKey="expense"
                         name="Pengeluaran"
-                        stroke="var(--sk-cyan)"
+                        stroke="var(--sk-red)"
                         strokeWidth={4}
                         dot={false}
                       />
