@@ -1,6 +1,6 @@
 export type AppVariant = 'user' | 'owner'
 
-const USER_APP_NAME = 'Saku Kilat V2'
+const USER_APP_NAME = 'SakuKilat'
 const OWNER_APP_NAME = 'SakuKilat'
 const OWNER_FLAG = 'owner'
 const OWNER_QUERY = 'profile'

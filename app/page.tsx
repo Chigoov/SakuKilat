@@ -44,7 +44,7 @@ const TabRekapan = dynamic(
 
 const APP_VERSION = pkg.version
 const APP_SPLASH_MS = 1200
-const APP_NAME = 'SakuKilat v2'
+const APP_NAME = 'SakuKilat'
 const APP_LOCK_READY_TIMEOUT_MS = 1200
 
 function triggerTinyHaptic() {
@@ -243,11 +243,11 @@ function AppShell() {
     return (
       <div className="min-h-[100dvh] bg-[var(--sk-bg)] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 animate-fade-in">
-          <div className="w-14 h-14 rounded-3xl bg-[var(--sk-cyan)] animate-pulse-soft flex items-center justify-center shadow-[0_0_30px_var(--sk-cyan-glow)]">
-            <svg viewBox="0 0 24 24" className="w-7 h-7 fill-[#090D16]" aria-hidden>
-              <path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z" />
-            </svg>
-          </div>
+          <img
+            src="/brand/sakukilat-logo-official-v1.png"
+            alt=""
+            className="h-14 w-14 rounded-3xl animate-pulse-soft shadow-[0_0_30px_var(--sk-cyan-glow)]"
+          />
           {nativeRuntime && (
             <div className="text-center">
               <p className="text-base font-semibold text-[var(--sk-text)]">{APP_NAME}</p>
@@ -321,11 +321,11 @@ function AppShell() {
         aria-label="Navigasi utama"
         className="hidden md:flex fixed left-0 top-0 bottom-0 z-40 w-[72px] flex-col items-center py-6 gap-2 sk-glass border-r border-[var(--sk-border-2)]"
       >
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[var(--sk-cyan)] shadow-[0_0_20px_var(--sk-cyan-glow)] mb-4">
-          <svg viewBox="0 0 24 24" className="w-5 h-5 fill-[#0B0F19]" aria-hidden>
-            <path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z" />
-          </svg>
-        </div>
+        <img
+          src="/brand/sakukilat-logo-official-v1.png"
+          alt=""
+          className="mb-4 h-10 w-10 rounded-xl shadow-[0_0_20px_var(--sk-cyan-glow)]"
+        />
         {TABS.map(tab => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id

@@ -7,8 +7,8 @@
       powershell -ExecutionPolicy Bypass -File update-apk.ps1
 
   Hasil akhir:
-    - SakuKilat-v2.apk
-    - SakuKilat-Pribadi-v2.apk
+    - SakuKilat.apk
+    - SakuKilat-Pribadi.apk
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -53,13 +53,13 @@ Write-Host "`n[5/5] Menyalin APK ke folder root..." -ForegroundColor Cyan
 $artifacts = @(
   @{
     Source = "$root\android\app\build\outputs\apk\public\release\app-public-release.apk"
-    Destination = "$root\SakuKilat-v2.apk"
-    Label = "SakuKilat-v2.apk"
+    Destination = "$root\SakuKilat.apk"
+    Label = "SakuKilat.apk"
   },
   @{
     Source = "$root\android\app\build\outputs\apk\personal\release\app-personal-release.apk"
-    Destination = "$root\SakuKilat-Pribadi-v2.apk"
-    Label = "SakuKilat-Pribadi-v2.apk"
+    Destination = "$root\SakuKilat-Pribadi.apk"
+    Label = "SakuKilat-Pribadi.apk"
   }
 )
 
@@ -72,8 +72,8 @@ foreach ($artifact in $artifacts) {
   Copy-Item $artifact.Source -Destination $artifact.Destination -Force
 }
 
-$publicSize = [math]::Round((Get-Item "$root\SakuKilat-v2.apk").Length / 1MB, 2)
-$personalSize = [math]::Round((Get-Item "$root\SakuKilat-Pribadi-v2.apk").Length / 1MB, 2)
+$publicSize = [math]::Round((Get-Item "$root\SakuKilat.apk").Length / 1MB, 2)
+$personalSize = [math]::Round((Get-Item "$root\SakuKilat-Pribadi.apk").Length / 1MB, 2)
 Write-Host "`nSELESAI." -ForegroundColor Green
-Write-Host " - SakuKilat-v2.apk ($publicSize MB) siap untuk user umum." -ForegroundColor Green
-Write-Host " - SakuKilat-Pribadi-v2.apk ($personalSize MB) berisi data awal pribadi." -ForegroundColor Green
+Write-Host " - SakuKilat.apk ($publicSize MB) siap untuk user umum." -ForegroundColor Green
+Write-Host " - SakuKilat-Pribadi.apk ($personalSize MB) berisi data awal pribadi." -ForegroundColor Green

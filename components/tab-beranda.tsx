@@ -212,11 +212,11 @@ export const TabBeranda = memo(function TabBeranda() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--sk-cyan)] shadow-[0_12px_30px_rgba(56,189,248,0.18)]">
-                  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-[#090D16]" aria-hidden>
-                    <path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z" />
-                  </svg>
-                </div>
+                <img
+                  src="/brand/sakukilat-logo-official-v1.png"
+                  alt=""
+                  className="h-11 w-11 rounded-2xl shadow-[0_12px_30px_rgba(56,189,248,0.18)]"
+                />
                 <div className="min-w-0">
                   <p className="truncate text-[23px] font-bold text-[var(--sk-text)]">SakuKilat</p>
                   <p className="mt-1 text-[15px] text-[var(--sk-text-muted)]">{greetingLabel(now)}</p>
