@@ -1,14 +1,13 @@
 <#
   update-apk.ps1
   ------------------------------------------------------------------
-  Membangun ulang dua edisi APK Android dalam satu langkah.
+  Membangun ulang APK Android edisi umum dalam satu langkah.
 
   Jalankan dari folder proyek:
       powershell -ExecutionPolicy Bypass -File update-apk.ps1
 
   Hasil akhir:
     - SakuKilat.apk
-    - SakuKilat-Pribadi.apk
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -43,7 +42,7 @@ foreach ($stalePath in $stalePaths) {
 Write-Host "`n[4/5] Build APK release lewat Gradle (bisa beberapa menit)..." -ForegroundColor Cyan
 Push-Location "$root\android"
 try {
-  .\gradlew.bat assemblePublicRelease assemblePersonalRelease --no-daemon
+  .\gradlew.bat assemblePublicRelease --no-daemon
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 } finally {
   Pop-Location
@@ -55,11 +54,6 @@ $artifacts = @(
     Source = "$root\android\app\build\outputs\apk\public\release\app-public-release.apk"
     Destination = "$root\SakuKilat.apk"
     Label = "SakuKilat.apk"
-  },
-  @{
-    Source = "$root\android\app\build\outputs\apk\personal\release\app-personal-release.apk"
-    Destination = "$root\SakuKilat-Pribadi.apk"
-    Label = "SakuKilat-Pribadi.apk"
   }
 )
 
@@ -73,7 +67,5 @@ foreach ($artifact in $artifacts) {
 }
 
 $publicSize = [math]::Round((Get-Item "$root\SakuKilat.apk").Length / 1MB, 2)
-$personalSize = [math]::Round((Get-Item "$root\SakuKilat-Pribadi.apk").Length / 1MB, 2)
 Write-Host "`nSELESAI." -ForegroundColor Green
 Write-Host " - SakuKilat.apk ($publicSize MB) siap untuk user umum." -ForegroundColor Green
-Write-Host " - SakuKilat-Pribadi.apk ($personalSize MB) berisi data awal pribadi." -ForegroundColor Green
