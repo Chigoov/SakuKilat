@@ -11,6 +11,13 @@ import type { Transaction } from './mock-data'
 import { monthlyTotals, categoryBreakdown } from './stats'
 import { getCategoryConfig, getPaymentLabel } from '@/components/category-badge'
 import { formatIDR } from '@/lib/parser'
+import { Capacitor, registerPlugin } from '@capacitor/core'
+
+interface SakuKilatPrintPlugin {
+  print(options: { html: string; jobName?: string }): Promise<void>
+}
+
+const SakuKilatPrint = registerPlugin<SakuKilatPrintPlugin>('SakuKilatPrint')
 
 function isMoneyMove(t: Transaction): boolean {
   return t.kind === 'transfer' || t.kind === 'saving'
@@ -134,9 +141,22 @@ export function buildMonthlyReportHtml(transactions: Transaction[], opts: Report
 </body></html>`
 }
 
-export function printMonthlyReport(transactions: Transaction[], opts: ReportOptions = {}): boolean {
+export async function printMonthlyReport(transactions: Transaction[], opts: ReportOptions = {}): Promise<boolean> {
   if (typeof window === 'undefined') return false
   const html = buildMonthlyReportHtml(transactions, opts)
+  return printReportHtml(html, 'Laporan SakuKilat')
+}
+
+export async function printReportHtml(html: string, jobName = 'Laporan SakuKilat'): Promise<boolean> {
+  if (typeof window === 'undefined') return false
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await SakuKilatPrint.print({ html, jobName })
+      return true
+    } catch {
+      return false
+    }
+  }
   return openPrintWindow(html)
 }
 
@@ -334,11 +354,11 @@ export function buildFilteredReportHtml(
 }
 
 /** Cetak laporan terfilter via print dialog. */
-export function printFilteredReport(
+export async function printFilteredReport(
   transactions: Transaction[],
   opts: FilteredReportOptions = {}
-): boolean {
+): Promise<boolean> {
   if (typeof window === 'undefined') return false
   const html = buildFilteredReportHtml(transactions, opts)
-  return openPrintWindow(html)
+  return printReportHtml(html, 'Laporan SakuKilat Terfilter')
 }

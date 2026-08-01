@@ -3,7 +3,7 @@
 import { useMemo, useRef } from 'react'
 import { ArrowLeft, Printer } from 'lucide-react'
 import type { Transaction } from '@/lib/mock-data'
-import { buildMonthlyReportHtml } from '@/lib/report'
+import { buildMonthlyReportHtml, printReportHtml } from '@/lib/report'
 import { cn } from '@/lib/utils'
 
 export function ReportPreview({
@@ -50,11 +50,12 @@ export function ReportPreview({
           </div>
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               const frameWindow = frameRef.current?.contentWindow
-              if (!frameWindow) return
-              frameWindow.focus()
-              frameWindow.print()
+              if (!await printReportHtml(html, 'Laporan SakuKilat Bulan Ini')) {
+                frameWindow?.focus()
+                frameWindow?.print()
+              }
             }}
             className={cn(
               'inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--sk-cyan)] px-3 text-sm font-semibold text-[#090D16]'

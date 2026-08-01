@@ -8,7 +8,7 @@
  *   2) Rentang tanggal  : dari - sampai (opsional)
  *   3) Kategori         : multi-select (checkbox). Kosong = semua kategori.
  *
- * Klik "Ekspor PDF" -> generate HTML report -> print dialog browser.
+ * Klik "Ekspor PDF" -> generate HTML report -> print dialog perangkat.
  */
 
 import { useMemo, useState } from 'react'
@@ -77,7 +77,7 @@ export function FilteredPdfExport() {
   const selectAll = () => setSelectedCats(new Set(availableCategories.map((c) => c.id)))
   const clearAll = () => setSelectedCats(new Set())
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const startDate = fromDateInputValue(start)
     const endDate = fromDateInputValue(end)
 
@@ -101,12 +101,12 @@ export function FilteredPdfExport() {
       end: endDate ?? undefined,
       categoryIds: selectedCats.size > 0 ? Array.from(selectedCats) : undefined,
     }
-    const ok = printFilteredReport(transactions, opts)
+    const ok = await printFilteredReport(transactions, opts)
     if (!ok) {
-      showToast('Gagal membuka print dialog. Cek popup blocker browser.', 'error')
+      showToast('Gagal membuka dialog cetak. Coba tutup app lalu buka lagi.', 'error')
     } else {
       setOpen(false)
-      showToast('Laporan PDF terfilter dibuka di tab baru.', 'success')
+      showToast('Dialog cetak PDF dibuka.', 'success')
     }
   }
 
