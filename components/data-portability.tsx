@@ -439,6 +439,68 @@ function downloadFile(name: string, text: string, type: string): boolean {
   }
 }
 
+type FileExportResult = 'shared' | 'downloaded' | 'cancelled' | 'failed'
+
+function isShareCancel(error: unknown): boolean {
+  const name = error instanceof DOMException ? error.name.toLowerCase() : ''
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error ?? '').toLowerCase()
+  return name === 'aborterror' || message.includes('cancel')
+}
+
+async function shareNativeFile(name: string, text: string, type: string): Promise<FileExportResult | null> {
+  try {
+    const [{ Capacitor }, { Filesystem, Directory, Encoding }, { Share }] = await Promise.all([
+      import('@capacitor/core'),
+      import('@capacitor/filesystem'),
+      import('@capacitor/share'),
+    ])
+    if (!Capacitor.isNativePlatform()) return null
+
+    const saved = await Filesystem.writeFile({
+      path: name,
+      data: text,
+      directory: Directory.Documents,
+      encoding: Encoding.UTF8,
+    })
+
+    await Share.share({
+      title: name,
+      text: `SakuKilat: ${name}`,
+      files: [saved.uri],
+      dialogTitle: 'Bagikan atau simpan file SakuKilat',
+    })
+    return 'shared'
+  } catch (error) {
+    return isShareCancel(error) ? 'cancelled' : null
+  }
+}
+
+async function shareWebFile(name: string, text: string, type: string): Promise<FileExportResult | null> {
+  try {
+    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return null
+    const file = new File([text], name, { type })
+    const data: ShareData = { title: name, text: `SakuKilat: ${name}`, files: [file] }
+    if (navigator.canShare && !navigator.canShare(data)) return null
+    await navigator.share(data)
+    return 'shared'
+  } catch (error) {
+    return isShareCancel(error) ? 'cancelled' : null
+  }
+}
+
+async function saveOrShareFile(name: string, text: string, type: string): Promise<FileExportResult> {
+  const shared = await shareNativeFile(name, text, type) ?? await shareWebFile(name, text, type)
+  if (shared) return shared
+  return downloadFile(name, text, type) ? 'downloaded' : 'failed'
+}
+
+function exportMessage(label: string, result: FileExportResult): string {
+  if (result === 'shared') return `${label} siap dibagikan atau disimpan.`
+  if (result === 'downloaded') return `${label} dibuat. Cek folder Download.`
+  if (result === 'cancelled') return 'Ekspor dibatalkan.'
+  return `${label} gagal dibuat di perangkat ini.`
+}
+
 function csvEscape(value: unknown): string {
   const text = String(value ?? '')
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
@@ -473,22 +535,26 @@ export function DataPortability() {
     customCategories,
   })
 
-  const exportJson = () => {
-    const ok = downloadFile(
+  const exportJson = async () => {
+    const result = await saveOrShareFile(
       `sakukilat-backup-${new Date().toISOString().slice(0, 10)}.json`,
       JSON.stringify(backup(), null, 2),
       'application/json'
     )
-    if (!ok) {
+    if (result === 'failed') {
       showToast('Backup gagal dibuat di perangkat ini.', 'error')
+      return
+    }
+    if (result === 'cancelled') {
+      showToast('Ekspor dibatalkan.', 'error')
       return
     }
     bumpCount(BACKUP_COUNT_KEY)
     pulseAction('json')
-    showToast('Backup JSON tersimpan.', 'success')
+    showToast(exportMessage('Backup JSON', result), 'success')
   }
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
     const rows = [
       ['tanggal', 'tipe', 'deskripsi', 'nominal', 'kategori', 'subkategori', 'dompet'],
       ...transactions.map(t => [
@@ -501,14 +567,22 @@ export function DataPortability() {
         t.paymentMethod,
       ]),
     ]
-    const ok = downloadFile(
+    const result = await saveOrShareFile(
       `sakukilat-transaksi-${new Date().toISOString().slice(0, 10)}.csv`,
       rows.map(row => row.map(csvEscape).join(',')).join('\n'),
       'text/csv'
     )
-    if (ok) bumpCount(BACKUP_COUNT_KEY)
-    if (ok) pulseAction('csv')
-    showToast(ok ? 'Ekspor CSV tersimpan.' : 'Ekspor CSV gagal di perangkat ini.', ok ? 'success' : 'error')
+    if (result === 'failed') {
+      showToast('Ekspor CSV gagal di perangkat ini.', 'error')
+      return
+    }
+    if (result === 'cancelled') {
+      showToast('Ekspor dibatalkan.', 'error')
+      return
+    }
+    bumpCount(BACKUP_COUNT_KEY)
+    pulseAction('csv')
+    showToast(exportMessage('CSV', result), 'success')
   }
 
   const importFile = async (file: File) => {
@@ -537,10 +611,11 @@ export function DataPortability() {
       ? null
       : augmentFromImport(imported, wallets, customPayments, customCategories)
     const importedFinal = augment ? augment.transactions : imported
+    const freshImported = importedFinal.filter(t => !existingSignatures.has(transactionSignature(t)))
 
     const merged = isSakuKilatBackup
       ? importedFinal
-      : [...importedFinal.filter(t => !existingSignatures.has(transactionSignature(t))), ...transactions]
+      : [...freshImported, ...transactions]
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
       ...current,
@@ -570,7 +645,16 @@ export function DataPortability() {
     const freshBadges = syncUnlocks(badges)
     if (freshBadges.length > 0) queueUnlockCelebrations(freshBadges)
     pulseAction('import')
-    showToast(`${imported.length} transaksi diimpor. Memuat ulang...`, 'success')
+    const skippedCount = isSakuKilatBackup ? 0 : importedFinal.length - freshImported.length
+    const importedCount = isSakuKilatBackup ? importedFinal.length : freshImported.length
+    showToast(
+      isSakuKilatBackup
+        ? `${importedCount} transaksi dipulihkan. Memuat ulang...`
+        : skippedCount > 0
+          ? `${importedCount} transaksi baru diimpor, ${skippedCount} duplikat dilewati. Memuat ulang...`
+          : `${importedCount} transaksi baru diimpor. Memuat ulang...`,
+      'success'
+    )
     setTimeout(() => window.location.reload(), 700)
   }
 
@@ -605,6 +689,9 @@ export function DataPortability() {
         {lastAction === 'import' ? <Check className="w-4 h-4 text-[var(--sk-green)]" /> : <Upload className="w-4 h-4" />}
         {lastAction === 'import' ? 'Impor siap' : 'Impor JSON / CSV'}
       </button>
+      <p className="text-[11px] leading-relaxed text-[var(--sk-text-dim)]">
+        CSV hanya membawa transaksi. Data lama tidak dihapus; transaksi duplikat dilewati. Pakai Backup JSON untuk memindahkan semua data aplikasi.
+      </p>
       <input
         ref={inputRef}
         type="file"
