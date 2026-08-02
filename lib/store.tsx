@@ -285,7 +285,7 @@ interface PersistedState {
   profileAvatarUrl?: string | null
 }
 
-export const CURRENT_SCHEMA_VERSION = 7
+export const CURRENT_SCHEMA_VERSION = 8
 
 // ── v2 → v3 demo-data purge helpers ─────────────────────────────────────────
 // Old builds shipped with hard-coded seed transactions and pre-filled wallet
@@ -324,6 +324,7 @@ const PARENT_INCOME_CATEGORY: CustomCategory = {
   keywords: [PARENT_INCOME_CATEGORY_ID, 'orang tua'],
   type: 'income',
 }
+const GENERIC_INCOME_BUCKETS = new Set(['hadiah', 'lainnya'])
 
 function compactKey(value: string | undefined): string {
   return (value ?? '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '')
@@ -412,6 +413,10 @@ function migratePersistedState(state: PersistedState): PersistedState {
     Object.assign(next, promoteParentIncomeCategory(next))
   }
 
+  if (prevVersion < 8) {
+    Object.assign(next, promoteGenericIncomeSubcategories(next))
+  }
+
   return { ...next, schemaVersion: CURRENT_SCHEMA_VERSION }
 }
 
@@ -476,6 +481,69 @@ function customCategoryType(category: Pick<CustomCategory, 'id' | 'type'>): Tran
 function buildCustomCategoryId(label: string, type: TransactionType): string {
   const slug = slugify(label)
   return getBuiltinCategoryType(slug) === type ? slug : `${type}-${slug}`
+}
+
+function findIncomeCategoryByLabel(label: string, customCategories: CustomCategory[]): string | null {
+  const normalized = compactKey(label)
+  if (!normalized) return null
+  if (normalized === PARENT_INCOME_CATEGORY_ID) return PARENT_INCOME_CATEGORY_ID
+
+  for (const [id, config] of Object.entries(CATEGORY_CONFIG)) {
+    if (getBuiltinCategoryType(id) !== 'income') continue
+    if (compactKey(id) === normalized || compactKey(config.label) === normalized) return id
+  }
+
+  for (const category of customCategories) {
+    if (customCategoryType(category) !== 'income') continue
+    if ([category.id, category.label, ...category.keywords].some(keyword => compactKey(keyword) === normalized)) return category.id
+  }
+
+  return null
+}
+
+function ensureIncomeCategoryFromLabel(label: string, customCategories: CustomCategory[]): { id: string; customCategories: CustomCategory[] } {
+  const existing = findIncomeCategoryByLabel(label, customCategories)
+  if (existing) return { id: existing, customCategories }
+
+  const id = buildCustomCategoryId(label, 'income')
+  return {
+    id,
+    customCategories: [
+      ...customCategories,
+      {
+        id,
+        label: label.trim(),
+        keywords: [id, label.toLowerCase().trim()],
+        type: 'income',
+        icon: suggestCategoryIconKey(label),
+      },
+    ],
+  }
+}
+
+function promoteGenericIncomeSubcategories(state: PersistedState): PersistedState {
+  if (!Array.isArray(state.transactions)) return state
+
+  let changed = false
+  let customCategories = Array.isArray(state.customCategories) ? state.customCategories : []
+  const transactions = state.transactions.map(transaction => {
+    const subcategory = transaction.subcategory?.trim()
+    if (
+      transaction.type !== 'income' ||
+      !subcategory ||
+      !GENERIC_INCOME_BUCKETS.has(transaction.category) ||
+      GENERIC_INCOME_BUCKETS.has(compactKey(subcategory))
+    ) {
+      return transaction
+    }
+
+    const result = ensureIncomeCategoryFromLabel(subcategory, customCategories)
+    customCategories = result.customCategories
+    changed = true
+    return { ...transaction, category: result.id, subcategory: undefined }
+  })
+
+  return changed ? { ...state, transactions, customCategories } : state
 }
 
 function rebalanceLegacyCustomCategories(state: PersistedState): PersistedState {

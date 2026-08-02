@@ -60,8 +60,6 @@ const EXPENSE_CATEGORY_ALIASES: Record<string, string> = {
 }
 
 const INCOME_CATEGORY_ALIASES: Record<string, string> = {
-  uangjajan: 'hadiah',
-  thr: 'hadiah',
   gaji: 'gaji',
   freelance: 'freelance',
   lainlain: 'lainnya',
@@ -78,6 +76,8 @@ const PROMOTED_IMPORT_CATEGORIES: Record<string, string> = {
 }
 
 const PARENT_INCOME_CATEGORY_ID = 'orangtua'
+const GENERIC_INCOME_BUCKETS = new Set(['hadiah', 'lainnya'])
+const GENERIC_INCOME_IMPORT_LABELS = new Set(['hadiah', 'lainnya', 'lainlain', 'pemasukan', 'pendapatan', 'income', 'masuk'])
 
 function triggerPortableHaptic(pattern: number | number[] = [18, 40, 18]) {
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -179,6 +179,25 @@ function augmentFromImport(
     return id
   }
 
+  function findExistingCategory(label: string, type: TransactionType): string | undefined {
+    const lower = label.toLowerCase()
+    const normalized = normalizeHeader(label)
+    const matchingCustom = customCategories.find(category =>
+      matchesCategoryType(category, type) &&
+      [category.id, category.label, ...category.keywords].some(keyword => keyword.toLowerCase() === lower || normalizeHeader(keyword) === normalized)
+    )
+    return matchingCustom?.id
+      ?? (knownCategoryIds.has(lower) ? lower : undefined)
+      ?? categoryKeywordToId.get(lower)
+      ?? categoryKeywordToId.get(normalized)
+  }
+
+  function resolveIncomeDetailCategory(label: string): string {
+    const normalized = normalizeHeader(label)
+    if (normalized === PARENT_INCOME_CATEGORY_ID) return ensurePromotedCategory(PARENT_INCOME_CATEGORY_ID, 'income')
+    return findExistingCategory(label, 'income') ?? ensureImportedCategory(label, 'income')
+  }
+
   function resolveCategory(raw: string, type: Transaction['type'], currentSubcategory?: string): Pick<Transaction, 'category' | 'subcategory'> {
     const value = (raw ?? '').trim()
     const rawSubcategory = (currentSubcategory ?? '').trim()
@@ -188,24 +207,27 @@ function augmentFromImport(
     if (type === 'income' && (normalized === PARENT_INCOME_CATEGORY_ID || normalizeHeader(rawSubcategory) === PARENT_INCOME_CATEGORY_ID)) {
       return { category: ensurePromotedCategory(PARENT_INCOME_CATEGORY_ID, type) }
     }
-    const matchingCustom = customCategories.find(category =>
-      matchesCategoryType(category, type) &&
-      [category.id, category.label, ...category.keywords].some(keyword => keyword.toLowerCase() === lower || normalizeHeader(keyword) === normalized)
-    )
     if (PROMOTED_IMPORT_CATEGORIES[normalized]) {
       return {
         category: ensurePromotedCategory(normalized, type),
         subcategory: rawSubcategory || undefined,
       }
     }
-    const direct = matchingCustom?.id
-      ?? (knownCategoryIds.has(lower) ? lower : undefined)
-      ?? categoryKeywordToId.get(lower)
-      ?? categoryKeywordToId.get(normalized)
+    const direct = findExistingCategory(value, type)
     const alias = type === 'income'
       ? INCOME_CATEGORY_ALIASES[normalized]
       : EXPENSE_CATEGORY_ALIASES[normalized]
     const category = direct ?? alias
+    if (
+      type === 'income' &&
+      rawSubcategory &&
+      (
+        GENERIC_INCOME_BUCKETS.has(category ?? '') ||
+        GENERIC_INCOME_IMPORT_LABELS.has(normalized)
+      )
+    ) {
+      return { category: resolveIncomeDetailCategory(rawSubcategory) }
+    }
     if (direct && rawSubcategory) return { category, subcategory: rawSubcategory }
     if (direct) return { category }
     if (alias) return { category, subcategory: rawSubcategory || undefined }
