@@ -145,7 +145,10 @@ function augmentFromImport(
   const builtinCategoryIds = new Set(Object.keys(CATEGORY_CONFIG))
   const categoryKeywordToId = new Map<string, string>()
   const knownCategoryIds = new Set<string>(builtinCategoryIds)
-  for (const id of builtinCategoryIds) categoryKeywordToId.set(id, id)
+  for (const id of builtinCategoryIds) {
+    categoryKeywordToId.set(id, id)
+    categoryKeywordToId.set(normalizeHeader(CATEGORY_CONFIG[id as keyof typeof CATEGORY_CONFIG].label), id)
+  }
   for (const c of customCategories) knownCategoryIds.add(c.id)
 
   function ensurePromotedCategory(id: string, type: TransactionType): string {
@@ -157,6 +160,20 @@ function augmentFromImport(
     customCategories.push(newCat)
     knownCategoryIds.add(id)
     categoryKeywordToId.set(id, id)
+    return id
+  }
+
+  function ensureImportedCategory(label: string, type: TransactionType): string {
+    const baseId = slugifyId(label)
+    const id = knownCategoryIds.has(baseId) ? `${baseId}-${type}` : baseId
+    const existing = customCategories.find(category => category.id === id && matchesCategoryType(category, type))
+    if (existing) return existing.id
+    const newCat: CustomCategory = { id, label, keywords: [id, label.toLowerCase()], type }
+    customCategories.push(newCat)
+    knownCategoryIds.add(id)
+    categoryKeywordToId.set(id, id)
+    categoryKeywordToId.set(label.toLowerCase(), id)
+    categoryKeywordToId.set(normalizeHeader(label), id)
     return id
   }
 
@@ -183,9 +200,14 @@ function augmentFromImport(
     const alias = type === 'income'
       ? INCOME_CATEGORY_ALIASES[normalized]
       : EXPENSE_CATEGORY_ALIASES[normalized]
-    const category = direct ?? alias ?? 'lainnya'
+    const category = direct ?? alias
     if (direct && rawSubcategory) return { category, subcategory: rawSubcategory }
     if (direct) return { category }
+    if (alias) return { category, subcategory: rawSubcategory || undefined }
+    return {
+      category: ensureImportedCategory(value, type),
+      subcategory: rawSubcategory || undefined,
+    }
 
     const parts = [value, rawSubcategory].filter(Boolean)
     return {
@@ -309,7 +331,7 @@ function normalizeTransaction(raw: unknown, index: number): Transaction | null {
     description: String(pick(record, 'description') ?? 'Impor transaksi').trim(),
     amount,
     type,
-    category: String(pick(record, 'category') ?? (type === 'income' ? 'gaji' : 'lainnya')).trim().toLowerCase(),
+    category: String(pick(record, 'category') ?? (type === 'income' ? 'gaji' : 'lainnya')).trim(),
     subcategory: String(pick(record, 'subcategory') ?? '').trim() || undefined,
     paymentMethod: String(pick(record, 'paymentMethod') ?? 'tunai').trim().toLowerCase(),
     fromWalletId: typeof record.fromWalletId === 'string' ? record.fromWalletId : undefined,
