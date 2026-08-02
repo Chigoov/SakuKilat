@@ -11,16 +11,24 @@ export function ReportPreview({
   onClose,
   profileName,
   transactions,
+  html: reportHtml,
+  title = 'Laporan PDF bulan ini',
+  subtitle = 'Preview dulu, lalu cetak atau simpan ke PDF.',
+  jobName = 'Laporan SakuKilat Bulan Ini',
 }: {
   open: boolean
   onClose: () => void
   profileName?: string | null
   transactions: Transaction[]
+  html?: string
+  title?: string
+  subtitle?: string
+  jobName?: string
 }) {
   const frameRef = useRef<HTMLIFrameElement | null>(null)
   const html = useMemo(
-    () => buildMonthlyReportHtml(transactions, { profileName }),
-    [profileName, transactions]
+    () => reportHtml ?? buildMonthlyReportHtml(transactions, { profileName }),
+    [profileName, reportHtml, transactions]
   )
 
   if (!open) return null
@@ -44,15 +52,15 @@ export function ReportPreview({
           </button>
           <div className="min-w-0 flex-1">
             <h2 id="sk-report-title" className="truncate text-sm font-bold text-[var(--sk-text)]">
-              Laporan PDF bulan ini
+              {title}
             </h2>
-            <p className="text-[11px] text-[var(--sk-text-dim)]">Preview dulu, lalu cetak atau simpan ke PDF.</p>
+            <p className="text-[11px] text-[var(--sk-text-dim)]">{subtitle}</p>
           </div>
           <button
             type="button"
             onClick={async () => {
               const frameWindow = frameRef.current?.contentWindow
-              if (!await printReportHtml(html, 'Laporan SakuKilat Bulan Ini')) {
+              if (!await printReportHtml(html, jobName)) {
                 frameWindow?.focus()
                 frameWindow?.print()
               }

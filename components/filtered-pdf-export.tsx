@@ -8,14 +8,15 @@
  *   2) Rentang tanggal  : dari - sampai (opsional)
  *   3) Kategori         : multi-select (checkbox). Kosong = semua kategori.
  *
- * Klik "Ekspor PDF" -> generate HTML report -> print dialog perangkat.
+ * Klik "Preview PDF" -> generate HTML report -> preview, lalu user bisa cetak.
  */
 
 import { useMemo, useState } from 'react'
-import { Check, FileText, Printer, X } from 'lucide-react'
+import { Check, FileText, X } from 'lucide-react'
 import { CATEGORY_CONFIG, CategoryIcon, getCategoryConfig } from '@/components/category-badge'
 import { useCustomizationStore, useFeedbackStore, useTransactionData } from '@/lib/store'
-import { printFilteredReport, type FilteredReportOptions } from '@/lib/report'
+import { buildFilteredReportHtml, type FilteredReportOptions } from '@/lib/report'
+import { ReportPreview } from '@/components/report-preview'
 import { cn } from '@/lib/utils'
 
 type Tipe = 'expense' | 'income' | 'all'
@@ -40,6 +41,7 @@ export function FilteredPdfExport() {
   const [open, setOpen] = useState(false)
   const [tipe, setTipe] = useState<Tipe>('expense')
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set())
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
   const [start, setStart] = useState<string>(() => {
     const d = new Date()
     return toDateInputValue(new Date(d.getFullYear(), d.getMonth(), 1))
@@ -77,7 +79,7 @@ export function FilteredPdfExport() {
   const selectAll = () => setSelectedCats(new Set(availableCategories.map((c) => c.id)))
   const clearAll = () => setSelectedCats(new Set())
 
-  const handleExport = async () => {
+  const handleExport = () => {
     const startDate = fromDateInputValue(start)
     const endDate = fromDateInputValue(end)
 
@@ -101,17 +103,23 @@ export function FilteredPdfExport() {
       end: endDate ?? undefined,
       categoryIds: selectedCats.size > 0 ? Array.from(selectedCats) : undefined,
     }
-    const ok = await printFilteredReport(transactions, opts)
-    if (!ok) {
-      showToast('Gagal membuka dialog cetak. Coba tutup app lalu buka lagi.', 'error')
-    } else {
-      setOpen(false)
-      showToast('Dialog cetak PDF dibuka.', 'success')
-    }
+    setPreviewHtml(buildFilteredReportHtml(transactions, opts))
+    setOpen(false)
+    showToast('Preview PDF dibuka.', 'success')
   }
 
   return (
     <>
+      <ReportPreview
+        open={Boolean(previewHtml)}
+        onClose={() => setPreviewHtml(null)}
+        transactions={transactions}
+        html={previewHtml ?? undefined}
+        title="Preview PDF terfilter"
+        subtitle="Cek laporan dulu. Cetak atau simpan PDF hanya kalau sudah sesuai."
+        jobName="Laporan SakuKilat Terfilter"
+      />
+
       {/* Tombol pemicu */}
       <button
         type="button"
@@ -257,8 +265,8 @@ export function FilteredPdfExport() {
                 onClick={handleExport}
                 className="flex-1 h-11 rounded-xl bg-[var(--sk-cyan)] text-sm font-semibold text-[#090D16] flex items-center justify-center gap-1.5"
               >
-                <Printer className="h-4 w-4" />
-                Ekspor PDF
+                <FileText className="h-4 w-4" />
+                Preview PDF
               </button>
             </div>
           </div>
