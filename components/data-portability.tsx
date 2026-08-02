@@ -61,7 +61,6 @@ const EXPENSE_CATEGORY_ALIASES: Record<string, string> = {
 
 const INCOME_CATEGORY_ALIASES: Record<string, string> = {
   uangjajan: 'hadiah',
-  orangtua: 'hadiah',
   thr: 'hadiah',
   gaji: 'gaji',
   freelance: 'freelance',
@@ -74,8 +73,11 @@ const INCOME_CATEGORY_ALIASES: Record<string, string> = {
 const PROMOTED_IMPORT_CATEGORIES: Record<string, string> = {
   bensin: 'Bensin',
   kouta: 'Kouta',
+  orangtua: 'Orang tua',
   thiara: 'Thiara',
 }
+
+const PARENT_INCOME_CATEGORY_ID = 'orangtua'
 
 function triggerPortableHaptic(pattern: number | number[] = [18, 40, 18]) {
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -183,6 +185,9 @@ function augmentFromImport(
     if (!value) return { category: 'lainnya', subcategory: rawSubcategory || undefined }
     const lower = value.toLowerCase()
     const normalized = normalizeHeader(value)
+    if (type === 'income' && (normalized === PARENT_INCOME_CATEGORY_ID || normalizeHeader(rawSubcategory) === PARENT_INCOME_CATEGORY_ID)) {
+      return { category: ensurePromotedCategory(PARENT_INCOME_CATEGORY_ID, type) }
+    }
     const matchingCustom = customCategories.find(category =>
       matchesCategoryType(category, type) &&
       [category.id, category.label, ...category.keywords].some(keyword => keyword.toLowerCase() === lower || normalizeHeader(keyword) === normalized)
@@ -461,6 +466,32 @@ function downloadFile(name: string, text: string, type: string): boolean {
   }
 }
 
+function isParentIncome(transaction: Transaction): boolean {
+  return transaction.type === 'income'
+    && transaction.category === 'hadiah'
+    && normalizeHeader(transaction.subcategory ?? '') === PARENT_INCOME_CATEGORY_ID
+}
+
+function normalizeParentIncome(transaction: Transaction): Transaction {
+  return isParentIncome(transaction)
+    ? { ...transaction, category: PARENT_INCOME_CATEGORY_ID, subcategory: undefined }
+    : transaction
+}
+
+function ensureParentIncomeCategory(categories: CustomCategory[], transactions: Transaction[]): CustomCategory[] {
+  if (!transactions.some(transaction => transaction.category === PARENT_INCOME_CATEGORY_ID)) return categories
+  if (categories.some(category => category.id === PARENT_INCOME_CATEGORY_ID && category.type === 'income')) return categories
+  return [
+    ...categories,
+    {
+      id: PARENT_INCOME_CATEGORY_ID,
+      label: 'Orang tua',
+      keywords: [PARENT_INCOME_CATEGORY_ID, 'orang tua'],
+      type: 'income',
+    },
+  ]
+}
+
 type FileExportResult = 'shared' | 'downloaded' | 'cancelled' | 'failed'
 
 function isShareCancel(error: unknown): boolean {
@@ -632,12 +663,17 @@ export function DataPortability() {
     const augment = isSakuKilatBackup
       ? null
       : augmentFromImport(imported, wallets, customPayments, customCategories)
-    const importedFinal = augment ? augment.transactions : imported
+    const importedFinal = (augment ? augment.transactions : imported).map(normalizeParentIncome)
     const freshImported = importedFinal.filter(t => !existingSignatures.has(transactionSignature(t)))
 
     const merged = isSakuKilatBackup
       ? importedFinal
       : [...freshImported, ...transactions]
+
+    const nextCustomCategories = ensureParentIncomeCategory(
+      Array.isArray(backupRecord?.customCategories) ? backupRecord.customCategories : (augment ? augment.customCategories : customCategories),
+      merged
+    )
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
       ...current,
@@ -647,7 +683,7 @@ export function DataPortability() {
       wallets: Array.isArray(backupRecord?.wallets) ? backupRecord.wallets : (augment ? augment.wallets : wallets),
       monthlyBudget: typeof backupRecord?.monthlyBudget === 'number' ? backupRecord.monthlyBudget : monthlyBudget,
       customPayments: Array.isArray(backupRecord?.customPayments) ? backupRecord.customPayments : (augment ? augment.customPayments : customPayments),
-      customCategories: Array.isArray(backupRecord?.customCategories) ? backupRecord.customCategories : (augment ? augment.customCategories : customCategories),
+      customCategories: nextCustomCategories,
     }))
     if (isSakuKilatBackup && Array.isArray(backupRecord?.goals)) {
       window.localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(backupRecord.goals))
@@ -660,7 +696,7 @@ export function DataPortability() {
       transactions: merged,
       walletsCount: (Array.isArray(backupRecord?.wallets) ? backupRecord.wallets : (augment ? augment.wallets : wallets)).length,
       customPaymentsCount: (Array.isArray(backupRecord?.customPayments) ? backupRecord.customPayments : (augment ? augment.customPayments : customPayments)).length,
-      customCategoriesCount: (Array.isArray(backupRecord?.customCategories) ? backupRecord.customCategories : (augment ? augment.customCategories : customCategories)).length,
+      customCategoriesCount: nextCustomCategories.length,
       goalsTotal: goals.length,
       goalsCompleted: goals.filter(goal => goal.saved >= goal.target).length,
     }))

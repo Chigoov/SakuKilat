@@ -285,7 +285,7 @@ interface PersistedState {
   profileAvatarUrl?: string | null
 }
 
-export const CURRENT_SCHEMA_VERSION = 6
+export const CURRENT_SCHEMA_VERSION = 7
 
 // ── v2 → v3 demo-data purge helpers ─────────────────────────────────────────
 // Old builds shipped with hard-coded seed transactions and pre-filled wallet
@@ -315,6 +315,41 @@ const LEGACY_WALLET_BALANCES: Record<string, number> = {
   dana:      165_000,
   shopeepay: 90_000,
   tabungan:  2_500_000,
+}
+
+const PARENT_INCOME_CATEGORY_ID = 'orangtua'
+const PARENT_INCOME_CATEGORY: CustomCategory = {
+  id: PARENT_INCOME_CATEGORY_ID,
+  label: 'Orang tua',
+  keywords: [PARENT_INCOME_CATEGORY_ID, 'orang tua'],
+  type: 'income',
+}
+
+function compactKey(value: string | undefined): string {
+  return (value ?? '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '')
+}
+
+function promoteParentIncomeCategory(state: PersistedState): PersistedState {
+  if (!Array.isArray(state.transactions)) return state
+  let changed = false
+  const transactions = state.transactions.map(transaction => {
+    const isParentIncome = transaction.type === 'income'
+      && transaction.category === 'hadiah'
+      && compactKey(transaction.subcategory) === PARENT_INCOME_CATEGORY_ID
+    if (!isParentIncome) return transaction
+    changed = true
+    return { ...transaction, category: PARENT_INCOME_CATEGORY_ID, subcategory: undefined }
+  })
+  if (!changed) return state
+
+  const customCategories = Array.isArray(state.customCategories) ? state.customCategories : []
+  return {
+    ...state,
+    transactions,
+    customCategories: customCategories.some(category => category.id === PARENT_INCOME_CATEGORY_ID && category.type === 'income')
+      ? customCategories
+      : [...customCategories, PARENT_INCOME_CATEGORY],
+  }
 }
 
 function reviveTransactions(items: PersistedState['transactions']): Transaction[] | null {
@@ -371,6 +406,10 @@ function migratePersistedState(state: PersistedState): PersistedState {
 
   if (prevVersion < 6) {
     Object.assign(next, rebalanceLegacyCustomCategories(next))
+  }
+
+  if (prevVersion < 7) {
+    Object.assign(next, promoteParentIncomeCategory(next))
   }
 
   return { ...next, schemaVersion: CURRENT_SCHEMA_VERSION }

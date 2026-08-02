@@ -229,27 +229,46 @@ export function buildFilteredReportHtml(
     { income: 0, expense: 0 }
   )
 
-  // Breakdown per kategori (hanya untuk transaksi terfilter)
-  const perCategory = new Map<string, { total: number; count: number }>()
-  for (const t of filtered) {
-    const cur = perCategory.get(t.category) ?? { total: 0, count: 0 }
-    cur.total += t.amount
-    cur.count += 1
-    perCategory.set(t.category, cur)
+  function categorySummaryRows(type: 'income' | 'expense', total: number): string {
+    const perCategory = new Map<string, { total: number; count: number }>()
+    for (const t of filtered) {
+      if (t.type !== type) continue
+      const cur = perCategory.get(t.category) ?? { total: 0, count: 0 }
+      cur.total += t.amount
+      cur.count += 1
+      perCategory.set(t.category, cur)
+    }
+    return Array.from(perCategory.entries())
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([catId, agg]) => {
+        const pct = total > 0 ? Math.round((agg.total / total) * 100) : 0
+        return `<tr>
+          <td>${esc(getCategoryConfig(catId).label)}</td>
+          <td class="num">${agg.count}</td>
+          <td class="num">${pct}%</td>
+          <td class="num">${formatIDR(agg.total)}</td>
+        </tr>`
+      })
+      .join('')
   }
-  const totalForBreakdown = opts.transactionType === 'income' ? totals.income : totals.expense
-  const breakdownRows = Array.from(perCategory.entries())
-    .sort((a, b) => b[1].total - a[1].total)
-    .map(([catId, agg]) => {
-      const pct = totalForBreakdown > 0 ? Math.round((agg.total / totalForBreakdown) * 100) : 0
-      return `<tr>
-        <td>${esc(getCategoryConfig(catId).label)}</td>
-        <td class="num">${agg.count}</td>
-        <td class="num">${pct}%</td>
-        <td class="num">${formatIDR(agg.total)}</td>
-      </tr>`
-    })
-    .join('')
+
+  function categorySummarySection(title: string, type: 'income' | 'expense', total: number): string {
+    const summaryRows = categorySummaryRows(type, total)
+    return `<h2>${title}</h2>
+      ${summaryRows ? `<table>
+        <thead><tr><th>Kategori</th><th class="num">Jml</th><th class="num">Porsi</th><th class="num">Total</th></tr></thead>
+        <tbody>${summaryRows}</tbody>
+      </table>` : '<div class="empty">Tidak ada data di rentang ini.</div>'}`
+  }
+
+  const categorySummary = opts.transactionType === 'income'
+    ? categorySummarySection('Ringkasan Pemasukan per Kategori', 'income', totals.income)
+    : opts.transactionType === 'all'
+      ? [
+          categorySummarySection('Ringkasan Pemasukan per Kategori', 'income', totals.income),
+          categorySummarySection('Ringkasan Pengeluaran per Kategori', 'expense', totals.expense),
+        ].join('')
+      : categorySummarySection('Ringkasan Pengeluaran per Kategori', 'expense', totals.expense)
 
   // Rincian transaksi
   const rows = filtered.map((t) => {
@@ -337,11 +356,7 @@ export function buildFilteredReportHtml(
     <div class="card"><div class="lbl">Jumlah Transaksi</div><div class="val">${filtered.length}</div></div>
   </div>
 
-  <h2>Ringkasan per Kategori</h2>
-  ${perCategory.size > 0 ? `<table>
-    <thead><tr><th>Kategori</th><th class="num">Jml</th><th class="num">Porsi</th><th class="num">Total</th></tr></thead>
-    <tbody>${breakdownRows}</tbody>
-  </table>` : '<div class="empty">Tidak ada data di rentang ini.</div>'}
+  ${categorySummary}
 
   <h2>Rincian Transaksi (${filtered.length})</h2>
   ${filtered.length > 0 ? `<table>
