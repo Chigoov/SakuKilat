@@ -1,37 +1,59 @@
-# sakukilat-finance-tracker-DATA-BASW
+# ⚡ SakuKilat — Personal Finance Tracker
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+Aplikasi pencatat keuangan pribadi modern, cepat, dan *offline-first* dengan Natural Language Processing (NLP) khusus Bahasa Indonesia. Dibangun menggunakan Next.js 16, React 19, Tailwind CSS v4, dan dikemas menjadi aplikasi Android Native menggunakan Capacitor 8.
 
-## Built with v0
+---
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+## 📁 Struktur Direktori Proyek
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_aCEu1P98B3j512DMTcvwcVpCl7Kq)
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+```text
+├── android/          # Native Android project wrapper (Capacitor & Gradle)
+├── app/              # Next.js App Router (Layout & Pages)
+├── components/       # Komponen UI React (Beranda, Saku, Rekapan, Profil, dll.)
+├── docs/             # 📚 Dokumentasi, Panduan, & Protokol Pengembangan
+│   ├── BUILD-ANDROID.md      # Panduan build APK/AAB Android
+│   ├── DEV-PROTOCOL.md       # Protokol kerja, SOP, & batasan revisi
+│   ├── README-REVISI.md      # Riwayat & catatan perbaikan/revisi
+│   └── SESSION-NOTES.md      # Catatan sesi & arsitektur proyek
+├── lib/              # Modul logika (NLP Parser, Local Store, Stats, Cron)
+├── public/           # Aset statis & ikon aplikasi
+├── scripts/          # 🛠️ Skrip Otomasi, Build, & Test Suite
+│   ├── update-apk.ps1        # Otomasi 1-klik build Next.js + Capacitor APK
+│   ├── pindah-workspace.ps1  # Skrip utilitas pemindahan workspace
+│   └── test-budget-logic.mjs # Unit test logika dynamic budgeting
+├── capacitor.config.ts # Konfigurasi Capacitor Android (App ID, Splash, Notifikasi)
+├── next.config.mjs     # Konfigurasi Next.js (Static export untuk Android)
+└── package.json        # Dependensi & script perintah kerja
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🚀 Perintah Utama (Quick Start)
 
-## Data storage status
+### 1. Mode Development (Web)
+```bash
+pnpm dev
+```
+Akses di browser pada: `http://localhost:3000`
 
-SakuKilat menyimpan seluruh data (transaksi, saku, budget, kategori, goal, dan pengaturan) di `localStorage` browser/perangkat. Aplikasi berjalan sepenuhnya lokal dan offline — tanpa login dan tanpa cloud sync. Gunakan fitur Backup/Ekspor di tab Profil kalau ingin memindahkan data antar perangkat.
+### 2. Jalankan Pengujian Logika (Test Suite)
+```bash
+pnpm test
+```
 
-## Learn More
+### 3. Build & Bungkus APK Android Otomatis
+```bash
+pnpm build:apk
+```
+*Atau jalankan skrip PowerShell langsung:*
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/update-apk.ps1
+```
+Hasil file akhir **`SakuKilat.apk`** akan langsung tersedia di folder root proyek.
 
-To learn more, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+## 🔒 Prinsip Penyimpanan Data
+SakuKilat menyimpan seluruh data pengguna (transaksi, dompet, budget, kategori, goal) secara **lokal** di perangkat (`localStorage` pada web / `@capacitor/preferences` pada Android). Aplikasi berjalan 100% offline tanpa login dan tanpa cloud database eksternal.
+
+Fitur cadangan dan ekspor data tersedia di tab **Profil** (Ekspor PDF, CSV, dan JSON Backup).

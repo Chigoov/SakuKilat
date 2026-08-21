@@ -11,7 +11,8 @@
 #>
 
 $ErrorActionPreference = 'Stop'
-$root = $PSScriptRoot
+$root = (Resolve-Path "$PSScriptRoot\..").Path
+Push-Location $root
 
 # Lokasi tool yang dipasang sebelumnya.
 $pnpm = "$env:APPDATA\npm\node_modules\pnpm\bin\pnpm.cjs"
@@ -19,7 +20,11 @@ $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 
 Write-Host "`n[1/4] Build web statis (next export)..." -ForegroundColor Cyan
-node $pnpm run build
+if (Get-Command pnpm -ErrorAction SilentlyContinue) {
+  pnpm run build
+} else {
+  node $pnpm run build
+}
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "`n[2/4] Sinkronisasi ke proyek Android..." -ForegroundColor Cyan

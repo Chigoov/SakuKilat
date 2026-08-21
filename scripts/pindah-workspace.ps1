@@ -19,7 +19,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-$sumber  = $PSScriptRoot
+$sumber  = (Resolve-Path "$PSScriptRoot\..").Path
 $tujuan  = 'C:\Users\HYPE AMD\Downloads\VIBE CODING\SakuKilat'
 
 Write-Host "Sumber : $sumber"  -ForegroundColor Cyan
