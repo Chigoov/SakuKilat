@@ -252,7 +252,7 @@ const PRESERVED_KEY_PREFIXES = [
   'sakukilat:v2:photo-changed',
   'sakukilat:v2:tabs-seen',
   'sakukilat:v2:rekap-days',
-  'sakukilat:v2:badge-unlocks',
+  'sakukilat:v2:badge-unlock',
   'sakukilat:v2:badges-seen',
   'sakukilat:v2:budget-set',
   'sakukilat:v2:tren-seen',

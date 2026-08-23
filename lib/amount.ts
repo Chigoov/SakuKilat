@@ -45,7 +45,7 @@ export function parseAmountInput(raw: string): number {
 
   // ponytail: formatted IDR input already uses dot thousand separators; strip
   // them here so every amount field can safely reuse the same realtime formatter.
-  const compact = normalized.includes('.') && !normalized.includes(',') && !/(jt|juta)$/.test(normalized)
+  const compact = normalized.includes('.') && !normalized.includes(',') && !/(k|rb|ribu|jt|juta|m|miliar|milyar)$/.test(normalized)
     ? normalized.replace(/\./g, '')
     : normalized
 

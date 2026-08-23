@@ -314,13 +314,29 @@ function normalizeNumberString(raw: string, mode: 'plain' | 'suffix' = 'suffix')
       return Number.isFinite(value) ? value : null
     }
 
+    if (separatorCount === 1) {
+      // Satu separator: deteksi apakah ribuan (3 digit kanan) atau desimal (1-2 digit kanan)
+      const sepIndex = s.search(/[.,]/)
+      const rightPart = s.slice(sepIndex + 1)
+      const leftPart = s.slice(0, sepIndex)
+      if (rightPart.length === 3) {
+        // Format ribuan: "2.000" → 2000, "18.500" → 18500
+        const value = Number(leftPart + rightPart)
+        return Number.isFinite(value) ? value : null
+      }
+      if (rightPart.length <= 2) {
+        // Format desimal: "2.50" → 2.5 → round → 3, "2.5" → 3
+        const value = Number(`${leftPart}.${rightPart}`)
+        return Number.isFinite(value) ? Math.round(value) : null
+      }
+      return null
+    }
+
+    // Banyak separator: anggap semua ribuan (mis. "1.500.000" → 1500000)
     const compact = s.replace(/[.,]/g, '')
     if (!/^\d+$/.test(compact)) return null
-
     const compactValue = Number(compact)
-    if (!Number.isFinite(compactValue)) return null
-
-    return compactValue < 1_000 ? compactValue * 100 : compactValue
+    return Number.isFinite(compactValue) ? compactValue : null
   }
 
   {
