@@ -226,6 +226,7 @@ export const TabRekapan = memo(function TabRekapan() {
   const [periodStart, setPeriodStart] = useState<Date>(() => monthStart(new Date()))
   const [periodEnd, setPeriodEnd] = useState<Date>(() => dateOnly(new Date()))
   const [allocationType, setAllocationType] = useState<'expense' | 'income'>('expense')
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [detailSheet, setDetailSheet] = useState<DetailSheetState | null>(null)
 
   useEffect(() => {
@@ -891,28 +892,67 @@ export const TabRekapan = memo(function TabRekapan() {
                     Belum ada {allocationType === 'expense' ? 'pengeluaran' : 'pemasukan'} di rentang ini.
                   </p>
                 ) : (
-                  <div className="space-y-3">
-                    {trendAllocation.slice(0, 5).map((slice) => (
-                      <button
-                        key={slice.category}
-                        type="button"
-                        onClick={() => openTransactions(
-                          getCategoryConfig(slice.category).label,
-                          trendTransactions.filter((transaction) => transaction.type === allocationType && transaction.category === slice.category),
-                          new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth),
-                          subcategoryBreakdownForRange(transactions, trendStart, trendEnd, slice.category, allocationType),
-                        )}
-                        className="flex w-full items-center gap-3 text-left"
-                      >
-                        <span className="h-3 w-3 rounded-full" style={{ background: getCategoryHex(slice.category) }} />
-                        <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--sk-text-muted)]">
-                          {getCategoryConfig(slice.category).label}
-                        </span>
-                        <span className="text-xs font-semibold text-[var(--sk-text)]">
-                          {Math.round(slice.pct * 100)}%
-                        </span>
-                      </button>
-                    ))}
+                  <div className="space-y-2.5">
+                    {trendAllocation.slice(0, 8).map((slice) => {
+                      const isExpanded = expandedCategory === slice.category
+                      const subSlices = subcategoryBreakdownForRange(transactions, trendStart, trendEnd, slice.category, allocationType)
+                      return (
+                        <div key={slice.category} className="rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface)] overflow-hidden transition-all">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedCategory(isExpanded ? null : slice.category)}
+                            className="flex w-full items-center gap-3 p-3 text-left hover:bg-[var(--sk-surface-2)] transition-colors"
+                          >
+                            <span className="h-3 w-3 rounded-full shrink-0" style={{ background: getCategoryHex(slice.category) }} />
+                            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--sk-text)]">
+                              {getCategoryConfig(slice.category).label}
+                            </span>
+                            <span className="text-xs font-bold tabular-nums text-[var(--sk-text)]">
+                              {formatIDRCompact(slice.total)} ({Math.round(slice.pct * 100)}%)
+                            </span>
+                            <ChevronRight className={cn('h-3.5 w-3.5 text-[var(--sk-text-dim)] transition-transform duration-200 shrink-0', isExpanded && 'rotate-90')} />
+                          </button>
+
+                          {isExpanded && (
+                            <div className="border-t border-[var(--sk-border)] bg-[var(--sk-surface-2)]/50 p-3 animate-fade-in">
+                              {subSlices.length > 0 ? (
+                                <div className="space-y-1.5 mb-2.5">
+                                  <p className="text-[10px] uppercase tracking-wider font-semibold text-[var(--sk-text-dim)] mb-1">
+                                    Rincian Sub Kategori
+                                  </p>
+                                  {subSlices.map(sub => {
+                                    const subPct = slice.total > 0 ? Math.round((sub.total / slice.total) * 100) : 0
+                                    return (
+                                      <div key={sub.label} className="flex items-center justify-between text-xs py-0.5">
+                                        <span className="text-[var(--sk-text-muted)] truncate">{sub.label}</span>
+                                        <span className="font-semibold tabular-nums text-[var(--sk-text)]">
+                                          {formatIDR(sub.total)} ({subPct}%)
+                                        </span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-[var(--sk-text-dim)] mb-2">Semua transaksi dicatat tanpa subkategori.</p>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => openTransactions(
+                                  getCategoryConfig(slice.category).label,
+                                  trendTransactions.filter((t) => t.type === allocationType && t.category === slice.category),
+                                  new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth),
+                                  subSlices
+                                )}
+                                className="w-full py-1.5 rounded-lg bg-[var(--sk-surface-3)] text-center text-xs font-semibold text-[var(--sk-cyan)] hover:underline"
+                              >
+                                Lihat Semua Transaksi ({subSlices.reduce((acc, s) => acc + s.count, 0)})
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>

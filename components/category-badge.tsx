@@ -88,6 +88,21 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   lainnya:   'Lainnya',
 }
 
+export function getWalletBadgeStyle(walletId?: string): string {
+  if (!walletId) return 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-[var(--sk-border)]'
+  const id = walletId.toLowerCase()
+  if (['bca', 'bni', 'bri', 'mandiri', 'jago', 'cimb', 'permata', 'bsi', 'bank'].some(k => id.includes(k))) {
+    return 'bg-[rgba(59,130,246,0.12)] text-[#60A5FA] border-[#60A5FA]/30'
+  }
+  if (['gopay', 'ovo', 'dana', 'shopeepay', 'spay', 'qris', 'linkaja', 'ewallet'].some(k => id.includes(k))) {
+    return 'bg-[rgba(45,212,191,0.12)] text-[#2DD4BF] border-[#2DD4BF]/30'
+  }
+  if (['tunai', 'cash', 'kontan', 'dompet'].some(k => id.includes(k))) {
+    return 'bg-[rgba(251,191,36,0.12)] text-[#FBBF24] border-[#FBBF24]/30'
+  }
+  return 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-[var(--sk-border)]'
+}
+
 // ── Custom (user-defined) registry ───────────────────────────────────────────
 // The store registers user-defined categories/payments here so that display
 // components can resolve labels & styling for arbitrary custom ids without

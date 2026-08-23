@@ -5,7 +5,7 @@ import { ArrowRightLeft, ChevronRight, PiggyBank } from 'lucide-react'
 import { formatIDR, formatTime } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import type { TransactionUpdateInput } from '@/lib/store'
-import { CategoryIcon, getCategoryConfig, getPaymentLabel } from './category-badge'
+import { CategoryIcon, getCategoryConfig, getPaymentLabel, getWalletBadgeStyle } from './category-badge'
 import { EditTransactionModal } from './edit-transaction-modal'
 import { cn } from '@/lib/utils'
 
@@ -26,7 +26,6 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
   const MoveIcon = kind === 'saving' ? PiggyBank : ArrowRightLeft
   const routeLabel = `${getPaymentLabel(transaction.fromWalletId ?? transaction.paymentMethod)} -> ${getPaymentLabel(transaction.toWalletId ?? '')}`
   const typeLabel = isMove ? (kind === 'saving' ? 'Simpan' : 'Pindah') : isExpense ? 'Pengeluaran' : 'Pemasukan'
-  const categoryLabel = transaction.subcategory ? `${config.label} / ${transaction.subcategory}` : config.label
   const signedAmount = `${isMove ? '' : isExpense ? '-' : '+'}${formatIDR(transaction.amount)}`
 
   return (
@@ -38,23 +37,13 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
           'hover:border-[var(--sk-border-2)] hover:bg-[var(--sk-surface-2)]',
           'active:scale-[0.99]',
           isNew && 'animate-pop-in',
-          transaction.isPending && 'opacity-70'
         )}
         onClick={() => setModalOpen(true)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={e => e.key === 'Enter' && setModalOpen(true)}
       >
-        {transaction.isPending && (
-          <div aria-hidden className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent animate-[shimmer_1.5s_ease-in-out_infinite] -skew-x-12" />
-          </div>
-        )}
-
         <div className="flex items-center gap-3 p-3.5">
           {isMove ? (
-            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--sk-cyan-dim)]">
-              <MoveIcon className="h-5 w-5 text-[var(--sk-cyan)]" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] shadow-[0_8px_20px_rgba(56,189,248,0.14)]">
+              <MoveIcon className="h-5 w-5" />
             </div>
           ) : (
             <CategoryIcon category={transaction.category} size="md" />
@@ -66,16 +55,22 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
                 {transaction.description}
               </span>
             </div>
-            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
               <span className="shrink-0 text-xs text-[var(--sk-text-muted)]">
-                {isMove ? typeLabel : categoryLabel}
+                {isMove ? typeLabel : config.label}
               </span>
-              <span className="shrink-0 text-xs text-[var(--sk-text-dim)]">.</span>
-              <span className="min-w-0 break-words text-xs text-[var(--sk-text-muted)]">
+              {transaction.subcategory && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border border-[var(--sk-cyan)]/20">
+                  {transaction.subcategory}
+                </span>
+              )}
+              <span className={cn(
+                'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border',
+                getWalletBadgeStyle(isMove ? transaction.fromWalletId : transaction.paymentMethod)
+              )}>
                 {isMove ? routeLabel : getPaymentLabel(transaction.paymentMethod)}
               </span>
-              <span className="shrink-0 text-xs text-[var(--sk-text-dim)]">.</span>
-              <span className="shrink-0 text-xs text-[var(--sk-text-dim)]">
+              <span className="shrink-0 text-[11px] text-[var(--sk-text-dim)] ml-auto">
                 {formatTime(transaction.date)}
               </span>
             </div>
