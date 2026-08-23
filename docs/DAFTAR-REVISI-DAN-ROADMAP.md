@@ -254,10 +254,11 @@ Berikut pembagian jadwal pengerjaan bertahap:
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 🚀 Sesi 1: Peningkatan Kecepatan & Ergonomi Form Catat Manual
+### 🚀 Sesi 1: Peningkatan Kecepatan & Ergonomi Form Catat Manual & Edit Transaksi
 - [ ] **Item 1.1**: Pasang **Quick Amount Chips** (`+10rb`, `+20rb`, `+50rb`, `+100rb`, `+500rb`, `Hapus`) di bawah input nominal agar bisa menambah angka instan tanpa buka keyboard.
 - [ ] **Item 1.2**: Pasang **Quick Date Selector** (`[ Hari Ini ]`, `[ Kemarin ]`, `[ Kalender ]`) untuk mempercepat pencatatan transaksi susulan.
 - [ ] **Item 1.3**: Bersihkan teks nominal yang ikut masuk ke field keterangan saat form manual dibuka dari SmartInput (membersihkan deskripsi otomatis).
+- [ ] **Item 1.4**: Ubah sistem edit/revisi transaksi di Riwayat dari *inline accordion yang melar di tengah list* menjadi **Dedicated Bottom Sheet Edit Modal** yang fokus, rapi, dan keyboard-friendly.
 
 ### 🚀 Sesi 2: Arsitektur UI Sub Kategori Lengkap & Smart NLP
 - [ ] **Item 2.1**: Ubah UI Sub Kategori di Form Manual menjadi **Horizontal Pill Carousel** (swipeable, touch target 38px, ketinggian modal terkunci rapi tidak melar).
