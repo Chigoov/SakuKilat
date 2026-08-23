@@ -24,9 +24,9 @@ const MAX_AVATAR_BYTES = 5 * 1024 * 1024
 
 function StatCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="flex-1 rounded-xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-3.5 flex flex-col gap-1">
+    <div className="flex-1 min-w-0 rounded-xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-3 flex flex-col gap-1">
       <p className="text-[10px] text-[var(--sk-text-dim)] uppercase tracking-widest font-medium">{label}</p>
-      <p className={cn('text-sm md:text-base font-bold leading-tight break-words', color)}>{value}</p>
+      <p className={cn('text-sm font-bold leading-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis', color)}>{value}</p>
     </div>
   )
 }

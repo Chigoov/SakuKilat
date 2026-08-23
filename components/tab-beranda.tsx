@@ -278,29 +278,29 @@ export const TabBeranda = memo(function TabBeranda() {
               Saldo Bersih — {heroMonthLabel}
             </p>
             <p className={cn(
-              'mt-1.5 text-[32px] font-bold leading-none tracking-tight text-[var(--sk-text)] break-words [overflow-wrap:anywhere]',
-              monthTotals.balance < 0 && 'text-[var(--sk-red)]'
+              'mt-1.5 text-[28px] font-bold leading-none tracking-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis',
+              monthTotals.balance < 0 ? 'text-[var(--sk-red)]' : 'text-[var(--sk-text)]'
             )}>
-              {monthTotals.balance < 0 ? `-${formatIDR(Math.abs(monthTotals.balance))}` : formatIDR(monthTotals.balance)}
+              {monthTotals.balance < 0 ? `-${formatIDRCompact(Math.abs(monthTotals.balance))}` : formatIDRCompact(monthTotals.balance)}
             </p>
 
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--sk-green-dim)]">
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-[var(--sk-green-dim)]">
                   <TrendingUp className="h-4 w-4 text-[var(--sk-green)]" />
                 </div>
-                <div>
-                  <p className="text-[13px] text-[var(--sk-text-dim)]">Masuk</p>
-                  <p className="text-[17px] font-bold leading-tight text-[var(--sk-green)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(monthTotals.income)}</p>
+                <div className="min-w-0">
+                  <p className="text-[12px] text-[var(--sk-text-dim)]">Masuk</p>
+                  <p className="text-[15px] font-bold leading-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis text-[var(--sk-green)]">{formatIDRCompact(monthTotals.income)}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--sk-red-dim)]">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-[var(--sk-red-dim)]">
                   <TrendingDown className="h-4 w-4 text-[var(--sk-red)]" />
                 </div>
-                <div>
-                  <p className="text-[13px] text-[var(--sk-text-dim)]">Keluar</p>
-                  <p className="text-[17px] font-bold leading-tight text-[var(--sk-red)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(monthTotals.expense)}</p>
+                <div className="min-w-0">
+                  <p className="text-[12px] text-[var(--sk-text-dim)]">Keluar</p>
+                  <p className="text-[15px] font-bold leading-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis text-[var(--sk-red)]">{formatIDRCompact(monthTotals.expense)}</p>
                 </div>
               </div>
             </div>
@@ -375,15 +375,15 @@ export const TabBeranda = memo(function TabBeranda() {
           <div className="mt-4 grid grid-cols-3 gap-2.5">
             <div className="rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Keluar</p>
-              <p className="mt-2 text-[13px] font-bold leading-tight text-[var(--sk-red)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(activeInsight.expense)}</p>
+              <p className="mt-2 text-[13px] font-bold leading-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis text-[var(--sk-red)]">{formatIDRCompact(activeInsight.expense)}</p>
             </div>
             <div className="rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Masuk</p>
-              <p className="mt-2 text-[13px] font-bold leading-tight text-[var(--sk-green)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(activeInsight.income)}</p>
+              <p className="mt-2 text-[13px] font-bold leading-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis text-[var(--sk-green)]">{formatIDRCompact(activeInsight.income)}</p>
             </div>
             <div className="rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Rata/hari</p>
-              <p className="mt-2 text-[13px] font-bold leading-tight text-[var(--sk-text)] break-words [overflow-wrap:anywhere]">{formatIDRCompact(activeInsight.avgPerDay)}</p>
+              <p className="mt-2 text-[13px] font-bold leading-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis text-[var(--sk-text)]">{formatIDRCompact(activeInsight.avgPerDay)}</p>
             </div>
           </div>
 
