@@ -109,11 +109,9 @@ export const EditTransactionModal = memo(function EditTransactionModal({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [open, onClose])
 
-  if (!open || !transaction) return null
-
-  const kind = transaction.kind ?? 'transaction'
+  const kind = transaction?.kind ?? 'transaction'
   const isMove = kind === 'transfer' || kind === 'saving'
-  const isExpense = transaction.type === 'expense'
+  const isExpense = transaction ? transaction.type === 'expense' : true
   const parsedAmount = parseAmountInput(amountRaw)
 
   const categoryOptions = useMemo(() => {
@@ -162,7 +160,7 @@ export const EditTransactionModal = memo(function EditTransactionModal({
   )
 
   const handleSave = () => {
-    if (!parsedAmount || parsedAmount <= 0) return
+    if (!transaction || !parsedAmount || parsedAmount <= 0) return
     setSubmitting(true)
 
     const finalDate = combineDateTime(entryDate, entryTime, transaction.date)
@@ -186,6 +184,7 @@ export const EditTransactionModal = memo(function EditTransactionModal({
   }
 
   const handleDelete = () => {
+    if (!transaction) return
     if (!confirmDelete) {
       setConfirmDelete(true)
       return
@@ -225,6 +224,8 @@ export const EditTransactionModal = memo(function EditTransactionModal({
     setNewSubName('')
     setIsAddingSub(false)
   }
+
+  if (!open || !transaction) return null
 
   return (
     <div

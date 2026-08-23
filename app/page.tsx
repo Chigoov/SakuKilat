@@ -299,6 +299,8 @@ function AppShell() {
             return (
               <button
                 key={tab.id}
+                id={`nav-tab-${tab.id}`}
+                data-tab={tab.id}
                 onClick={() => switchTab(tab.id)}
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={tab.label}

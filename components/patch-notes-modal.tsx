@@ -24,9 +24,41 @@ interface PatchRelease {
 
 const PATCH_HISTORY: PatchRelease[] = [
   {
-    version: 'v1.0.6',
+    version: 'v1.0.7',
     date: '24 Agustus 2026',
     isLatest: true,
+    summary: 'Sprint Ergonomi & Sub Kategori: Quick Chips nominal, modal revisi transaksi bottom-sheet, horizontal subkategori carousel, smart subcategory NLP, dan drilldown rekapan.',
+    items: [
+      {
+        tag: 'feature',
+        tagLabel: 'Revisi Transaksi',
+        title: 'Dedicated Edit Bottom Sheet Modal',
+        description: 'Edit transaksi riwayat kini membuka bottom-sheet modal tersendiri tanpa memperpanjang list transaksi. Dilengkapi Quick Amount Chips, Quick Date, dan tombol hapus dengan konfirmasi aman.',
+      },
+      {
+        tag: 'ux',
+        tagLabel: 'Input Cepat',
+        title: 'Quick Amount Chips (+10rb s/d +500rb) & Quick Date',
+        description: 'Form manual dan modal revisi kini memiliki tombol nominal cepat (+10rb, +20rb, +50rb, +100rb, +500rb, Hapus) serta pemilih tanggal cepat (Hari Ini, Kemarin).',
+      },
+      {
+        tag: 'feature',
+        tagLabel: 'Sub Kategori',
+        title: 'Horizontal Pill Carousel & Smart NLP Subkategori',
+        description: 'Preset subkategori lengkap untuk semua kategori umum dengan carousel swipeable dan tombol instant + Sub Baru. Smart Input kini otomatis mengenali subkategori (kopi -> Kopi & Nongkrong, bensin -> Bensin).',
+      },
+      {
+        tag: 'ux',
+        tagLabel: 'Analisis & Saku',
+        title: 'Subcategory Accordion Drilldown & Visual Saku Badges',
+        description: 'Rincian kategori di Tab Rekapan kini memiliki accordion interaktif untuk melihat distribusi subkategori. Badge saku visual warna membedakan Bank (Biru), E-Wallet (Toska), dan Tunai (Amber).',
+      },
+    ],
+  },
+  {
+    version: 'v1.0.6',
+    date: '24 Agustus 2026',
+    isLatest: false,
     summary: 'Peningkatan besar akurasi kalkulasi nominal, filter NLP bahasa Indonesia, tampilan saldo saku, dan optimalisasi ruang layar mobile.',
     items: [
       {
