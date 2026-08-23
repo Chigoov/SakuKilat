@@ -529,12 +529,12 @@ export const ManualEntryForm = memo(function ManualEntryForm({
                 </div>
               )}
 
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+              <div className="flex flex-wrap gap-1.5">
                 <button
                   type="button"
                   onClick={() => setSubcategory('')}
                   className={cn(
-                    'px-3 py-1.5 rounded-lg text-xs font-medium border flex-shrink-0 transition-colors',
+                    'px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors',
                     !subcategory
                       ? 'bg-[var(--sk-surface-3)] text-[var(--sk-text)] border-[var(--sk-border-2)]'
                       : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent'
@@ -548,7 +548,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
                     type="button"
                     onClick={() => setSubcategory(item)}
                     className={cn(
-                      'px-3 py-1.5 rounded-lg text-xs font-medium border flex-shrink-0 transition-colors',
+                      'px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors',
                       subcategory === item
                         ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
                         : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent'
