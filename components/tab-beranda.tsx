@@ -291,7 +291,7 @@ export const TabBeranda = memo(function TabBeranda() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[12px] text-[var(--sk-text-dim)]">Masuk</p>
-                  <p className="text-[14px] font-bold leading-tight tabular-nums text-[var(--sk-green)]">{formatIDR(monthTotals.income)}</p>
+                  <p className="text-[15px] font-bold leading-tight tabular-nums text-[var(--sk-green)]">{formatIDR(monthTotals.income)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 min-w-0">
@@ -300,7 +300,7 @@ export const TabBeranda = memo(function TabBeranda() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[12px] text-[var(--sk-text-dim)]">Keluar</p>
-                  <p className="text-[14px] font-bold leading-tight tabular-nums text-[var(--sk-red)]">{formatIDR(monthTotals.expense)}</p>
+                  <p className="text-[15px] font-bold leading-tight tabular-nums text-[var(--sk-red)]">{formatIDR(monthTotals.expense)}</p>
                 </div>
               </div>
             </div>

@@ -1183,12 +1183,14 @@ export function parseEntry(input: string, extras?: ParserExtras): ParsedEntry | 
 
 // ── Format currency (IDR) ────────────────────────────────────────────────────
 export function formatIDR(amount: number): string {
+  // Pakai non-breaking space (\u00a0) antara "Rp" dan angka agar tidak pernah
+  // dipisah ke baris berbeda oleh browser — mencegah "Rp\n1.225.500"
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount).replace(/\s+/g, ' ')
+  }).format(amount).replace(/\s+/g, '\u00a0')
 }
 
 export function formatIDRCompact(amount: number): string {

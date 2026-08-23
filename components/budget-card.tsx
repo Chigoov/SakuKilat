@@ -24,7 +24,7 @@ export function BudgetCard() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium text-[var(--sk-text-muted)]">Budget bulan ini</p>
-            <p className="text-[18px] font-bold leading-tight tabular-nums text-[var(--sk-text)]" data-amount>
+            <p className="text-[20px] font-bold leading-tight tabular-nums text-[var(--sk-text)]" data-amount>
               {formatIDR(status.budget)}
             </p>
           </div>
