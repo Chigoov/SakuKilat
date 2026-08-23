@@ -79,13 +79,8 @@ if (-not $foundSource) {
   exit 1
 }
 
-$pkg = Get-Content "$root\package.json" | ConvertFrom-Json
-$version = $pkg.version
-
 Copy-Item $foundSource -Destination "$root\SakuKilat.apk" -Force
-Copy-Item $foundSource -Destination "$root\SakuKilat-v$version-Publik.apk" -Force
 
 $publicSize = [math]::Round((Get-Item "$root\SakuKilat.apk").Length / 1MB, 2)
 Write-Host "`nSELESAI." -ForegroundColor Green
-Write-Host " - SakuKilat.apk ($publicSize MB) [v$version Publik] siap didistribusikan." -ForegroundColor Green
-Write-Host " - SakuKilat-v$version-Publik.apk ($publicSize MB) tersimpan di root proyek." -ForegroundColor Green
+Write-Host " - SakuKilat.apk ($publicSize MB) siap digunakan." -ForegroundColor Green
