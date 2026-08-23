@@ -81,6 +81,7 @@ function WalletManager() {
   const [keywords, setKeywords] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
+  const [isAddingWallet, setIsAddingWallet] = useState(false)
   const [draft, setDraft] = useState({
     label: '',
     type: 'ewallet' as WalletType,
@@ -103,6 +104,7 @@ function WalletManager() {
     setLabel('')
     setBalance('')
     setKeywords('')
+    setIsAddingWallet(false)
   }
 
   const startEdit = (wallet: typeof wallets[number]) => {
@@ -138,62 +140,94 @@ function WalletManager() {
         </span>
       </div>
 
-      <div className="rounded-2xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-4 mb-3">
-        <p className="text-xs text-[var(--sk-text-dim)] mb-1">Total tersimpan</p>
-        <p className="text-2xl font-bold tabular-nums text-[var(--sk-text)]" data-amount>
-          {formatIDR(totalStored)}
-        </p>
+      <div className="rounded-2xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-4 mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs text-[var(--sk-text-dim)] mb-1">Total tersimpan</p>
+          <p className="text-2xl font-bold tabular-nums text-[var(--sk-text)]" data-amount>
+            {formatIDR(totalStored)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('sakukilat:open-manual-entry', { detail: { seed: 'pindah 0 bca ke gopay' } }))}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border border-[var(--sk-cyan)]/25 text-xs font-semibold hover:bg-[var(--sk-cyan)] hover:text-[#090D16] transition-all shrink-0"
+        >
+          <ArrowRightLeft className="w-3.5 h-3.5" />
+          Pindah Saldo
+        </button>
       </div>
 
-      <div className="rounded-xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-3 flex flex-col gap-2">
-        <div className="grid grid-cols-2 gap-2">
+      {!isAddingWallet ? (
+        <button
+          type="button"
+          onClick={() => setIsAddingWallet(true)}
+          className="w-full mb-3 py-2.5 rounded-xl border border-dashed border-[var(--sk-border-2)] bg-[var(--sk-surface)] text-xs font-semibold text-[var(--sk-cyan)] flex items-center justify-center gap-1.5 hover:bg-[var(--sk-surface-2)] transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Tambah Saku Baru
+        </button>
+      ) : (
+        <div className="rounded-xl bg-[var(--sk-surface)] border border-[var(--sk-cyan)] p-3 mb-3 flex flex-col gap-2 animate-fade-in">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-semibold text-[var(--sk-text)]">Tambah Saku Baru</p>
+            <button
+              type="button"
+              onClick={() => { setIsAddingWallet(false); setLabel(''); setBalance(''); setKeywords('') }}
+              className="text-[var(--sk-text-dim)] hover:text-[var(--sk-text)]"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              value={label}
+              onChange={e => setLabel(e.target.value)}
+              placeholder="Nama saku"
+              autoFocus
+              className="min-w-0 bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] outline-none border border-[var(--sk-border)]"
+            />
+            <select
+              value={type}
+              onChange={e => setType(e.target.value as WalletType)}
+              className="bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] outline-none border border-[var(--sk-border)]"
+            >
+              <option value="ewallet">E-wallet</option>
+              <option value="bank">Bank</option>
+              <option value="cash">Cash</option>
+              <option value="savings">Simpan</option>
+              <option value="card">Kartu</option>
+              <option value="other">Lainnya</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <input
+              value={balance}
+              onChange={e => setBalance(formatAmountFieldInput(e.target.value))}
+              placeholder="Saldo awal, cth. 250rb"
+              inputMode="decimal"
+              className="min-w-0 bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] outline-none border border-[var(--sk-border)]"
+            />
+            <button
+              type="button"
+              onClick={handleAdd}
+              disabled={!label.trim()}
+              className={cn(
+                'px-3 py-2 rounded-lg flex items-center justify-center font-semibold text-xs transition-all',
+                label.trim() ? 'bg-[var(--sk-cyan)] text-[#090D16]' : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-dim)] cursor-not-allowed'
+              )}
+              aria-label="Tambah saku"
+            >
+              Simpan
+            </button>
+          </div>
           <input
-            value={label}
-            onChange={e => setLabel(e.target.value)}
-            placeholder="Nama saku"
-            className="min-w-0 bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] outline-none border border-[var(--sk-border)]"
+            value={keywords}
+            onChange={e => setKeywords(e.target.value)}
+            placeholder="Keyword opsional, pisahkan koma"
+            className="bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] outline-none border border-[var(--sk-border)]"
           />
-          <select
-            value={type}
-            onChange={e => setType(e.target.value as WalletType)}
-            className="bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] outline-none border border-[var(--sk-border)]"
-          >
-            <option value="ewallet">E-wallet</option>
-            <option value="bank">Bank</option>
-            <option value="cash">Cash</option>
-            <option value="savings">Simpan</option>
-            <option value="card">Kartu</option>
-            <option value="other">Lainnya</option>
-          </select>
         </div>
-        <div className="grid grid-cols-[1fr_auto] gap-2">
-          <input
-            value={balance}
-            onChange={e => setBalance(formatAmountFieldInput(e.target.value))}
-            placeholder="Saldo awal, cth. 250rb"
-            inputMode="decimal"
-            className="min-w-0 bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] outline-none border border-[var(--sk-border)]"
-          />
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={!label.trim()}
-            className={cn(
-              'w-9 h-9 rounded-lg flex items-center justify-center transition-all',
-              label.trim() ? 'bg-[var(--sk-cyan)] text-[#090D16]' : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-dim)]'
-            )}
-            aria-label="Tambah saku"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-        <input
-          value={keywords}
-          onChange={e => setKeywords(e.target.value)}
-          placeholder="Keyword opsional, pisahkan koma"
-          className="bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] outline-none border border-[var(--sk-border)]"
-        />
-      </div>
+      )}
 
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
         {visibleWallets.map(wallet => {

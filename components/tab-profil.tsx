@@ -183,18 +183,18 @@ export function TabProfil() {
             </div>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-[var(--sk-text)] truncate">{user.name}</p>
+            <p className="font-bold text-base text-[var(--sk-text)] truncate">{user.name}</p>
             <p className="text-xs text-[var(--sk-text-dim)] truncate mt-0.5">Mode lokal di perangkat ini</p>
-            <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[var(--sk-cyan-dim)] border border-[rgba(56,189,248,0.2)]">
+            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[var(--sk-cyan-dim)] border border-[rgba(56,189,248,0.2)]">
               <Shield className="w-2.5 h-2.5 text-[var(--sk-cyan)]" />
-              <span className="text-[10px] text-[var(--sk-cyan)] font-medium">Mode lokal</span>
+              <span className="text-[10px] text-[var(--sk-cyan)] font-medium">Penyimpanan lokal & offline</span>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
                 disabled={avatarBusy}
-                className="h-8 px-3 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-[11px] font-semibold text-[var(--sk-text)] inline-flex items-center gap-1.5"
+                className="h-8 px-3 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-[11px] font-semibold text-[var(--sk-text)] inline-flex items-center gap-1.5 hover:bg-[var(--sk-surface-3)] transition-colors"
               >
                 <Camera className="w-3.5 h-3.5" />
                 {avatarBusy ? 'Memproses...' : 'Ubah foto'}
@@ -202,7 +202,7 @@ export function TabProfil() {
               <button
                 type="button"
                 onClick={() => updateProfileAvatar(null)}
-                className="h-8 px-3 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-[11px] font-semibold text-[var(--sk-text-dim)] inline-flex items-center gap-1.5"
+                className="h-8 px-3 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-[11px] font-semibold text-[var(--sk-text-dim)] inline-flex items-center gap-1.5 hover:bg-[var(--sk-surface-3)] transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 Foto bawaan
@@ -289,29 +289,27 @@ export function TabProfil() {
 
         <div>
           <p className="text-xs text-[var(--sk-text-dim)] uppercase tracking-widest font-medium mb-2.5">
-            Edit profil
+            Nama Pengguna
           </p>
-          <div className="rounded-xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-3 flex items-center gap-2">
+          <div className="rounded-2xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-3.5 flex items-center gap-2">
             <input
               value={profileNameDraft}
               onChange={e => setProfileNameDraft(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSaveProfile()}
-              placeholder="Nama panggilan"
-              className="flex-1 min-w-0 bg-[var(--sk-surface-2)] border border-[var(--sk-border)] rounded-lg px-3 py-2 text-sm text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] outline-none focus:border-[var(--sk-cyan)]"
+              placeholder="Nama panggilan kamu"
+              className="flex-1 min-w-0 bg-[var(--sk-surface-2)] border border-[var(--sk-border)] rounded-xl px-3.5 py-2.5 text-sm text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] outline-none focus:border-[var(--sk-cyan)]"
             />
             <button
               type="button"
               onClick={handleSaveProfile}
-              disabled={!profileNameDraft.trim()}
-              className="w-9 h-9 rounded-lg bg-[var(--sk-cyan)] text-[#090D16] disabled:bg-[var(--sk-surface-2)] disabled:text-[var(--sk-text-dim)] flex items-center justify-center"
+              disabled={!profileNameDraft.trim() || profileNameDraft === user.name}
+              className="h-10 px-4 rounded-xl bg-[var(--sk-cyan)] text-[#090D16] font-semibold text-xs disabled:bg-[var(--sk-surface-2)] disabled:text-[var(--sk-text-dim)] flex items-center justify-center gap-1.5 transition-all"
               aria-label="Simpan profil"
             >
-              <Save className="w-4 h-4" />
+              <Save className="w-3.5 h-3.5" />
+              Simpan
             </button>
           </div>
-          <p className="text-[11px] text-[var(--sk-text-dim)] mt-2">
-            Nama ini hanya dipakai di SakuKilat, bukan mengubah akun Google.
-          </p>
         </div>
 
         <div>

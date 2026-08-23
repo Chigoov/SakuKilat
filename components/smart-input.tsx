@@ -107,6 +107,18 @@ export function SmartInput({ onSubmit, isSubmitting, className, parserExtras, au
   }, [autoFocus])
 
   useEffect(() => {
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<{ seed?: string; type?: string }>
+      if (customEvent.detail?.seed) {
+        setValue(customEvent.detail.seed)
+      }
+      setManualOpen(true)
+    }
+    window.addEventListener('sakukilat:open-manual-entry', handler)
+    return () => window.removeEventListener('sakukilat:open-manual-entry', handler)
+  }, [])
+
+  useEffect(() => {
     if (!value.trim()) {
       setPreview(null)
       return
