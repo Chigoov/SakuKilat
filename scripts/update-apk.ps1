@@ -54,22 +54,25 @@ try {
 }
 
 Write-Host "`n[5/5] Menyalin APK ke folder root..." -ForegroundColor Cyan
-$artifacts = @(
-  @{
-    Source = "$root\android\app\build\outputs\apk\public\release\app-public-release.apk"
-    Destination = "$root\SakuKilat.apk"
-    Label = "SakuKilat.apk"
-  }
+$sourceCandidates = @(
+  "$root\android\app\build\outputs\apk\public\release\app-public-release.apk",
+  "$root\android\app\build\outputs\apk\public\release\app-public-release-unsigned.apk"
 )
 
-foreach ($artifact in $artifacts) {
-  if (-not (Test-Path $artifact.Source)) {
-    Write-Host "`nGAGAL: $($artifact.Label) tidak ditemukan. Cek error build di atas." -ForegroundColor Red
-    exit 1
+$foundSource = $null
+foreach ($cand in $sourceCandidates) {
+  if (Test-Path $cand) {
+    $foundSource = $cand
+    break
   }
-
-  Copy-Item $artifact.Source -Destination $artifact.Destination -Force
 }
+
+if (-not $foundSource) {
+  Write-Host "`nGAGAL: APK release tidak ditemukan. Cek error build di atas." -ForegroundColor Red
+  exit 1
+}
+
+Copy-Item $foundSource -Destination "$root\SakuKilat.apk" -Force
 
 $publicSize = [math]::Round((Get-Item "$root\SakuKilat.apk").Length / 1MB, 2)
 Write-Host "`nSELESAI." -ForegroundColor Green
