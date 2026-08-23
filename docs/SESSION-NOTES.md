@@ -136,47 +136,67 @@ Spec lengkap: `.kiro/specs/notifikasi-hp-dan-cron/` (requirements + design + tas
 
 ---
 
-## 9. ROADMAP SPRINT: UI/UX, ERGONOMI & SUB KATEGORI (v1.0.7)
+## 9. ROADMAP SPRINT: UI/UX, ERGONOMI & SUB KATEGORI (v1.0.7) — STATUS: SELESAI PENUH (COMPLETED)
 
 > **Fokus Utama**: Utilitas Tinggi (*High Utility*), Kecepatan Catat Kilat (~1.5 detik), Ergonomi Satu Jempol (*One-Thumb Friendly*), dan Analisis Mendalam Sub Kategori.
 
-### 📋 Rencana Pembagian Sesi Kerja:
+### 📋 Hasil Pembagian Sesi Kerja:
 
-#### 🚀 Sesi 1: Peningkatan Kecepatan & Ergonomi Form Catat Manual & Edit Transaksi
-- [ ] **Item 1.1**: Pasang **Quick Amount Chips** (`+10rb`, `+20rb`, `+50rb`, `+100rb`, `+500rb`, `Hapus`) di bawah input nominal agar bisa menambah angka instan tanpa buka keyboard.
-- [ ] **Item 1.2**: Pasang **Quick Date Selector** (`[ Hari Ini ]`, `[ Kemarin ]`, `[ Kalender ]`) untuk mempercepat pencatatan transaksi susulan.
-- [ ] **Item 1.3**: Bersihkan teks nominal yang ikut masuk ke field keterangan saat form manual dibuka dari SmartInput (membersihkan deskripsi otomatis).
-- [ ] **Item 1.4**: Ubah sistem edit/revisi transaksi di Riwayat dari *inline accordion yang melar di tengah list* menjadi **Dedicated Bottom Sheet Edit Modal** yang fokus, rapi, dan keyboard-friendly.
+#### 🚀 Sesi 1: Peningkatan Kecepatan & Ergonomi Form Catat Manual & Edit Transaksi (SELESAI - Commit `156db11`)
+- [x] **Item 1.1**: Pasang **Quick Amount Chips** (`+10rb`, `+20rb`, `+50rb`, `+100rb`, `+500rb`, `Hapus`) di bawah input nominal agar bisa menambah angka instan tanpa buka keyboard.
+- [x] **Item 1.2**: Pasang **Quick Date Selector** (`[ Hari Ini ]`, `[ Kemarin ]`, `[ Kalender ]`) untuk mempercepat pencatatan transaksi susulan.
+- [x] **Item 1.3**: Bersihkan teks nominal yang ikut masuk ke field keterangan saat form manual dibuka dari SmartInput (membersihkan deskripsi otomatis).
+- [x] **Item 1.4**: Ubah sistem edit/revisi transaksi di Riwayat dari *inline accordion yang melar di tengah list* menjadi **Dedicated Bottom Sheet Edit Modal** (`components/edit-transaction-modal.tsx`) yang fokus, rapi, dan keyboard-friendly.
 
-#### 🚀 Sesi 2: Arsitektur UI Sub Kategori Lengkap & Smart NLP
-- [ ] **Item 2.1**: Ubah UI Sub Kategori di Form Manual menjadi **Horizontal Pill Carousel** (swipeable, touch target 38px, ketinggian modal terkunci rapi tidak melar).
-- [ ] **Item 2.2**: Tambahkan tombol **`+ Sub Baru`** langsung di dalam baris pill form manual (*inline instant creation*).
-- [ ] **Item 2.3**: Sediakan **Preset Sub Kategori Cerdas Bawaan** untuk kategori umum (*Makanan: Makan Siang, Kopi/Snack, Belanja Dapur; Transportasi: Bensin, Parkir, Ojol; Tagihan: Listrik, WiFi, Pulsa; Belanja: Bulanan, Pakaian, Gadget*).
-- [ ] **Item 2.4**: Integrasikan Smart Input NLP agar otomatis memetakan kata kunci ke subkategori yang sesuai (*"kopi 20k" ➔ Sub: Kopi/Snack*).
+#### 🚀 Sesi 2: Arsitektur UI Sub Kategori Lengkap & Smart NLP (SELESAI - Commit `f74f4d9`)
+- [x] **Item 2.1**: Ubah UI Sub Kategori di Form Manual menjadi tampilan terstruktur (`flex-wrap`) yang menurun rapi dan langsung terlihat tanpa swipe.
+- [x] **Item 2.2**: Tambahkan tombol **`+ Sub Baru`** langsung di dalam baris pill form manual (*inline instant creation*).
+- [x] **Item 2.3**: Sediakan **Preset Sub Kategori Cerdas Bawaan** untuk kategori umum (*Makanan: Makan Siang, Kopi/Snack, Belanja Dapur; Transportasi: Bensin, Parkir, Ojol; Tagihan: Listrik, WiFi, Pulsa; Belanja: Bulanan, Pakaian, Gadget*).
+- [x] **Item 2.4**: Integrasikan Smart Input NLP agar otomatis memetakan kata kunci ke subkategori yang sesuai (*"kopi 20k" ➔ Sub: Kopi & Nongkrong*).
 
-#### 🚀 Sesi 3: Optimasi Dashboard Beranda & One-Thumb Zone
-- [ ] **Item 3.1**: Optimasi proporsi Donut Chart (~160px diameter) dan letakkan indikator **% Budget / Status Saldo** di tengah lingkaran donut.
-- [ ] **Item 3.2**: Tambahkan padding bawah `pb-32` pada container Tab Beranda agar transaksi terbawah terlihat 100% utuh tanpa tertimpa bar input.
-- [ ] **Item 3.3**: Perbesar tombol Catat Manual di bilah Smart Input menjadi min-w-[40px] dengan ikon pensil/plus yang lebih kontras.
+#### 🚀 Sesi 3: Optimasi Dashboard Beranda & One-Thumb Zone (SELESAI - Commit `30ca22c`)
+- [x] **Item 3.1**: Optimasi proporsi Donut Chart (~155px diameter) dan letakkan indikator **% Budget / Status Saldo** di tengah lingkaran donut.
+- [x] **Item 3.2**: Tambahkan padding bawah `pb-[176px]` pada container Tab Beranda agar transaksi terbawah terlihat 100% utuh tanpa tertimpa bar input.
+- [x] **Item 3.3**: Perbesar tombol Catat Manual di bilah Smart Input dengan ikon pensil/plus yang lebih kontras.
 
-#### 🚀 Sesi 4: Analisis Sub Kategori & Visual Saku di Tab Rekapan
-- [ ] **Item 4.1**: Tambahkan fitur **Drilldown Accordion Sub Kategori** di Tab Rekapan Bulanan (klik kategori induk ➔ buka rincian subkategori + persentase pengeluaran).
-- [ ] **Item 4.2**: Tambahkan **Badge Warna Khas Metode Pembayaran** di riwayat transaksi (🔵 Bank: Biru, 🟢 E-Wallet: Toska/Hijau, 🟡 Cash: Amber/Emas).
-- [ ] **Item 4.3**: Ringkaskan header filter waktu & filter tipe transaksi menjadi sticky bar yang hemat ruang.
+#### 🚀 Sesi 4: Analisis Sub Kategori & Visual Saku di Tab Rekapan (SELESAI - Commit `2ae65ec`)
+- [x] **Item 4.1**: Tambahkan fitur **Drilldown Accordion Sub Kategori** di Tab Rekapan Bulanan (klik kategori induk ➔ buka rincian subkategori + persentase pengeluaran).
+- [x] **Item 4.2**: Tambahkan **Badge Warna Khas Metode Pembayaran** di riwayat transaksi (🔵 Bank: Biru, 🟢 E-Wallet: Toska/Hijau, 🟡 Cash: Amber/Emas).
+- [x] **Item 4.3**: Ringkaskan header filter waktu & filter tipe transaksi menjadi sticky bar yang hemat ruang.
 
-#### 🚀 Sesi 5: Perapian Tab Saku & Profil
-- [ ] **Item 5.1**: Jadikan form "Tambah Saku Baru" sebagai tombol collapsible `[ + Tambah Saku Baru ]` agar daftar rekening langsung terlihat di baris teratas.
-- [ ] **Item 5.2**: Tambahkan tombol aksi cepat **`[ Transfer / Pindah Saldo ]`** di samping kartu total saldo tersimpan.
-- [ ] **Item 5.3**: Rampingkan kolom edit nama profil menjadi modal/inline edit pada kartu avatar atas agar menu Panduan & Backup naik ke atas.
+#### 🚀 Sesi 5: Perapian Tab Saku & Profil (SELESAI - Commit `6117186`)
+- [x] **Item 5.1**: Jadikan form "Tambah Saku Baru" sebagai tombol collapsible `[ + Tambah Saku Baru ]` agar daftar rekening langsung terlihat di baris teratas.
+- [x] **Item 5.2**: Tambahkan tombol aksi cepat **`[ Pindah Saldo ]`** di samping kartu total saldo tersimpan.
+- [x] **Item 5.3**: Rampingkan kartu profil dan input nama pengguna.
 
-#### 🚀 Sesi 6: QA Penuh, Interactive Mobile Review & Release APK v1.0.7
-- [ ] **Item 6.1**: Jalankan static export `pnpm build` & unit test logika.
-- [ ] **Item 6.2**: Uji interaktif di browser mobile viewport 412x915.
-- [ ] **Item 6.3**: Naikkan versi ke `v1.0.7` (versionCode: 13) dan build file final `SakuKilat.apk`.
+#### 🚀 Sesi 6: QA Penuh, Build Release APK v1.0.7 & Sesi Polish Live Device (SELESAI - Commit `7b55cbc` + Polish Commits)
+- [x] **Item 6.1**: Versi dinaikkan ke `v1.0.7` (versionCode: 13) di `package.json` dan `android/app/build.gradle`.
+- [x] **Item 6.2**: Modal Catatan Rilis (`PatchNotesModal`) mencatat fitur v1.0.7 lengkap.
+- [x] **Item 6.3 (Kritis - Device Polish)**: Non-breaking space (`\u00a0`) pada `formatIDR` di `lib/parser.ts` untuk mencegah teks "Rp" dan angka terpisah baris.
+- [x] **Item 6.4 (Kritis - Device Polish)**: Aturan angka penuh — Dilarang menggunakan `formatIDRCompact` pada dashboard utama; seluruh nominal uang harus ditampilkan lengkap (`formatIDR`).
+- [x] **Item 6.5 (Kritis - Device Polish)**: Menu Sub Kategori di Form Manual & Edit Modal diubah dari horizontal scroll (`overflow-x-auto`) menjadi **Flex Wrap Menurun** (`flex-wrap`) agar semua pilihan subkategori langsung terlihat tanpa perlu swipe kanan.
+- [x] **Item 6.6 (Kritis - Device Polish)**: Safe Area Notch Inset (`.safe-top` dengan `padding-top: max(env(safe-area-inset-top, 0px), 28px)`) dipasang pada root wrapper agar konten atas tidak tertutup kamera punch hole / notch HP.
+- [x] **Item 6.7 (Kritis - Device Polish)**: Kartu "Bulan Ini" di Tab Profil didesain ulang menjadi format 2 baris lapang sehingga nominal jutaan/ratusan juta tidak pernah terpotong tanda elipsis (`...`).
+- [x] **Item 6.8**: Build APK rilis publik `SakuKilat.apk` (6.13 MB) sukses terverifikasi.
 
 ---
 
-## 10. Prinsip Kerja yang Disepakati User (Updated)
-- **Fokus Tunggal Publik**: Seluruh build dan deployment ke depan dipusatkan pada Edisi Publik (`com.sakukilat.app.v2`).
-- **Strict Scope**: Hanya ubah yang diminta, backup checkpoint wajib dibuat sebelum perubahan tiap sesi.
-- **Zero Data Loss**: Struktur penyimpanan lokal dipertahankan dan signing certificate tidak boleh berubah.
+## 10. 🚫 ATURAN TETAP & MUTLAK PENGEMBANGAN SELANJUTNYA (JANGAN UBAH!)
+
+AI asisten berikutnya **WAJIB MEMATUHI** aturan berikut:
+
+1. **NOMINAL ANGKA HARUS LENGKAP (NO COMPACT / NO TRUNCATION)**:
+   - Dilarang mempersingkat nominal uang menjadi "Rp 1,2jt" atau sejenisnya. Semua nominal wajib menggunakan `formatIDR` penuh (misal "Rp 1.225.500").
+   - Dilarang menambahkan `text-ellipsis` / `overflow-hidden` yang menyebabkan angka nominal terpotong menjadi titik-titik (`Rp 1.225....`).
+2. **DILARANG MENGUBAH UKURAN FONT & LAYOUT YANG SUDAH PAS**:
+   - Ukuran font yang sudah dipaskan untuk layar HP sempit (misal 14px-15px pada card Masuk/Keluar, 20px pada budget) tidak boleh diubah-ubah tanpa instruksi user.
+3. **SPASI NON-BREAKING RUPIAH (`\u00a0`)**:
+   - Fungsi `formatIDR` di `lib/parser.ts` wajib mempertahankan `replace(/\s+/g, '\u00a0')` agar browser tidak memotong baris antara "Rp" dan nominalnya.
+4. **SUB KATEGORI SELALU FLEX-WRAP MENURUN**:
+   - Pilihan subkategori di modal catat manual dan edit transaksi harus selalu menurun (`flex-wrap`), bukan horizontal scroll swipe kanan.
+5. **AREA AMAN NOTCH HP (`safe-top`)**:
+   - Selalu pertahankan `.safe-top` di root `app/page.tsx` dan `globals.css` agar tidak menembus notch kamera.
+6. **SINGLE PUBLIC RELEASE TARGET**:
+   - Hanya 1 versi APK publik (`com.sakukilat.app.v2`) yang dibangun menggunakan `powershell -ExecutionPolicy Bypass -File scripts/update-apk.ps1`.
+   - Keystore resmi `android/app/sakukilat-release.jks` wajib selalu dipertahankan.
+
