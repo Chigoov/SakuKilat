@@ -266,22 +266,27 @@ function AppShell() {
 
   return (
     <div className="min-h-[100dvh] bg-[var(--sk-bg)] flex flex-col">
-      <main className={cn('flex-1 overflow-y-auto pb-[182px] md:pb-[118px] md:mb-0')}>
+      <main className={cn(
+        'flex-1 overflow-y-auto md:mb-0',
+        activeTab === 'beranda' ? 'pb-[182px] md:pb-[118px]' : 'pb-[80px] md:pb-[24px]'
+      )}>
         {activeTab === 'beranda' && <TabBeranda />}
         {activeTab === 'rekapan' && <TabRekapan />}
         {activeTab === 'saku' && <TabSaku />}
         {activeTab === 'profil' && <TabProfil />}
       </main>
 
-      <div className="fixed bottom-[62px] left-3 right-3 z-30 rounded-[28px] border border-[var(--sk-border-2)] bg-[var(--sk-surface)] shadow-[0_18px_40px_rgba(0,0,0,0.22)] safe-bottom md:bottom-5 md:left-[96px] md:right-6 md:max-w-[560px]">
-        <div className="px-3 py-2 md:px-4">
-          <SmartInput
-            onSubmit={addTransaction}
-            isSubmitting={isSubmitting}
-            parserExtras={parserExtras}
-          />
+      {activeTab === 'beranda' && (
+        <div className="fixed bottom-[62px] left-3 right-3 z-30 rounded-[28px] border border-[var(--sk-border-2)] bg-[var(--sk-surface)] shadow-[0_18px_40px_rgba(0,0,0,0.22)] safe-bottom md:bottom-5 md:left-[96px] md:right-6 md:max-w-[560px]">
+          <div className="px-3 py-2 md:px-4">
+            <SmartInput
+              onSubmit={addTransaction}
+              isSubmitting={isSubmitting}
+              parserExtras={parserExtras}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <nav
         aria-label="Navigasi utama"
