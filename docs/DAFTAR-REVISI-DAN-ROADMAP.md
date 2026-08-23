@@ -239,4 +239,52 @@ Berikut pembagian jadwal pengerjaan bertahap:
 
 ---
 
-*Dokumen teks ini tersimpan di: `docs/DAFTAR-REVISI-DAN-ROADMAP.md`.*
+## 🎯 ROADMAP SPRINT BARU: UI/UX, ERGONOMI & SUB KATEGORI (v1.0.7)
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ ROADMAP SPRINT UI/UX & SUB KATEGORI (v1.0.7)                           │
+├────────────────────────────────────────────────────────────────────────┤
+│ SESI 1: Quick Amount Chips (+10rb s.d. +500rb) & Quick Date Form       │
+│ SESI 2: Arsitektur UI Sub Kategori (Horizontal Pills + Preset + NLP)   │
+│ SESI 3: Optimasi Donut Chart & Bottom Padding Tab Beranda              │
+│ SESI 4: Drilldown Sub Kategori & Visual Badge Saku di Tab Rekapan      │
+│ SESI 5: Perapian Tab Saku (Collapsible Tambah) & Profil Inline Edit    │
+│ SESI 6: Final QA, Bump Version v1.0.7 (vc: 13), Build Single APK       │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### 🚀 Sesi 1: Peningkatan Kecepatan & Ergonomi Form Catat Manual
+- [ ] **Item 1.1**: Pasang **Quick Amount Chips** (`+10rb`, `+20rb`, `+50rb`, `+100rb`, `+500rb`, `Hapus`) di bawah input nominal agar bisa menambah angka instan tanpa buka keyboard.
+- [ ] **Item 1.2**: Pasang **Quick Date Selector** (`[ Hari Ini ]`, `[ Kemarin ]`, `[ Kalender ]`) untuk mempercepat pencatatan transaksi susulan.
+- [ ] **Item 1.3**: Bersihkan teks nominal yang ikut masuk ke field keterangan saat form manual dibuka dari SmartInput (membersihkan deskripsi otomatis).
+
+### 🚀 Sesi 2: Arsitektur UI Sub Kategori Lengkap & Smart NLP
+- [ ] **Item 2.1**: Ubah UI Sub Kategori di Form Manual menjadi **Horizontal Pill Carousel** (swipeable, touch target 38px, ketinggian modal terkunci rapi tidak melar).
+- [ ] **Item 2.2**: Tambahkan tombol **`+ Sub Baru`** langsung di dalam baris pill form manual (*inline instant creation*).
+- [ ] **Item 2.3**: Sediakan **Preset Sub Kategori Cerdas Bawaan** untuk kategori umum (*Makanan: Makan Siang, Kopi/Snack, Belanja Dapur; Transportasi: Bensin, Parkir, Ojol; Tagihan: Listrik, WiFi, Pulsa; Belanja: Bulanan, Pakaian, Gadget*).
+- [ ] **Item 2.4**: Integrasikan Smart Input NLP agar otomatis memetakan kata kunci ke subkategori yang sesuai (*"kopi 20k" ➔ Sub: Kopi/Snack*).
+
+### 🚀 Sesi 3: Optimasi Dashboard Beranda & One-Thumb Zone
+- [ ] **Item 3.1**: Optimasi proporsi Donut Chart (~160px diameter) dan letakkan indikator **% Budget / Status Saldo** di tengah lingkaran donut.
+- [ ] **Item 3.2**: Tambahkan padding bawah `pb-32` pada container Tab Beranda agar transaksi terbawah terlihat 100% utuh tanpa tertimpa bar input.
+- [ ] **Item 3.3**: Perbesar tombol Catat Manual di bilah Smart Input menjadi min-w-[40px] dengan ikon pensil/plus yang lebih kontras.
+
+### 🚀 Sesi 4: Analisis Sub Kategori & Visual Saku di Tab Rekapan
+- [ ] **Item 4.1**: Tambahkan fitur **Drilldown Accordion Sub Kategori** di Tab Rekapan Bulanan (klik kategori induk ➔ buka rincian subkategori + persentase pengeluaran).
+- [ ] **Item 4.2**: Tambahkan **Badge Warna Khas Metode Pembayaran** di riwayat transaksi (🔵 Bank: Biru, 🟢 E-Wallet: Toska/Hijau, 🟡 Cash: Amber/Emas).
+- [ ] **Item 4.3**: Ringkaskan header filter waktu & filter tipe transaksi menjadi sticky bar yang hemat ruang.
+
+### 🚀 Sesi 5: Perapian Tab Saku & Profil
+- [ ] **Item 5.1**: Jadikan form "Tambah Saku Baru" sebagai tombol collapsible `[ + Tambah Saku Baru ]` agar daftar rekening langsung terlihat di baris teratas.
+- [ ] **Item 5.2**: Tambahkan tombol aksi cepat **`[ Transfer / Pindah Saldo ]`** di samping kartu total saldo tersimpan.
+- [ ] **Item 5.3**: Rampingkan kolom edit nama profil menjadi modal/inline edit pada kartu avatar atas agar menu Panduan & Backup naik ke atas.
+
+### 🚀 Sesi 6: QA Penuh, Interactive Mobile Review & Release APK v1.0.7
+- [ ] **Item 6.1**: Jalankan static export `pnpm build` & unit test logika.
+- [ ] **Item 6.2**: Uji interaktif di browser mobile viewport 412x915.
+- [ ] **Item 6.3**: Naikkan versi ke `v1.0.7` (versionCode: 13) dan build file final `SakuKilat.apk`.
+
+---
+
+*Dokumen ini tersimpan di: `docs/DAFTAR-REVISI-DAN-ROADMAP.md` & `docs/SESSION-NOTES.md`.*

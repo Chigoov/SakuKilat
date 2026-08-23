@@ -126,16 +126,56 @@ Spec lengkap: `.kiro/specs/notifikasi-hp-dan-cron/` (requirements + design + tas
 7. **ISSUE-07 (Tinggi - UX)**: `app/page.tsx` — SmartInput hanya di-render pada Tab Beranda, menyisakan ~130px ruang layar tambahan yang lebih lega untuk Tab Rekapan dan Tab Saku.
 8. **ISSUE-08 (Sedang - UX)**: `components/manual-entry-form.tsx` — Perbesar area sentuh tombol kategori menjadi `min-h-[44px]` dan ikon `w-4 h-4`.
 9. **ISSUE-09 (Sedang - UX)**: Form nominal dipastikan menggunakan `inputMode="decimal"` konsisten.
+10. **FITUR BARU (v1.0.6)**: `components/patch-notes-modal.tsx` — Modal Catat Rilis (Patch Notes) interaktif untuk melihat histori pembaruan per versi langsung di aplikasi.
 
 ### B. Standar Deployment & Android Packaging (Fokus Edisi Publik):
 - **Target Deploy Utama**: **Edisi Publik (`com.sakukilat.app.v2`)**.
 - **Signing Keystore**: Wajib menggunakan `sakukilat-release.jks` & `android/keystore.properties` (SHA-256: `13dccbbd787224435ad6ac5330fd96c5de30a5f703ee87689b46bf21991a90a4`).
-- **Skrip Build Otomatis**: `powershell -ExecutionPolicy Bypass -File scripts/update-apk.ps1` (menghasilkan `SakuKilat.apk` dan `SakuKilat-v<VERSION>-Publik.apk`).
+- **Skrip Build Otomatis**: `powershell -ExecutionPolicy Bypass -File scripts/update-apk.ps1` (menghasilkan single file `SakuKilat.apk`).
 - **Hasil Uji Perangkat Fisik**: Terbukti berhasil di-install/di-update langsung di HP pengguna tanpa error bentrok paket dan seluruh data lama pengguna tetap aman utuh.
 
 ---
 
-## 9. Prinsip Kerja yang Disepakati User (Updated)
-- **Fokus Tunggal Publik**: Seluruh build dan deployment ke depan dipusatkan pada Edisi Publik.
-- **Strict Scope**: Hanya ubah yang diminta, backup checkpoint wajib dibuat sebelum perubahan.
+## 9. ROADMAP SPRINT: UI/UX, ERGONOMI & SUB KATEGORI (v1.0.7)
+
+> **Fokus Utama**: Utilitas Tinggi (*High Utility*), Kecepatan Catat Kilat (~1.5 detik), Ergonomi Satu Jempol (*One-Thumb Friendly*), dan Analisis Mendalam Sub Kategori.
+
+### 📋 Rencana Pembagian Sesi Kerja:
+
+#### 🚀 Sesi 1: Peningkatan Kecepatan & Ergonomi Form Catat Manual
+- [ ] **Item 1.1**: Pasang **Quick Amount Chips** (`+10rb`, `+20rb`, `+50rb`, `+100rb`, `+500rb`, `Hapus`) di bawah input nominal agar bisa menambah angka instan tanpa buka keyboard.
+- [ ] **Item 1.2**: Pasang **Quick Date Selector** (`[ Hari Ini ]`, `[ Kemarin ]`, `[ Kalender ]`) untuk mempercepat pencatatan transaksi susulan.
+- [ ] **Item 1.3**: Bersihkan teks nominal yang ikut masuk ke field keterangan saat form manual dibuka dari SmartInput (membersihkan deskripsi otomatis).
+
+#### 🚀 Sesi 2: Arsitektur UI Sub Kategori Lengkap & Smart NLP
+- [ ] **Item 2.1**: Ubah UI Sub Kategori di Form Manual menjadi **Horizontal Pill Carousel** (swipeable, touch target 38px, ketinggian modal terkunci rapi tidak melar).
+- [ ] **Item 2.2**: Tambahkan tombol **`+ Sub Baru`** langsung di dalam baris pill form manual (*inline instant creation*).
+- [ ] **Item 2.3**: Sediakan **Preset Sub Kategori Cerdas Bawaan** untuk kategori umum (*Makanan: Makan Siang, Kopi/Snack, Belanja Dapur; Transportasi: Bensin, Parkir, Ojol; Tagihan: Listrik, WiFi, Pulsa; Belanja: Bulanan, Pakaian, Gadget*).
+- [ ] **Item 2.4**: Integrasikan Smart Input NLP agar otomatis memetakan kata kunci ke subkategori yang sesuai (*"kopi 20k" ➔ Sub: Kopi/Snack*).
+
+#### 🚀 Sesi 3: Optimasi Dashboard Beranda & One-Thumb Zone
+- [ ] **Item 3.1**: Optimasi proporsi Donut Chart (~160px diameter) dan letakkan indikator **% Budget / Status Saldo** di tengah lingkaran donut.
+- [ ] **Item 3.2**: Tambahkan padding bawah `pb-32` pada container Tab Beranda agar transaksi terbawah terlihat 100% utuh tanpa tertimpa bar input.
+- [ ] **Item 3.3**: Perbesar tombol Catat Manual di bilah Smart Input menjadi min-w-[40px] dengan ikon pensil/plus yang lebih kontras.
+
+#### 🚀 Sesi 4: Analisis Sub Kategori & Visual Saku di Tab Rekapan
+- [ ] **Item 4.1**: Tambahkan fitur **Drilldown Accordion Sub Kategori** di Tab Rekapan Bulanan (klik kategori induk ➔ buka rincian subkategori + persentase pengeluaran).
+- [ ] **Item 4.2**: Tambahkan **Badge Warna Khas Metode Pembayaran** di riwayat transaksi (🔵 Bank: Biru, 🟢 E-Wallet: Toska/Hijau, 🟡 Cash: Amber/Emas).
+- [ ] **Item 4.3**: Ringkaskan header filter waktu & filter tipe transaksi menjadi sticky bar yang hemat ruang.
+
+#### 🚀 Sesi 5: Perapian Tab Saku & Profil
+- [ ] **Item 5.1**: Jadikan form "Tambah Saku Baru" sebagai tombol collapsible `[ + Tambah Saku Baru ]` agar daftar rekening langsung terlihat di baris teratas.
+- [ ] **Item 5.2**: Tambahkan tombol aksi cepat **`[ Transfer / Pindah Saldo ]`** di samping kartu total saldo tersimpan.
+- [ ] **Item 5.3**: Rampingkan kolom edit nama profil menjadi modal/inline edit pada kartu avatar atas agar menu Panduan & Backup naik ke atas.
+
+#### 🚀 Sesi 6: QA Penuh, Interactive Mobile Review & Release APK v1.0.7
+- [ ] **Item 6.1**: Jalankan static export `pnpm build` & unit test logika.
+- [ ] **Item 6.2**: Uji interaktif di browser mobile viewport 412x915.
+- [ ] **Item 6.3**: Naikkan versi ke `v1.0.7` (versionCode: 13) dan build file final `SakuKilat.apk`.
+
+---
+
+## 10. Prinsip Kerja yang Disepakati User (Updated)
+- **Fokus Tunggal Publik**: Seluruh build dan deployment ke depan dipusatkan pada Edisi Publik (`com.sakukilat.app.v2`).
+- **Strict Scope**: Hanya ubah yang diminta, backup checkpoint wajib dibuat sebelum perubahan tiap sesi.
 - **Zero Data Loss**: Struktur penyimpanan lokal dipertahankan dan signing certificate tidak boleh berubah.
