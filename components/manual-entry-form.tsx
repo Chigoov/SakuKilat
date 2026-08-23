@@ -19,7 +19,7 @@ import {
 } from '@/lib/store'
 import { CATEGORY_CONFIG, getCategoryConfig } from '@/components/category-badge'
 import { formatAmountFieldInput, parseAmountInput } from '@/lib/amount'
-import { formatIDR, getBuiltinCategoryType } from '@/lib/parser'
+import { formatIDR, formatIDRCompact, getBuiltinCategoryType } from '@/lib/parser'
 import { findPhraseSuggestions } from '@/lib/suggestions'
 import { cn } from '@/lib/utils'
 
@@ -382,13 +382,13 @@ export const ManualEntryForm = memo(function ManualEntryForm({
                       type="button"
                       onClick={() => setCategory(item.id)}
                       className={cn(
-                        'px-2 py-1.5 rounded-lg flex flex-col items-center gap-0.5 transition-colors',
+                        'px-2 py-2 rounded-lg flex flex-col items-center gap-0.5 transition-colors min-h-[44px] justify-center',
                         active
                           ? cn(item.bg, item.color, 'border border-current')
                           : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border border-transparent hover:text-[var(--sk-text)]'
                       )}
                     >
-                      <Icon className="w-3.5 h-3.5" />
+                      <Icon className="w-4 h-4" />
                       <span className="text-[10px] font-medium truncate w-full text-center">
                         {item.label}
                       </span>
@@ -535,15 +535,17 @@ function WalletGrid({
             onClick={() => !blocked && onPick(wallet.id)}
             disabled={blocked}
             className={cn(
-              'px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors truncate text-left border',
+              'px-2 py-2 rounded-lg text-[11px] font-medium transition-colors text-left border flex flex-col gap-0.5 min-h-[44px] justify-center',
               activeId === wallet.id
                 ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
                 : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent hover:text-[var(--sk-text)]',
               blocked && 'opacity-40 cursor-not-allowed'
             )}
-            title={`${wallet.label} - Rp ${wallet.balance.toLocaleString('id-ID')}`}
           >
-            {wallet.label}
+            <span className="font-semibold truncate w-full">{wallet.label}</span>
+            <span className="text-[9px] text-[var(--sk-text-dim)] tabular-nums">
+              {formatIDRCompact(wallet.balance)}
+            </span>
           </button>
         )
       })}
