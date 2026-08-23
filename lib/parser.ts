@@ -152,6 +152,15 @@ function normalizeToken(token: string): string {
     .replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '')
 }
 
+// ── Noise words (kata keterangan tanpa makna transaksi) ─────────────────────
+// Filter ini membersihkan deskripsi dari kata-kata keterangan sehari-hari
+// seperti "di", "sama teman", "barusan" yang tidak relevan untuk kategori.
+const NOISE_WORDS = new Set([
+  'di', 'ke', 'dari', 'pada', 'buat', 'untuk', 'sama', 'bareng',
+  'barusan', 'tadi', 'lalu', 'sebesar', 'seharga', 'senilai',
+  'dengan', 'pas', 'waktu', 'saat', 'setelah', 'abis', 'habis',
+])
+
 const wordRegexCache = new Map<string, RegExp>()
 
 function wordMatch(str: string, kw: string): boolean {
@@ -1032,7 +1041,12 @@ export function parseTransaction(input: string, extras?: ParserExtras): ParsedTr
     return true
   })
 
-  const baseDescription = descTokens.join(' ').trim() || (type === 'income' ? 'Pemasukan' : 'Transaksi')
+  // Filter noise words dari description, tapi hanya jika masih ada token substantif
+  // yang tersisa — mencegah description menjadi kosong (yang akan turunkan confidence).
+  const descTokensCleaned = descTokens.filter(t => !NOISE_WORDS.has(normalizeToken(t)))
+  const finalDescTokens = descTokensCleaned.length > 0 ? descTokensCleaned : descTokens
+
+  const baseDescription = finalDescTokens.join(' ').trim() || (type === 'income' ? 'Pemasukan' : 'Transaksi')
   const description = splitInfo ? `[1/${splitInfo.divisor}] ${baseDescription}` : baseDescription
 
   // ── Step 4: Classify ─────────────────────────────────────────────────────
