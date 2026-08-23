@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import {
   ArrowRightLeft, BarChart2, Bell, BookOpen, ChevronDown, Database,
-  PiggyBank, SlidersHorizontal, Sparkles, Tag, Trophy, Wallet, X,
+  PiggyBank, SlidersHorizontal, Sparkles, Tag, Trophy, Wallet, X, History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -240,6 +240,33 @@ const SECTIONS: GuideSection[] = [
         </p>
         <p className="text-xs text-[var(--sk-text-muted)] leading-relaxed">
           Di tab Profil ada <b>Laporan PDF</b>, <b>Backup JSON</b>, <b>Ekspor CSV</b>, dan <b>Impor</b>. Lakukan backup rutin sebelum ganti HP atau bersih-bersih browser.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: 'patch-notes-guide',
+    icon: History,
+    iconColor: 'text-[var(--sk-cyan)]',
+    iconBg: 'bg-[var(--sk-cyan-dim)]',
+    title: 'Riwayat Pembaruan & Fitur Patch',
+    summary: 'Lihat daftar fitur baru dan perbaikan bug di setiap versi.',
+    body: (
+      <div className="space-y-3">
+        <p className="text-xs text-[var(--sk-text-muted)] leading-relaxed">
+          Setiap versi baru SakuKilat membawa peningkatan akurasi kalkulasi, kecerdasan parser natural, dan ergonomi mobile.
+        </p>
+        <div className="rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[var(--sk-text)]">Versi Saat Ini: v1.0.6</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--sk-cyan)] text-[#090D16]">Terbaru</span>
+          </div>
+          <p className="text-[11px] text-[var(--sk-text-dim)] leading-relaxed">
+            Pembaruan v1.0.6 mencakup perbaikan akurasi 1.5k, filter kata keterangan NLP sehari-hari, saldo di pemilih saku, layar lega tab Rekapan & Saku, dan tombol kategori 44px.
+          </p>
+        </div>
+        <p className="text-[11px] text-[var(--sk-text-dim)] leading-relaxed">
+          Untuk melihat rincian changelog lengkap semua versi terdahulu, buka menu <b>Catatan Rilis (Patch Notes)</b> di tab Profil.
         </p>
       </div>
     ),

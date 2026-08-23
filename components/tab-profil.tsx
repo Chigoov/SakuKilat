@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import {
-  BookOpen, Camera, Shield, Moon, Sun, Monitor, ChevronRight, RotateCcw, Zap, Check, Save, Heart, Flame, FileText, FlaskConical,
+  BookOpen, Camera, Shield, Moon, Sun, Monitor, ChevronRight, RotateCcw, Zap, Check, Save, Heart, Flame, FileText, FlaskConical, Sparkles,
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, useFeedbackStore, usePreferenceStore, useTransactionData, type ThemeMode } from '@/lib/store'
@@ -16,6 +16,7 @@ import { UserGuide } from '@/components/user-guide'
 import { TrophyCase } from '@/components/trophy-case'
 import { NotificationSettings } from '@/components/notification-settings'
 import { AppLockSettings } from '@/components/app-lock-settings'
+import { PatchNotesModal } from '@/components/patch-notes-modal'
 import { enableDemo, disableDemo, isDemoActive } from '@/lib/demo'
 import { cn } from '@/lib/utils'
 
@@ -85,6 +86,7 @@ export function TabProfil() {
   const [avatarBusy, setAvatarBusy] = useState(false)
   const [cropUrl, setCropUrl] = useState<string | null>(null)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [patchNotesOpen, setPatchNotesOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [demoActive, setDemoActive] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -155,6 +157,7 @@ export function TabProfil() {
         transactions={transactions}
       />
       <UserGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <PatchNotesModal open={patchNotesOpen} onClose={() => setPatchNotesOpen(false)} />
 
       <div className="sticky top-0 z-20 bg-[var(--sk-bg)] border-b border-[var(--sk-border)] px-4 md:px-8 py-4">
         <h2 className="text-base font-semibold text-[var(--sk-text)]">Profil</h2>
@@ -330,26 +333,50 @@ export function TabProfil() {
           <p className="text-xs text-[var(--sk-text-dim)] uppercase tracking-widest font-medium mb-2.5">
             Pakai maksimal
           </p>
-          <button
-            type="button"
-            data-tour="guide-button"
-            onClick={() => {
-              setGuideOpen(true)
-              void import('@/lib/achievements').then(m => m.setFlag(m.GUIDE_OPENED_KEY))
-            }}
-            className="w-full flex items-center gap-3 rounded-xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-4 text-left hover:bg-[var(--sk-surface-2)] transition-colors"
-          >
-            <div className="w-9 h-9 rounded-lg bg-[var(--sk-cyan-dim)] flex items-center justify-center flex-shrink-0">
-              <BookOpen className="w-4.5 h-4.5 text-[var(--sk-cyan)]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-[var(--sk-text)] leading-tight">Buku Panduan</p>
-              <p className="text-[11px] text-[var(--sk-text-dim)] mt-0.5 leading-relaxed">
-                Pelajari cara catat cepat, atur saku, rekapan, dan semua fitur - pakai bahasa yang mudah.
-              </p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-[var(--sk-text-dim)] flex-shrink-0" />
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              data-tour="guide-button"
+              onClick={() => {
+                setGuideOpen(true)
+                void import('@/lib/achievements').then(m => m.setFlag(m.GUIDE_OPENED_KEY))
+              }}
+              className="w-full flex items-center gap-3 rounded-xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-4 text-left hover:bg-[var(--sk-surface-2)] transition-colors"
+            >
+              <div className="w-9 h-9 rounded-lg bg-[var(--sk-cyan-dim)] flex items-center justify-center flex-shrink-0">
+                <BookOpen className="w-4.5 h-4.5 text-[var(--sk-cyan)]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-[var(--sk-text)] leading-tight">Buku Panduan</p>
+                <p className="text-[11px] text-[var(--sk-text-dim)] mt-0.5 leading-relaxed">
+                  Pelajari cara catat cepat, atur saku, rekapan, dan semua fitur - pakai bahasa yang mudah.
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[var(--sk-text-dim)] flex-shrink-0" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPatchNotesOpen(true)}
+              className="w-full flex items-center gap-3 rounded-xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-4 text-left hover:bg-[var(--sk-surface-2)] transition-colors relative overflow-hidden"
+            >
+              <div className="w-9 h-9 rounded-lg bg-[var(--sk-amber-dim)] flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-4.5 h-4.5 text-[var(--sk-amber)]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-[var(--sk-text)] leading-tight">Catatan Rilis (Patch Notes)</p>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border border-[rgba(56,189,248,0.3)]">
+                    v1.0.6 BARU
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--sk-text-dim)] mt-0.5 leading-relaxed">
+                  Lihat rangkuman fitur baru, perbaikan bug, dan histori pembaruan per versi.
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[var(--sk-text-dim)] flex-shrink-0" />
+            </button>
+          </div>
         </div>
 
         <div>
