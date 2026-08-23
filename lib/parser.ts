@@ -947,10 +947,85 @@ function detectCategory(text: string, type: TransactionType, extras?: ParserExtr
   return 'lainnya'
 }
 
+const BUILTIN_SUBCATEGORY_RULES: Record<string, Array<{ subcategory: string; keywords: string[] }>> = {
+  makanan: [
+    { subcategory: 'Kopi & Nongkrong', keywords: ['kopi', 'coffee', 'cafe', 'kafe', 'latte', 'espresso', 'cappuccino', 'nongkrong', 'starbucks', 'kenangan', 'janji jiwa'] },
+    { subcategory: 'Makan Siang/Malam', keywords: ['makan siang', 'makan malam', 'lunch', 'dinner', 'nasi', 'soto', 'bakso', 'ayam', 'mie', 'mi', 'pecel', 'rawon', 'sate', 'padang', 'nasgor', 'warung', 'resto', 'mcdonalds', 'kfc'] },
+    { subcategory: 'Sarapan', keywords: ['sarapan', 'breakfast', 'bubur', 'lontong'] },
+    { subcategory: 'Jajan & Camilan', keywords: ['snack', 'camilan', 'jajan', 'boba', 'juice', 'es', 'esteh', 'martabak', 'gorengan', 'indomie', 'roti'] },
+    { subcategory: 'Bahan Dapur', keywords: ['sayur', 'dapur', 'beras', 'minyak', 'telur', 'bumbu', 'pasar'] },
+  ],
+  transportasi: [
+    { subcategory: 'Bensin', keywords: ['bensin', 'bbm', 'pertalite', 'pertamax', 'solar', 'shell', 'spbu'] },
+    { subcategory: 'Parkir & Tol', keywords: ['parkir', 'tol', 'etoll', 'e-toll'] },
+    { subcategory: 'Ojek Online', keywords: ['ojek', 'gojek', 'grab', 'goride', 'gocar', 'grabbike', 'grabcar', 'maxim', 'indrive', 'taksi', 'taxi'] },
+    { subcategory: 'Tiket Kendaraan', keywords: ['kereta', 'krl', 'mrt', 'lrt', 'busway', 'transjakarta', 'pesawat', 'tiket', 'angkot', 'bis'] },
+    { subcategory: 'Servis Kendaraan', keywords: ['servis', 'service', 'cuci motor', 'cuci mobil', 'oli', 'tambal ban', 'bengkel'] },
+  ],
+  tagihan: [
+    { subcategory: 'Listrik PLN', keywords: ['listrik', 'pln', 'token listrik', 'token pln'] },
+    { subcategory: 'Internet & WiFi', keywords: ['wifi', 'internet', 'indihome', 'biznet', 'myrepublic', 'firstmedia'] },
+    { subcategory: 'Pulsa & Paket Data', keywords: ['pulsa', 'paket data', 'kuota', 'telkomsel', 'indosat', 'xl', 'tri', 'smartfren'] },
+    { subcategory: 'Air PDAM', keywords: ['air', 'pdam'] },
+    { subcategory: 'Langganan Aplikasi', keywords: ['iuran', 'bpjs', 'asuransi', 'cicilan', 'angsuran', 'kpr', 'pajak'] },
+  ],
+  belanja: [
+    { subcategory: 'Kebutuhan Rumah', keywords: ['supermarket', 'indomaret', 'alfamart', 'kebutuhan rumah', 'sabun', 'deterjen'] },
+    { subcategory: 'Pakaian & Fashion', keywords: ['baju', 'celana', 'sepatu', 'tas', 'fashion', 'pakaian', 'kaos', 'jaket'] },
+    { subcategory: 'Elektronik & Gadget', keywords: ['hp', 'laptop', 'charger', 'kabel', 'aksesoris', 'elektronik', 'gadget'] },
+    { subcategory: 'Hobi & Hiburan', keywords: ['buku', 'peralatan', 'furniture', 'kosmetik', 'skincare', 'parfum'] },
+  ],
+  hiburan: [
+    { subcategory: 'Streaming', keywords: ['netflix', 'spotify', 'youtube', 'disney', 'prime', 'vidio'] },
+    { subcategory: 'Nonton Bioskop', keywords: ['bioskop', 'cinema', 'xxi', 'cgv', 'film', 'nonton'] },
+    { subcategory: 'Game & Hiburan', keywords: ['game', 'steam', 'playstation', 'xbox', 'topup game', 'diamond'] },
+    { subcategory: 'Liburan & Wisata', keywords: ['konser', 'event', 'liburan', 'hotel', 'wisata', 'villa'] },
+  ],
+  kesehatan: [
+    { subcategory: 'Obat & Vitamin', keywords: ['obat', 'vitamin', 'suplemen', 'apotek'] },
+    { subcategory: 'Dokter & Klinik', keywords: ['dokter', 'rumah sakit', 'klinik', 'periksa', 'laboratorium', 'dental', 'gigi'] },
+    { subcategory: 'Olahraga & Gym', keywords: ['gym', 'fitness', 'olahraga', 'badminton', 'futsal', 'renang'] },
+  ],
+  pendidikan: [
+    { subcategory: 'Buku & Modul', keywords: ['buku', 'alat tulis', 'modul'] },
+    { subcategory: 'Kursus & Sertifikasi', keywords: ['kursus', 'les', 'bimbel', 'udemy', 'coursera', 'dicoding', 'seminar', 'workshop', 'pelatihan'] },
+    { subcategory: 'SPP & Biaya Sekolah', keywords: ['spp', 'ukt', 'sekolah', 'kampus', 'kuliah', 'ruangguru', 'zenius'] },
+  ],
+  gaji: [
+    { subcategory: 'Gaji Pokok', keywords: ['gaji', 'salary', 'upah'] },
+    { subcategory: 'Bonus & THR', keywords: ['thr', 'bonus', 'komisi', 'insentif'] },
+  ],
+  investasi: [
+    { subcategory: 'Saham & Reksadana', keywords: ['saham', 'reksadana', 'bibit', 'ajaib', 'deposito', 'obligasi'] },
+    { subcategory: 'Kripto', keywords: ['crypto', 'bitcoin', 'ethereum', 'kripto'] },
+    { subcategory: 'Emas', keywords: ['emas', 'gold', 'antam'] },
+  ],
+  freelance: [
+    { subcategory: 'Proyek Klien', keywords: ['proyek', 'project', 'client', 'klien', 'fee freelance', 'job'] },
+    { subcategory: 'Desain & Coding', keywords: ['freelance', 'freelancer', 'desain', 'coding', 'web'] },
+  ],
+}
+
 function detectSubcategory(text: string, category: string, extras?: ParserExtras): string | undefined {
   const lower = text.toLowerCase()
+  // 1. Cek custom subcategories dari user
   const configured = extras?.categories?.find(item => item.id === category)
-  return configured?.subcategories?.find(item => item && wordMatch(lower, item))
+  if (configured?.subcategories) {
+    const customMatch = configured.subcategories.find(item => item && wordMatch(lower, item))
+    if (customMatch) return customMatch
+  }
+
+  // 2. Cek built-in subcategory rules
+  const rules = BUILTIN_SUBCATEGORY_RULES[category]
+  if (rules) {
+    for (const rule of rules) {
+      for (const kw of rule.keywords) {
+        if (wordMatch(lower, kw)) return rule.subcategory
+      }
+    }
+  }
+
+  return undefined
 }
 
 // ── Detect transaction type ──────────────────────────────────────────────────

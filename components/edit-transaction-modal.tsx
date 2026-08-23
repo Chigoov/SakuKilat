@@ -18,7 +18,9 @@ import {
 } from '@/lib/store'
 import {
   CATEGORY_CONFIG,
+  CategoryIcon,
   getCategoryConfig,
+  getDefaultSubcategories,
   getPaymentLabel,
 } from '@/components/category-badge'
 import { formatAmountFieldInput, parseAmountInput } from '@/lib/amount'
@@ -125,13 +127,15 @@ export const EditTransactionModal = memo(function EditTransactionModal({
       .map((id) => {
         const cfg = getCategoryConfig(id)
         const customMatch = customCategories.find(c => c.id === id)
+        const defaultSubs = getDefaultSubcategories(id)
+        const mergedSubs = customMatch?.subcategories?.length ? customMatch.subcategories : defaultSubs
         return {
           id,
           label: cfg.label,
           icon: cfg.icon,
           color: cfg.color,
           bg: cfg.bg,
-          subcategories: customMatch?.subcategories ?? [],
+          subcategories: mergedSubs,
         }
       })
 

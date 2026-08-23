@@ -7,6 +7,7 @@ import {
   ArrowRightLeft,
   ArrowUpRight,
   Check,
+  Plus,
   TrendingDown,
   TrendingUp,
   X,
@@ -17,7 +18,7 @@ import {
   useTransactionData,
   useWalletStore,
 } from '@/lib/store'
-import { CATEGORY_CONFIG, getCategoryConfig } from '@/components/category-badge'
+import { CATEGORY_CONFIG, getCategoryConfig, getDefaultSubcategories } from '@/components/category-badge'
 import { formatAmountFieldInput, parseAmountInput } from '@/lib/amount'
 import { formatIDR, formatIDRCompact, getBuiltinCategoryType, parseTransaction } from '@/lib/parser'
 import { findPhraseSuggestions } from '@/lib/suggestions'
@@ -66,7 +67,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
 }: ManualEntryFormProps) {
   const { wallets, transferMoney } = useWalletStore()
   const { transactions } = useTransactionData()
-  const { customCategories, hiddenCategoryIds } = useCustomizationStore()
+  const { customCategories, hiddenCategoryIds, addCustomCategory, updateCustomCategory } = useCustomizationStore()
   const { addManualTransaction } = useTransactionActions()
 
   const [type, setType] = useState<EntryType>('expense')
@@ -80,6 +81,10 @@ export const ManualEntryForm = memo(function ManualEntryForm({
   const [entryDate, setEntryDate] = useState(() => dateInputValue())
   const [entryTime, setEntryTime] = useState(() => timeInputValue())
   const [submitting, setSubmitting] = useState(false)
+
+  // State untuk inline add subcategory
+  const [isAddingSub, setIsAddingSub] = useState(false)
+  const [newSubName, setNewSubName] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -118,6 +123,8 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     setEntryDate(dateInputValue())
     setEntryTime(timeInputValue())
     setSubmitting(false)
+    setIsAddingSub(false)
+    setNewSubName('')
   }, [open, seedInput, wallets])
 
   useEffect(() => {
@@ -146,13 +153,15 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     const builtIns = Object.keys(CATEGORY_CONFIG).map(id => {
       const cfg = getCategoryConfig(id)
       const override = customById.get(id)
+      const defaultSubs = getDefaultSubcategories(id)
+      const mergedSubs = override?.subcategories?.length ? override.subcategories : defaultSubs
       return {
         id,
         label: cfg.label,
         icon: cfg.icon,
         color: cfg.color,
         bg: cfg.bg,
-        subcategories: override?.subcategories ?? [],
+        subcategories: mergedSubs,
       }
     })
     const filtered = builtIns.filter(item => {
@@ -195,6 +204,34 @@ export const ManualEntryForm = memo(function ManualEntryForm({
   useEffect(() => {
     if (!selectedCategory?.subcategories.includes(subcategory)) setSubcategory('')
   }, [selectedCategory, subcategory])
+
+  const handleCreateSubcategory = () => {
+    const trimmed = newSubName.trim()
+    if (!trimmed || !selectedCategory) return
+
+    const existingSubs = selectedCategory.subcategories ?? []
+    if (!existingSubs.includes(trimmed)) {
+      const existingCustom = customCategories.find(c => c.id === selectedCategory.id)
+      if (existingCustom) {
+        updateCustomCategory(selectedCategory.id, {
+          label: existingCustom.label,
+          keywords: existingCustom.keywords,
+          subcategories: [...existingSubs, trimmed],
+        })
+      } else {
+        addCustomCategory(
+          selectedCategory.label,
+          [],
+          [...existingSubs, trimmed],
+          type === 'income' ? 'income' : 'expense'
+        )
+      }
+    }
+
+    setSubcategory(trimmed)
+    setNewSubName('')
+    setIsAddingSub(false)
+  }
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit || !parsedAmount) return
@@ -448,23 +485,62 @@ export const ManualEntryForm = memo(function ManualEntryForm({
             </div>
           )}
 
-          {type === 'expense' && selectedCategory && selectedCategory.subcategories.length > 0 && (
+          {type !== 'transfer' && selectedCategory && (
             <div>
-              <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
-                Sub kategori opsional
-              </label>
-              <div className="flex flex-wrap gap-1.5 mt-1">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                  Sub Kategori
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingSub(prev => !prev)}
+                  className="text-[10px] font-bold text-[var(--sk-cyan)] flex items-center gap-1 hover:underline"
+                >
+                  <Plus className="w-3 h-3" />
+                  + Sub Baru
+                </button>
+              </div>
+
+              {isAddingSub && (
+                <div className="flex items-center gap-1.5 mb-2 animate-fade-in">
+                  <input
+                    type="text"
+                    value={newSubName}
+                    onChange={e => setNewSubName(e.target.value)}
+                    placeholder="Nama subkategori baru..."
+                    className="flex-1 px-2.5 py-1.5 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-cyan)] text-xs text-[var(--sk-text)] outline-none"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateSubcategory}
+                    disabled={!newSubName.trim()}
+                    className="px-3 py-1.5 rounded-lg bg-[var(--sk-cyan)] text-[#090D16] text-xs font-bold disabled:opacity-50"
+                  >
+                    Simpan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsAddingSub(false); setNewSubName('') }}
+                    className="p-1.5 text-[var(--sk-text-dim)]"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
                 <button
                   type="button"
                   onClick={() => setSubcategory('')}
                   className={cn(
-                    'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors',
+                    'px-3 py-1.5 rounded-lg text-xs font-medium border flex-shrink-0 transition-colors',
                     !subcategory
                       ? 'bg-[var(--sk-surface-3)] text-[var(--sk-text)] border-[var(--sk-border-2)]'
                       : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent'
                   )}
                 >
-                  Tanpa sub
+                  Tanpa Sub
                 </button>
                 {selectedCategory.subcategories.map(item => (
                   <button
@@ -472,7 +548,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
                     type="button"
                     onClick={() => setSubcategory(item)}
                     className={cn(
-                      'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors',
+                      'px-3 py-1.5 rounded-lg text-xs font-medium border flex-shrink-0 transition-colors',
                       subcategory === item
                         ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
                         : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent'
