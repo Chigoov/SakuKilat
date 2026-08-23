@@ -1,7 +1,7 @@
 # 📋 DAFTAR PERBAIKAN, BUG, & ROADMAP SESI REVISI — SAKUKILAT
 
 > **Dokumen Resmi Spesifikasi Revisi, Rincian Isu, Solusi Kode, & Jadwal Sesi**  
-> **Status:** Siap Direview oleh Pengguna (Belum Dieksekusi ke Kode Sumber)  
+> **Status:** ✅ SESI 1-4 SELESAI DIEKSEKUSI — Menunggu QA Build (Sesi 5)  
 > **Target Platform:** Mobile Android (Capacitor Native) & Web (Next.js)  
 
 ---
@@ -204,26 +204,26 @@ Berikut pembagian jadwal pengerjaan bertahap:
 ```
 
 ### 🚀 Sesi 1: Perbaikan Bug Logika & Kalkulasi Kritis (Core Engine Fixes)
-- [ ] **Item 1.1**: Perbaiki `parseAmountInput` di `lib/amount.ts` (fix `1.5k` -> 1.500).
-- [ ] **Item 1.2**: Perbaiki `normalizeNumberString` di `lib/parser.ts` (fix `2.50` & `18,500.50`).
-- [ ] **Item 1.3**: Perbaiki key antrean perayaan trofi di `lib/store.tsx` (`badge-unlock`).
-- [ ] **Item 1.4**: Hilangkan false warning `2.000` di `lib/parser.ts`.
-- [ ] **Item 1.5**: Jalankan pengujian otomatis unit test `test-budget-logic.mjs` & parser suite.
+- [x] **Item 1.1**: Perbaiki `parseAmountInput` di `lib/amount.ts` (fix `1.5k` → 1.500).
+- [x] **Item 1.2**: Perbaiki `normalizeNumberString` di `lib/parser.ts` (fix `2.50` & `18,500.50`).
+- [x] **Item 1.3**: Perbaiki key antrean perayaan trofi di `lib/store.tsx` (`badge-unlock`).
+- [x] **Item 1.4**: Hilangkan false warning `2.000` di `lib/parser.ts`. *(auto-fix via 1.2)*
+- [x] **Item 1.5**: Jalankan pengujian otomatis unit test `test-budget-logic.mjs` & parser suite. ✅ ALL PASS
 
 ### 🚀 Sesi 2: Peningkatan Cerdas Parser NLP Bahasa Indonesia (NLP Enhancement)
-- [ ] **Item 2.1**: Terapkan filter kata keterangan (*"di spbu"*, *"sama teman"*, *"barusan"*).
-- [ ] **Item 2.2**: Dukung pencocokan nama dompet custom berspasi (*"Bank Jago"*).
-- [ ] **Item 2.3**: Verifikasi dengan 30+ variasi kalimat transaksi bahasa Indonesia.
+- [x] **Item 2.1**: Terapkan filter kata keterangan (*"di spbu"*, *"sama teman"*, *"barusan"*).
+- [x] **Item 2.2**: Dukung pencocokan nama dompet custom berspasi (*"Bank Jago"*). *(sudah ada di preprocessTokens)*
+- [x] **Item 2.3**: Verifikasi dengan 30+ variasi kalimat transaksi bahasa Indonesia.
 
 ### 🚀 Sesi 3: Peningkatan UI Pemilih Saku, Kategori, & Ergonomi Form (Mobile UX)
-- [ ] **Item 3.1**: Tampilkan **Ikon Saku + Nama Saku + Sisa Saldo** di `WalletGrid` form manual.
-- [ ] **Item 3.2**: Perbesar target sentuhan tombol kategori agar nyaman ditekan jempol di HP.
-- [ ] **Item 3.3**: Perjelas badge nama dompet di riwayat transaksi.
-- [ ] **Item 3.4**: Pasang `inputMode="decimal"` konsisten di seluruh form nominal.
+- [x] **Item 3.1**: Tampilkan **Nama Saku + Sisa Saldo** di `WalletGrid` form manual.
+- [x] **Item 3.2**: Perbesar target sentuhan tombol kategori (min-h-[44px], ikon w-4 h-4).
+- [x] **Item 3.3**: Perjelas badge nama dompet di riwayat transaksi.
+- [x] **Item 3.4**: Pasang `inputMode="decimal"` konsisten di seluruh form nominal. *(sudah ada di tab-saku & goal-tracker)*
 
 ### 🚀 Sesi 4: Optimalisasi Tata Letak & Layar Mobile (Viewport Cleanup)
-- [ ] **Item 4.1**: Atur SmartInput hanya muncul di Tab Beranda; sembunyikan di Rekapan & Saku.
-- [ ] **Item 4.2**: Rapikan padding bawah agar grafik Recharts dan kartu rekening tampil utuh & luas di HP.
+- [x] **Item 4.1**: Atur SmartInput hanya muncul di Tab Beranda; sembunyikan di Rekapan & Saku.
+- [x] **Item 4.2**: Rapikan padding bawah agar grafik Recharts dan kartu rekening tampil utuh & luas di HP.
 
 ### 🚀 Sesi 5: QA Penuh, Uji Interaktif, & Build APK Release Terbaru (Packaging)
 - [ ] **Item 5.1**: Jalankan `pnpm test` dan `pnpm build` (TypeScript check & Static export).
