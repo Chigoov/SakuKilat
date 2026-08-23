@@ -316,14 +316,30 @@ export function TabProfil() {
           <p className="text-xs text-[var(--sk-text-dim)] uppercase tracking-widest font-medium mb-2.5">
             Bulan ini
           </p>
-          <div className="flex gap-2.5">
-            <StatCard label="Saldo" value={formatIDR(Math.abs(balance))} color={balance >= 0 ? 'text-[var(--sk-text)]' : 'text-[var(--sk-red)]'} />
-            <StatCard label="Masuk" value={formatIDR(income)} color="text-[var(--sk-green)]" />
-            <StatCard label="Keluar" value={formatIDR(expense)} color="text-[var(--sk-red)]" />
-          </div>
-          <div className="mt-2 rounded-xl bg-[var(--sk-surface)] border border-[var(--sk-border)] px-3.5 py-2.5 flex items-center justify-between">
-            <span className="text-xs text-[var(--sk-text-dim)]">Total transaksi dicatat</span>
-            <span className="text-sm font-bold tabular-nums text-[var(--sk-text)]">{transactions.length}</span>
+          <div className="space-y-2">
+            <div className="rounded-2xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-3.5 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] text-[var(--sk-text-dim)] uppercase tracking-widest font-medium">Saldo Bersih</p>
+                <p className={cn('text-base sm:text-lg font-bold tabular-nums mt-0.5', balance >= 0 ? 'text-[var(--sk-text)]' : 'text-[var(--sk-red)]')}>
+                  {balance < 0 ? `-${formatIDR(Math.abs(balance))}` : formatIDR(balance)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-[var(--sk-text-dim)] uppercase tracking-widest font-medium">Total Transaksi</p>
+                <p className="text-sm sm:text-base font-bold tabular-nums text-[var(--sk-text)] mt-0.5">{transactions.length}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-2xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-3 flex flex-col gap-0.5">
+                <p className="text-[10px] text-[var(--sk-text-dim)] uppercase tracking-widest font-medium">Masuk</p>
+                <p className="text-sm sm:text-base font-bold tabular-nums text-[var(--sk-green)]">{formatIDR(income)}</p>
+              </div>
+              <div className="rounded-2xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-3 flex flex-col gap-0.5">
+                <p className="text-[10px] text-[var(--sk-text-dim)] uppercase tracking-widest font-medium">Keluar</p>
+                <p className="text-sm sm:text-base font-bold tabular-nums text-[var(--sk-red)]">{formatIDR(expense)}</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -365,7 +381,7 @@ export function TabProfil() {
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-[var(--sk-text)] leading-tight">Catatan Rilis (Patch Notes)</p>
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border border-[rgba(56,189,248,0.3)]">
-                    v1.0.6 BARU
+                    v1.0.7 BARU
                   </span>
                 </div>
                 <p className="text-[11px] text-[var(--sk-text-dim)] mt-0.5 leading-relaxed">

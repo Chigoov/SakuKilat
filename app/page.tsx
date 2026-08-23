@@ -265,7 +265,7 @@ function AppShell() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[var(--sk-bg)] flex flex-col">
+    <div className="min-h-[100dvh] bg-[var(--sk-bg)] flex flex-col safe-top">
       <main className={cn(
         'flex-1 overflow-y-auto md:mb-0',
         activeTab === 'beranda' ? 'pb-[182px] md:pb-[118px]' : 'pb-[80px] md:pb-[24px]'

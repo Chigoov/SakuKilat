@@ -199,12 +199,17 @@ html[data-theme="light"] {
   background: var(--sk-text-dim);
 }
 
-/* ── Safe area insets for iOS PWA ── */
+/* ── Safe area insets for iOS PWA & Android Notch ── */
 .safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .safe-top {
-  padding-top: env(safe-area-inset-top);
+  padding-top: max(env(safe-area-inset-top, 0px), 28px);
+}
+@media (min-width: 768px) {
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
 }
 
 /* ── Keyframes ── */
