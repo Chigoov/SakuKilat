@@ -18,6 +18,13 @@ Push-Location $root
 $pnpm = "$env:APPDATA\npm\node_modules\pnpm\bin\pnpm.cjs"
 $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+
+# Pastikan local.properties tersedia untuk Gradle SDK detection
+$localProps = "$root\android\local.properties"
+if (-not (Test-Path $localProps)) {
+  "sdk.dir=$($env:ANDROID_HOME -replace '\\', '\\')" | Out-File $localProps -Encoding ASCII
+}
 
 Write-Host "`n[1/4] Build web statis (next export)..." -ForegroundColor Cyan
 if (Get-Command pnpm -ErrorAction SilentlyContinue) {
@@ -44,7 +51,7 @@ foreach ($stalePath in $stalePaths) {
   }
 }
 
-Write-Host "`n[4/5] Build APK release lewat Gradle (bisa beberapa menit)..." -ForegroundColor Cyan
+Write-Host "`n[4/5] Build APK release Publik resmi lewat Gradle..." -ForegroundColor Cyan
 Push-Location "$root\android"
 try {
   .\gradlew.bat assemblePublicRelease --no-daemon
@@ -53,7 +60,7 @@ try {
   Pop-Location
 }
 
-Write-Host "`n[5/5] Menyalin APK ke folder root..." -ForegroundColor Cyan
+Write-Host "`n[5/5] Menyalin APK rilis publik ke folder root..." -ForegroundColor Cyan
 $sourceCandidates = @(
   "$root\android\app\build\outputs\apk\public\release\app-public-release.apk",
   "$root\android\app\build\outputs\apk\public\release\app-public-release-unsigned.apk"
@@ -72,8 +79,13 @@ if (-not $foundSource) {
   exit 1
 }
 
+$pkg = Get-Content "$root\package.json" | ConvertFrom-Json
+$version = $pkg.version
+
 Copy-Item $foundSource -Destination "$root\SakuKilat.apk" -Force
+Copy-Item $foundSource -Destination "$root\SakuKilat-v$version-Publik.apk" -Force
 
 $publicSize = [math]::Round((Get-Item "$root\SakuKilat.apk").Length / 1MB, 2)
 Write-Host "`nSELESAI." -ForegroundColor Green
-Write-Host " - SakuKilat.apk ($publicSize MB) siap untuk user umum." -ForegroundColor Green
+Write-Host " - SakuKilat.apk ($publicSize MB) [v$version Publik] siap didistribusikan." -ForegroundColor Green
+Write-Host " - SakuKilat-v$version-Publik.apk ($publicSize MB) tersimpan di root proyek." -ForegroundColor Green

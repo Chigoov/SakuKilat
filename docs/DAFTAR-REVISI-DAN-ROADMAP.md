@@ -225,12 +225,17 @@ Berikut pembagian jadwal pengerjaan bertahap:
 - [x] **Item 4.1**: Atur SmartInput hanya muncul di Tab Beranda; sembunyikan di Rekapan & Saku.
 - [x] **Item 4.2**: Rapikan padding bawah agar grafik Recharts dan kartu rekening tampil utuh & luas di HP.
 
+> **Status:** ✅ SELESAI PENUH — Rilis v1.0.6 (Publik) Sukses Terpasang di Perangkat
+> **Target Platform:** Mobile Android (Capacitor Native) & Web (Next.js)  
+
+---
+
 ### 🚀 Sesi 5: QA Penuh, Uji Interaktif, & Build APK Release Terbaru (Packaging)
-- [ ] **Item 5.1**: Jalankan `pnpm test` dan `pnpm build` (TypeScript check & Static export).
-- [ ] **Item 5.2**: Uji interaktif langsung di browser mobile viewport 412x915.
-- [ ] **Item 5.3**: Tunjukkan hasil akhir kepada pengguna untuk konfirmasi "OKE".
-- [ ] **Item 5.4**: Naikkan versi ke `v1.0.6` dan jalankan `scripts/update-apk.ps1`.
-- [ ] **Item 5.5**: Serahkan file jadi **`SakuKilat.apk`** siap unduh untuk pengguna.
+- [x] **Item 5.1**: Jalankan `pnpm test` dan `pnpm build` (TypeScript check & Static export). ✅ ALL PASS
+- [x] **Item 5.2**: Uji interaktif langsung di browser mobile viewport 412x915. ✅ ALL PASS
+- [x] **Item 5.3**: Tunjukkan hasil akhir kepada pengguna untuk konfirmasi "OKE". ✅ DIKONFIRMASI USER
+- [x] **Item 5.4**: Naikkan versi ke `v1.0.6` (versionCode: 12) dan jalankan `scripts/update-apk.ps1`. ✅
+- [x] **Item 5.5**: Tanda tangani dengan keystore resmi (`sakukilat-release.jks`) & verifikasi sukses update di HP pengguna. ✅
 
 ---
 

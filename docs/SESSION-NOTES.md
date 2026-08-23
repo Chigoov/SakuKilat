@@ -114,15 +114,28 @@ Spec lengkap: `.kiro/specs/notifikasi-hp-dan-cron/` (requirements + design + tas
 
 ---
 
-## 6. Cara Update APK
-Jalankan dari folder proyek: `powershell -ExecutionPolicy Bypass -File update-apk.ps1`
-(otomatis: build → cap sync android → gradlew assembleDebug → salin jadi `SakuKilat.apk`).
-JANGAN ubah appId `com.sakukilat.app`. Data user aman selama package name sama.
+## 8. Sesi Revisi v1.0.6 (23-24 Agustus 2026) — SELESAI & TERUJI NYATA
+
+### A. Isu yang Diperbaiki (9 Isu):
+1. **ISSUE-01 (Kritis)**: `lib/amount.ts` — Fix parsing `1.5k` yang sebelumnya terbaca Rp 15.000 menjadi Rp 1.500 (perluas pengecualian regex suffix `k|rb|ribu|jt|juta|m|miliar|milyar`).
+2. **ISSUE-02 (Kritis)**: `lib/parser.ts` — Fix kalkulasi desimal polos `2.50` yang sebelumnya terbaca Rp 25.000 menjadi Rp 3 (ganti mode `plain` dengan logika deterministik).
+3. **ISSUE-03 (Sedang)**: `lib/store.tsx` — Prefix key `'sakukilat:v2:badge-unlock'` agar antrean trofi (`badge-unlock-queue`) tidak terhapus saat booting.
+4. **ISSUE-04 (Minor)**: `lib/parser.ts` — Hilangkan false warning pada angka ribuan bertitik `2.000` (auto-fix via ISSUE-02).
+5. **ISSUE-05 (Tinggi)**: `lib/parser.ts` — Tambahkan filter `NOISE_WORDS` untuk menyaring kata keterangan bahasa Indonesia sehari-hari (`di`, `sama`, `barusan`, dll) sehingga tidak mengotori klasifikasi kategori SmartInput.
+6. **ISSUE-06 (Tinggi - UX)**: `components/manual-entry-form.tsx` — Perbarui `WalletGrid` agar menampilkan sisa saldo di bawah nama saku.
+7. **ISSUE-07 (Tinggi - UX)**: `app/page.tsx` — SmartInput hanya di-render pada Tab Beranda, menyisakan ~130px ruang layar tambahan yang lebih lega untuk Tab Rekapan dan Tab Saku.
+8. **ISSUE-08 (Sedang - UX)**: `components/manual-entry-form.tsx` — Perbesar area sentuh tombol kategori menjadi `min-h-[44px]` dan ikon `w-4 h-4`.
+9. **ISSUE-09 (Sedang - UX)**: Form nominal dipastikan menggunakan `inputMode="decimal"` konsisten.
+
+### B. Standar Deployment & Android Packaging (Fokus Edisi Publik):
+- **Target Deploy Utama**: **Edisi Publik (`com.sakukilat.app.v2`)**.
+- **Signing Keystore**: Wajib menggunakan `sakukilat-release.jks` & `android/keystore.properties` (SHA-256: `13dccbbd787224435ad6ac5330fd96c5de30a5f703ee87689b46bf21991a90a4`).
+- **Skrip Build Otomatis**: `powershell -ExecutionPolicy Bypass -File scripts/update-apk.ps1` (menghasilkan `SakuKilat.apk` dan `SakuKilat-v<VERSION>-Publik.apk`).
+- **Hasil Uji Perangkat Fisik**: Terbukti berhasil di-install/di-update langsung di HP pengguna tanpa error bentrok paket dan seluruh data lama pengguna tetap aman utuh.
 
 ---
 
-## 7. Prinsip Kerja yang Disepakati User
-- App harus tetap RINGAN (lokal-first). Hindari dependency berat.
-- Jujur saat parser/fitur punya keterbatasan, jangan "gagal diam-diam".
-- Tiap perubahan: jalankan `pnpm build` untuk QC + verifikasi logika lewat eksekusi nyata bila perlu.
-- User suka diberi plus-minus & saran sebelum eksekusi fitur besar.
+## 9. Prinsip Kerja yang Disepakati User (Updated)
+- **Fokus Tunggal Publik**: Seluruh build dan deployment ke depan dipusatkan pada Edisi Publik.
+- **Strict Scope**: Hanya ubah yang diminta, backup checkpoint wajib dibuat sebelum perubahan.
+- **Zero Data Loss**: Struktur penyimpanan lokal dipertahankan dan signing certificate tidak boleh berubah.

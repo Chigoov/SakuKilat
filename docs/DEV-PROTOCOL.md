@@ -14,13 +14,15 @@ Dokumen ini adalah aturan kerja tetap dan SOP operasional yang disepakati bersam
 2. **Prosedur Backup & Rollback (Sebelum Eksekusi)**:
    - Setiap kali akan mengeksekusi revisi dari pengguna, wajib memastikan adanya titik cadangan (*backup checkpoint / git commit / branch*) agar kapan pun bisa di-*rollback* dengan instan jika terjadi masalah.
 
-3. **Alur Deployment & Penyerahan Hasil (Setelah Disetujui)**:
+3. **Alur Deployment & Penyerahan Hasil (Fokus Edisi Publik)**:
+   - **Target Deploy Tunggal**: Setiap build dan deployment Android **WAJIB selalu fokus ke Edisi Publik (`com.sakukilat.app.v2`)**.
+   - **Signing Key Resmi**: Wajib selalu menggunakan release keystore resmi (`android/keystore.properties` & `android/app/sakukilat-release.jks`) agar sertifikat SHA-256 (`13dccbbd787224435ad6ac5330fd96c5de30a5f703ee87689b46bf21991a90a4`) selalu konsisten dan dapat di-update tanpa bentrok di perangkat user.
    - Revisi diuji terlebih dahulu secara internal (`pnpm build` & test logika).
    - Menunjukkan hasil perubahan kepada pengguna untuk diperiksa.
    - **Setelah pengguna menyatakan "OKE"**:
-     1. Naikkan nomor versi aplikasi.
-     2. Eksekusi build web & packaging mobile (`powershell -ExecutionPolicy Bypass -File update-apk.ps1`).
-     3. Serahkan file hasil build terbaru (**`SakuKilat.apk`**) langsung ke pengguna untuk didistribusikan ke user.
+     1. Naikkan nomor versi aplikasi di `package.json` dan `android/app/build.gradle` (versionCode & versionName).
+     2. Eksekusi build web & packaging mobile (`powershell -ExecutionPolicy Bypass -File scripts/update-apk.ps1`).
+     3. Serahkan file hasil build terbaru (**`SakuKilat.apk`** & **`SakuKilat-v<VERSION>-Publik.apk`**) langsung ke pengguna untuk didistribusikan ke user.
 
 ---
 
