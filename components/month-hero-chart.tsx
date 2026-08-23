@@ -8,18 +8,23 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { getCategoryHex } from '@/components/category-badge'
+import { formatIDRCompact } from '@/lib/parser'
 
 export function MonthHeroChart({
   empty,
   slices,
+  centerLabel,
+  centerValue,
 }: {
   empty: boolean
   slices: Array<{ category: string; total: number }>
+  centerLabel?: string
+  centerValue?: string
 }) {
   if (empty) {
     return (
-      <div className="animate-home-chart-spin mx-auto flex h-[190px] w-full max-w-[300px] items-center justify-center">
-        <div className="flex h-[180px] w-[180px] items-center justify-center rounded-full border-[8px] border-dashed border-[var(--sk-border-2)] text-center text-sm leading-relaxed text-[var(--sk-text-dim)]">
+      <div className="relative mx-auto flex h-[155px] w-full max-w-[280px] items-center justify-center">
+        <div className="flex h-[140px] w-[140px] items-center justify-center rounded-full border-[6px] border-dashed border-[var(--sk-border-2)] text-center text-xs leading-relaxed text-[var(--sk-text-dim)]">
           Belum
           <br />
           ada data
@@ -28,15 +33,17 @@ export function MonthHeroChart({
     )
   }
 
+  const totalSpent = slices.reduce((acc, item) => acc + item.total, 0)
+
   return (
-    <div className="mx-auto h-[190px] w-full max-w-[320px]">
+    <div className="relative mx-auto h-[155px] w-full max-w-[280px] flex items-center justify-center">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={slices}
             dataKey="total"
-            innerRadius={56}
-            outerRadius={84}
+            innerRadius={48}
+            outerRadius={70}
             paddingAngle={3}
             strokeWidth={0}
             isAnimationActive={false}
@@ -47,6 +54,16 @@ export function MonthHeroChart({
           </Pie>
         </PieChart>
       </ResponsiveContainer>
+
+      {/* Teks di tengah Donut Chart */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+        <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--sk-text-dim)]">
+          {centerLabel ?? 'Pengeluaran'}
+        </span>
+        <span className="text-sm font-bold text-[var(--sk-text)] tabular-nums">
+          {centerValue ?? formatIDRCompact(totalSpent)}
+        </span>
+      </div>
     </div>
   )
 }

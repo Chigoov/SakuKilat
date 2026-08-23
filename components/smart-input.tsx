@@ -452,7 +452,7 @@ export function SmartInput({ onSubmit, isSubmitting, className, parserExtras, au
             aria-label="Catat manual"
             title="Catat manual - kontrol penuh kategori dan saku"
             data-tour="manual-entry"
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--sk-surface-3)] text-[var(--sk-text-muted)] transition-all duration-150 hover:text-[var(--sk-text)]"
+            className="flex h-10 min-w-[40px] flex-shrink-0 items-center justify-center rounded-xl bg-[var(--sk-surface-3)] border border-[var(--sk-border-2)] text-[var(--sk-cyan)] transition-all duration-150 hover:bg-[var(--sk-cyan-dim)] hover:border-[var(--sk-cyan)] active:scale-95"
           >
             <SlidersHorizontal className="w-4 h-4" />
           </button>

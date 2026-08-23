@@ -266,7 +266,12 @@ export const TabBeranda = memo(function TabBeranda() {
         </section>
 
         <section className="mb-4 rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
-          <MonthHeroChart empty={monthTotals.income === 0 && monthTotals.expense === 0} slices={expenseSlices} />
+          <MonthHeroChart
+            empty={monthTotals.income === 0 && monthTotals.expense === 0}
+            slices={expenseSlices}
+            centerLabel={monthlyBudget > 0 ? `${Math.round((budgetStatus.spent / monthlyBudget) * 100)}% Budget` : 'Keluar'}
+            centerValue={formatIDRCompact(monthTotals.expense)}
+          />
 
           <div className="mt-2.5">
             <p className="text-[12px] uppercase tracking-[0.24em] text-[var(--sk-text-dim)]">
