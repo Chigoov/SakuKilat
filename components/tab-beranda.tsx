@@ -278,10 +278,10 @@ export const TabBeranda = memo(function TabBeranda() {
               Saldo Bersih — {heroMonthLabel}
             </p>
             <p className={cn(
-              'mt-1.5 text-[28px] font-bold leading-none tracking-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis',
+              'mt-1.5 text-[28px] font-bold leading-none tracking-tight tabular-nums',
               monthTotals.balance < 0 ? 'text-[var(--sk-red)]' : 'text-[var(--sk-text)]'
             )}>
-              {monthTotals.balance < 0 ? `-${formatIDRCompact(Math.abs(monthTotals.balance))}` : formatIDRCompact(monthTotals.balance)}
+              {monthTotals.balance < 0 ? `-${formatIDR(Math.abs(monthTotals.balance))}` : formatIDR(monthTotals.balance)}
             </p>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -291,7 +291,7 @@ export const TabBeranda = memo(function TabBeranda() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[12px] text-[var(--sk-text-dim)]">Masuk</p>
-                  <p className="text-[15px] font-bold leading-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis text-[var(--sk-green)]">{formatIDRCompact(monthTotals.income)}</p>
+                  <p className="text-[14px] font-bold leading-tight tabular-nums text-[var(--sk-green)]">{formatIDR(monthTotals.income)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 min-w-0">
@@ -300,7 +300,7 @@ export const TabBeranda = memo(function TabBeranda() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[12px] text-[var(--sk-text-dim)]">Keluar</p>
-                  <p className="text-[15px] font-bold leading-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis text-[var(--sk-red)]">{formatIDRCompact(monthTotals.expense)}</p>
+                  <p className="text-[14px] font-bold leading-tight tabular-nums text-[var(--sk-red)]">{formatIDR(monthTotals.expense)}</p>
                 </div>
               </div>
             </div>
@@ -375,15 +375,15 @@ export const TabBeranda = memo(function TabBeranda() {
           <div className="mt-4 grid grid-cols-3 gap-2.5">
             <div className="rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Keluar</p>
-              <p className="mt-2 text-[13px] font-bold leading-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis text-[var(--sk-red)]">{formatIDRCompact(activeInsight.expense)}</p>
+              <p className="mt-2 text-[12px] font-bold leading-tight tabular-nums text-[var(--sk-red)]">{formatIDR(activeInsight.expense)}</p>
             </div>
             <div className="rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Masuk</p>
-              <p className="mt-2 text-[13px] font-bold leading-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis text-[var(--sk-green)]">{formatIDRCompact(activeInsight.income)}</p>
+              <p className="mt-2 text-[12px] font-bold leading-tight tabular-nums text-[var(--sk-green)]">{formatIDR(activeInsight.income)}</p>
             </div>
             <div className="rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--sk-text-dim)]">Rata/hari</p>
-              <p className="mt-2 text-[13px] font-bold leading-tight tabular-nums whitespace-nowrap overflow-hidden text-ellipsis text-[var(--sk-text)]">{formatIDRCompact(activeInsight.avgPerDay)}</p>
+              <p className="mt-2 text-[12px] font-bold leading-tight tabular-nums text-[var(--sk-text)]">{formatIDR(activeInsight.avgPerDay)}</p>
             </div>
           </div>
 

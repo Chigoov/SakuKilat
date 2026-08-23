@@ -24,8 +24,8 @@ export function BudgetCard() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium text-[var(--sk-text-muted)]">Budget bulan ini</p>
-            <p className="text-xl font-bold leading-tight tabular-nums text-[var(--sk-text)] whitespace-nowrap overflow-hidden text-ellipsis" data-amount>
-              {formatIDRCompact(status.budget)}
+            <p className="text-[18px] font-bold leading-tight tabular-nums text-[var(--sk-text)]" data-amount>
+              {formatIDR(status.budget)}
             </p>
           </div>
           <span className={cn(
@@ -46,15 +46,15 @@ export function BudgetCard() {
         <div className="grid grid-cols-3 gap-2 mb-3">
           <div>
             <p className="text-[11px] text-[var(--sk-text-dim)]">Terpakai</p>
-            <p className="text-[13px] font-semibold tabular-nums whitespace-nowrap text-[var(--sk-red)]">{formatIDRCompact(status.spent)}</p>
+            <p className="text-[12px] font-semibold tabular-nums text-[var(--sk-red)]">{formatIDR(status.spent)}</p>
           </div>
           <div>
             <p className="text-[11px] text-[var(--sk-text-dim)]">Jatah/hari</p>
-            <p className="text-[13px] font-semibold tabular-nums whitespace-nowrap text-[var(--sk-cyan)]">{formatIDRCompact(status.dynamicDailyBudget)}</p>
+            <p className="text-[12px] font-semibold tabular-nums text-[var(--sk-cyan)]">{formatIDR(status.dynamicDailyBudget)}</p>
           </div>
           <div>
             <p className="text-[11px] text-[var(--sk-text-dim)]">Sisa hari</p>
-            <p className="text-[13px] font-semibold tabular-nums whitespace-nowrap text-[var(--sk-text)]">{status.remainingDays}</p>
+            <p className="text-[12px] font-semibold tabular-nums text-[var(--sk-text)]">{status.remainingDays}</p>
           </div>
         </div>
 
