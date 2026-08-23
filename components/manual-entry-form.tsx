@@ -19,7 +19,7 @@ import {
 } from '@/lib/store'
 import { CATEGORY_CONFIG, getCategoryConfig } from '@/components/category-badge'
 import { formatAmountFieldInput, parseAmountInput } from '@/lib/amount'
-import { formatIDR, formatIDRCompact, getBuiltinCategoryType } from '@/lib/parser'
+import { formatIDR, formatIDRCompact, getBuiltinCategoryType, parseTransaction } from '@/lib/parser'
 import { findPhraseSuggestions } from '@/lib/suggestions'
 import { cn } from '@/lib/utils'
 
@@ -84,13 +84,36 @@ export const ManualEntryForm = memo(function ManualEntryForm({
   useEffect(() => {
     if (!open) return
     const from = wallets[0]?.id ?? 'tunai'
-    setType('expense')
-    setDescription(seedInput?.trim() ?? '')
+    const trimmed = seedInput?.trim() ?? ''
+    
+    if (trimmed) {
+      const parsed = parseTransaction(trimmed)
+      if (parsed) {
+        setType(parsed.type ?? 'expense')
+        setDescription(parsed.description || trimmed)
+        setAmountRaw(parsed.amount > 0 ? String(parsed.amount) : '')
+        setCategory(parsed.category || 'lainnya')
+        setSubcategory(parsed.subcategory || '')
+        const pickedWallet = wallets.find(w => w.id === parsed.paymentMethod)?.id ?? from
+        setPaymentMethod(pickedWallet)
+      } else {
+        setType('expense')
+        setDescription(trimmed)
+        setAmountRaw('')
+        setCategory('lainnya')
+        setSubcategory('')
+        setPaymentMethod(from)
+      }
+    } else {
+      setType('expense')
+      setDescription('')
+      setAmountRaw('')
+      setCategory('lainnya')
+      setSubcategory('')
+      setPaymentMethod(from)
+    }
+
     setNote('')
-    setAmountRaw('')
-    setCategory('lainnya')
-    setSubcategory('')
-    setPaymentMethod(from)
     setToWalletId(wallets.find(wallet => wallet.id !== from)?.id ?? '')
     setEntryDate(dateInputValue())
     setEntryTime(timeInputValue())
@@ -319,11 +342,6 @@ export const ManualEntryForm = memo(function ManualEntryForm({
               value={amountRaw}
               onChange={event => {
                 const raw = event.target.value
-                // Skip realtime reformat saat user menghapus (backspace / forward-delete /
-                // cut / hapus-word). Di Android IME (Gboard) reformat yang mengganti value
-                // secara programatik saat delete bisa menelan keystroke sehingga input
-                // terasa "tidak bisa dihapus". Terima raw value dulu; reformat dijalankan
-                // saat user mengetik ulang atau saat blur.
                 const inputType = (event.nativeEvent as InputEvent | null)?.inputType ?? ''
                 const isDeleting = typeof inputType === 'string' && inputType.startsWith('delete')
                 if (isDeleting) {
@@ -339,6 +357,37 @@ export const ManualEntryForm = memo(function ManualEntryForm({
               placeholder="cth. 50000, 50rb, 1,5jt"
               className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] focus:outline-none focus:border-[var(--sk-cyan)] caret-[var(--sk-cyan)] tabular-nums"
             />
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {[
+                { label: '+10rb', val: 10000 },
+                { label: '+20rb', val: 20000 },
+                { label: '+50rb', val: 50000 },
+                { label: '+100rb', val: 100000 },
+                { label: '+500rb', val: 500000 },
+              ].map(chip => (
+                <button
+                  key={chip.label}
+                  type="button"
+                  onClick={() => {
+                    const current = parseAmountInput(amountRaw) || 0
+                    const next = current + chip.val
+                    setAmountRaw(String(next))
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-xs font-semibold text-[var(--sk-text)] active:scale-95 transition-transform hover:bg-[var(--sk-surface-3)]"
+                >
+                  {chip.label}
+                </button>
+              ))}
+              {amountRaw ? (
+                <button
+                  type="button"
+                  onClick={() => setAmountRaw('')}
+                  className="px-2.5 py-1 rounded-lg bg-[var(--sk-red-dim)] border border-[rgba(248,113,113,0.3)] text-xs font-medium text-[var(--sk-red)] active:scale-95 transition-transform"
+                >
+                  Hapus
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <div>
@@ -436,28 +485,63 @@ export const ManualEntryForm = memo(function ManualEntryForm({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
               <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
-                Tanggal
+                Waktu Transaksi
               </label>
-              <input
-                type="date"
-                value={entryDate}
-                onChange={event => setEntryDate(event.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
-              />
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setEntryDate(dateInputValue(new Date()))}
+                  className={cn(
+                    'px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors',
+                    entryDate === dateInputValue(new Date())
+                      ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
+                      : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent'
+                  )}
+                >
+                  Hari Ini
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date()
+                    d.setDate(d.getDate() - 1)
+                    setEntryDate(dateInputValue(d))
+                  }}
+                  className={cn(
+                    'px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors',
+                    (() => {
+                      const d = new Date()
+                      d.setDate(d.getDate() - 1)
+                      return entryDate === dateInputValue(d)
+                    })()
+                      ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
+                      : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent'
+                  )}
+                >
+                  Kemarin
+                </button>
+              </div>
             </div>
-            <div>
-              <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
-                Jam
-              </label>
-              <input
-                type="time"
-                value={entryTime}
-                onChange={event => setEntryTime(event.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
-              />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <input
+                  type="date"
+                  value={entryDate}
+                  onChange={event => setEntryDate(event.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
+                />
+              </div>
+              <div>
+                <input
+                  type="time"
+                  value={entryTime}
+                  onChange={event => setEntryTime(event.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
+                />
+              </div>
             </div>
           </div>
 

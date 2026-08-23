@@ -68,6 +68,8 @@ export interface TransactionUpdateInput {
   category?: string
   /** Sub-kategori bebas. String kosong = hapus sub-kategori. */
   subcategory?: string
+  /** Catatan opsional. */
+  note?: string
 }
 
 /** Pre-validated transaction payload used by the manual-entry escape hatch.
@@ -1226,6 +1228,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         paymentMethod: nextPaymentMethod,
         category: nextCategory,
         subcategory: nextSubcategory,
+        note: updates.note !== undefined ? updates.note : transaction.note,
         date: nextDate,
         isPending: false,
       }
