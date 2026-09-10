@@ -44,6 +44,7 @@ import {
   loadPersistedState,
   persistState,
   canMutateState,
+  cleanupStaleStorageKeys,
   STORAGE_KEY,
   CURRENT_SCHEMA_VERSION,
   type StorageStatus,
@@ -438,6 +439,11 @@ export {
 
 function loadPersistedStateForStore(): LoadResult {
   const result = loadPersistedState()
+  // Only clean up stale keys when storage status is safe (valid/missing).
+  // For corrupt/incompatible, unknown keys might belong to a newer version.
+  if ((result.status === 'valid' || result.status === 'missing') && typeof window !== 'undefined') {
+    cleanupStaleStorageKeys(window.localStorage)
+  }
   if (result.status === 'valid' && result.state) {
     return {
       ...result,

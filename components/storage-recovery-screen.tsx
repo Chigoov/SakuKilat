@@ -14,7 +14,10 @@ export function StorageRecoveryScreen({ loadResult }: StorageRecoveryScreenProps
 
   const isCorrupt = loadResult.status === 'corrupt'
   const isIncompatible = loadResult.status === 'incompatible'
-  const rawPayload = loadResult.quarantinedRaw || ''
+  // For corrupt: use quarantinedRaw. For incompatible: use incompatibleRaw or re-serialize state.
+  const rawPayload = isCorrupt
+    ? (loadResult.quarantinedRaw || '')
+    : (loadResult.incompatibleRaw || (loadResult.state ? JSON.stringify(loadResult.state, null, 2) : ''))
 
   const handleCopy = async () => {
     if (!rawPayload) return
@@ -42,7 +45,8 @@ export function StorageRecoveryScreen({ loadResult }: StorageRecoveryScreenProps
 
   const handleReset = () => {
     if (typeof window === 'undefined') return
-    const success = resetCorruptState(window.localStorage, true)
+    // Only allow reset for corrupt status — incompatible is blocked
+    const success = resetCorruptState(window.localStorage, true, loadResult.status)
     if (success) {
       window.location.reload()
     }
@@ -69,9 +73,18 @@ export function StorageRecoveryScreen({ loadResult }: StorageRecoveryScreenProps
         {/* Description */}
         <p className="text-sm text-slate-300 leading-relaxed">
           {isIncompatible
-            ? `Data lokal menggunakan skema versi ${loadResult.detectedVersion ?? 'baru'} yang tidak didukung oleh versi aplikasi ini. Untuk mencegah kerusakan data, pencatatan baru dikunci.`
+            ? `Data lokal menggunakan skema versi ${loadResult.detectedVersion ?? 'baru'} yang tidak didukung oleh versi aplikasi ini. Perbarui aplikasi untuk membuka data ini. Anda dapat mengunduh data mentah sebagai cadangan.`
             : 'Data penyimpanan lokal terdeteksi rusak atau tidak lengkap. Demi menjaga keamanan saldo dan riwayat, aplikasi tidak menerima transaksi baru agar data asli tidak tertimpa.'}
         </p>
+
+        {/* Incompatible: update prompt */}
+        {isIncompatible && (
+          <div className="bg-blue-950/40 border border-blue-500/30 rounded-xl p-3.5">
+            <p className="text-sm text-blue-200 font-medium leading-relaxed">
+              💡 Perbarui aplikasi ke versi terbaru untuk membuka data ini tanpa kehilangan apa pun.
+            </p>
+          </div>
+        )}
 
         {/* Diagnostic info */}
         <div className="bg-slate-900/60 rounded-xl p-3.5 border border-slate-800 space-y-2 text-xs text-slate-400">
@@ -85,6 +98,12 @@ export function StorageRecoveryScreen({ loadResult }: StorageRecoveryScreenProps
               <span className="font-mono text-slate-300 truncate max-w-[200px]" title={loadResult.error}>
                 {loadResult.error}
               </span>
+            </div>
+          )}
+          {isIncompatible && loadResult.detectedVersion && (
+            <div className="flex justify-between">
+              <span>Versi Skema Data:</span>
+              <span className="font-mono text-slate-300">v{loadResult.detectedVersion}</span>
             </div>
           )}
           {rawPayload ? (
@@ -125,40 +144,46 @@ export function StorageRecoveryScreen({ loadResult }: StorageRecoveryScreenProps
             </>
           ) : null}
 
-          {!showConfirmReset ? (
-            <button
-              type="button"
-              onClick={() => setShowConfirmReset(true)}
-              className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-sm font-medium transition"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>Mulai Ulang (Reset Penyimpanan)</span>
-            </button>
-          ) : (
-            <div className="p-3.5 bg-red-950/40 border border-red-500/50 rounded-xl space-y-3">
-              <p className="text-xs text-red-200 leading-relaxed font-medium">
-                ⚠️ PERINGATAN: Reset akan menghapus data yang rusak dari penyimpanan perangkat ini. Pastikan Anda sudah mengunduh data mentah di atas.
-              </p>
-              <div className="flex space-x-2">
+          {/* Reset button: ONLY for corrupt status, NEVER for incompatible */}
+          {isCorrupt && (
+            <>
+              {!showConfirmReset ? (
                 <button
                   type="button"
-                  onClick={handleReset}
-                  className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition"
+                  onClick={() => setShowConfirmReset(true)}
+                  className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-sm font-medium transition"
                 >
-                  Ya, Hapus & Mulai Ulang
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Mulai Ulang (Reset Penyimpanan)</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmReset(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition"
-                >
-                  Batal
-                </button>
-              </div>
-            </div>
+              ) : (
+                <div className="p-3.5 bg-red-950/40 border border-red-500/50 rounded-xl space-y-3">
+                  <p className="text-xs text-red-200 leading-relaxed font-medium">
+                    ⚠️ PERINGATAN: Reset akan menghapus data yang rusak dari penyimpanan perangkat ini. Pastikan Anda sudah mengunduh data mentah di atas.
+                  </p>
+                  <div className="flex space-x-2">
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition"
+                    >
+                      Ya, Hapus &amp; Mulai Ulang
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmReset(false)}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
     </div>
   )
 }
+

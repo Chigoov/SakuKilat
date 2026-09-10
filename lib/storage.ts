@@ -73,6 +73,8 @@ export interface LoadResult {
   quarantineFailed?: boolean
   error?: string
   detectedVersion?: number
+  /** Raw payload string preserved for incompatible states (export/download) */
+  incompatibleRaw?: string
 }
 
 function getStorage(custom?: StorageLike): StorageLike | null {
@@ -173,7 +175,9 @@ export function loadPersistedState(customStorage?: StorageLike): LoadResult {
   const storage = getStorage(customStorage)
   if (!storage) return { status: 'missing', state: {} }
 
-  cleanupStaleStorageKeys(storage)
+  // NOTE: cleanupStaleStorageKeys is NOT called here.
+  // Callers must invoke it explicitly only after status is confirmed as 'valid' or 'missing',
+  // to avoid deleting unknown keys that belong to a newer schema version.
 
   const raw = storage.getItem(STORAGE_KEY)
   if (raw === null || raw === undefined) {
@@ -226,6 +230,7 @@ export function loadPersistedState(customStorage?: StorageLike): LoadResult {
       status: 'incompatible',
       state: record,
       detectedVersion: record.schemaVersion,
+      incompatibleRaw: raw,
     }
   }
 
@@ -264,9 +269,13 @@ export function canMutateState(storageStatus: StorageStatus): boolean {
 
 /**
  * Resets corrupt state after explicit user confirmation.
+ * Only allowed when storage status is 'corrupt'. Incompatible status must NOT be reset
+ * because the data may be valid for a newer version of the application.
  */
-export function resetCorruptState(storage: StorageLike, confirmed: boolean): boolean {
+export function resetCorruptState(storage: StorageLike, confirmed: boolean, storageStatus?: StorageStatus): boolean {
   if (!confirmed) return false
+  // Block reset for incompatible — data belongs to a newer app version
+  if (storageStatus === 'incompatible') return false
   try {
     storage.removeItem(STORAGE_KEY)
     return true
