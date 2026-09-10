@@ -1,182 +1,47 @@
 /**
- * SK-004 — Import/Restore Regression Tests
+ * SK-004 — Transactional Import/Restore Regression Tests
  *
- * Menguji bahwa importFile menangani backup JSON dengan aman:
- * - Pre-import checkpoint dibuat sebelum modifikasi
- * - Schema validation menolak backup invalid
- * - Write failure memicu rollback dari checkpoint
- * - Copy text akurat (backup replace, CSV merge)
- *
+ * Menguji helper production `lib/data-restore.ts` secara nyata (bukan salinan logika).
  * Jalankan: node scripts/test-import-restore.mjs
  */
 
-const CURRENT_SCHEMA_VERSION = 8
-const STORAGE_KEY = 'sakukilat:v2:local-state'
-const CHECKPOINT_KEY = 'sakukilat:v2:import-checkpoint'
-const GOAL_STORAGE_KEY = 'sakukilat:v2:goals'
+import {
+  planImport,
+  executeImportTransaction,
+  executeRollback,
+  CHECKPOINT_KEY,
+  GOAL_CHECKPOINT_KEY,
+} from '../lib/data-restore.ts'
+import { STORAGE_KEY, GOAL_STORAGE_KEY, CURRENT_SCHEMA_VERSION } from '../lib/storage.ts'
 
-// ── Minimal mock of import logic ──
-
-/**
- * Simulates the FIXED importFile behavior (matching production code).
- * Creates checkpoint, validates schema, verifies write, provides rollback.
- */
-function importFile_CURRENT(mockLocalStorage, backupJson) {
-  const parsed = typeof backupJson === 'string' ? JSON.parse(backupJson) : backupJson
-  const imported = Array.isArray(parsed?.transactions)
-    ? parsed.transactions
-    : []
-
-  if (imported.length === 0) {
-    return { success: false, error: 'No transactions', checkpointCreated: false }
-  }
-
-  const isSakuKilatBackup = parsed?.app === 'SakuKilat' || parsed?.schemaVersion === CURRENT_SCHEMA_VERSION
-
-  // SK-004: Schema validation
-  if (isSakuKilatBackup && !Array.isArray(parsed?.transactions)) {
-    return { success: false, error: 'Invalid backup schema', checkpointCreated: false }
-  }
-
-  // SK-004: Create checkpoint BEFORE modification
-  const currentRaw = mockLocalStorage.getItem(STORAGE_KEY)
-  if (currentRaw) {
-    mockLocalStorage.setItem(CHECKPOINT_KEY, currentRaw)
-  }
-
-  const current = currentRaw ? JSON.parse(currentRaw) : {}
-  const merged = isSakuKilatBackup ? imported : [...imported, ...(current.transactions || [])]
-
-  const newState = JSON.stringify({
-    ...current,
-    ...(isSakuKilatBackup ? parsed : {}),
-    schemaVersion: CURRENT_SCHEMA_VERSION,
-    transactions: merged,
-  })
-
-  mockLocalStorage.setItem(STORAGE_KEY, newState)
-
-  // SK-004: Verify write
-  const verification = mockLocalStorage.getItem(STORAGE_KEY)
-  if (verification !== newState) {
-    if (currentRaw) {
-      try { mockLocalStorage.setItem(STORAGE_KEY, currentRaw) } catch {}
-    }
-    return { success: false, error: 'Write verification failed', checkpointCreated: true }
-  }
-
-  return {
-    success: true,
-    merged,
-    checkpointCreated: Boolean(currentRaw),
-    rollbackAvailable: Boolean(currentRaw),
-  }
-}
-
-/**
- * Simulates the EXPECTED importFile behavior (after fix).
- * Creates checkpoint, validates schema, verifies write, provides rollback.
- */
-function importFile_EXPECTED(mockLocalStorage, backupJson) {
-  const parsed = typeof backupJson === 'string' ? JSON.parse(backupJson) : backupJson
-  const imported = Array.isArray(parsed?.transactions)
-    ? parsed.transactions
-    : []
-
-  if (imported.length === 0) {
-    return { success: false, error: 'No transactions', checkpointCreated: false }
-  }
-
-  const isSakuKilatBackup = parsed?.app === 'SakuKilat' || parsed?.schemaVersion === CURRENT_SCHEMA_VERSION
-
-  // EXPECTED: Validate schema for SakuKilat backup
-  if (isSakuKilatBackup && !Array.isArray(parsed?.transactions)) {
-    return { success: false, error: 'Invalid backup schema', checkpointCreated: false }
-  }
-
-  // EXPECTED: Create checkpoint BEFORE any modification
-  const currentRaw = mockLocalStorage.getItem(STORAGE_KEY)
-  if (currentRaw) {
-    mockLocalStorage.setItem(CHECKPOINT_KEY, currentRaw)
-  }
-
-  const current = currentRaw ? JSON.parse(currentRaw) : {}
-  const merged = isSakuKilatBackup ? imported : [...imported, ...(current.transactions || [])]
-
-  const newState = JSON.stringify({
-    ...current,
-    ...(isSakuKilatBackup ? parsed : {}),
-    schemaVersion: CURRENT_SCHEMA_VERSION,
-    transactions: merged,
-  })
-
-  // Write
-  mockLocalStorage.setItem(STORAGE_KEY, newState)
-
-  // EXPECTED: Verify write succeeded
-  const verification = mockLocalStorage.getItem(STORAGE_KEY)
-  if (verification !== newState) {
-    // Rollback from checkpoint
-    if (currentRaw) {
-      mockLocalStorage.setItem(STORAGE_KEY, currentRaw)
-    }
-    return { success: false, error: 'Write verification failed', checkpointCreated: true }
-  }
-
-  return {
-    success: true,
-    merged,
-    checkpointCreated: Boolean(currentRaw),
-    rollbackAvailable: Boolean(currentRaw),
-  }
-}
-
-/**
- * Rollback from checkpoint.
- */
-function rollbackFromCheckpoint(mockLocalStorage) {
-  const checkpoint = mockLocalStorage.getItem(CHECKPOINT_KEY)
-  if (!checkpoint) return false
-  mockLocalStorage.setItem(STORAGE_KEY, checkpoint)
-  return true
-}
-
-// ── Test harness ──
 let passed = 0
 let failed = 0
 let total = 0
 
-function makeStorage(initialState) {
-  const store = new Map()
-  if (initialState !== undefined) {
-    store.set(STORAGE_KEY, JSON.stringify(initialState))
-  }
+function makeStorage(initialMap = {}, options = {}) {
+  const store = new Map(Object.entries(initialMap))
   return {
     getItem: (key) => store.has(key) ? store.get(key) : null,
-    setItem: (key, val) => store.set(key, val),
+    setItem: (key, val) => {
+      if (options.failKeys && options.failKeys.includes(key)) {
+        throw new Error(`Write failed for key: ${key}`)
+      }
+      store.set(key, String(val))
+    },
     removeItem: (key) => store.delete(key),
     keys: () => [...store.keys()],
   }
 }
 
-function makeFailingStorage(initialState) {
-  const store = new Map()
-  if (initialState !== undefined) {
-    store.set(STORAGE_KEY, JSON.stringify(initialState))
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message || 'Assertion failed')
   }
-  let writeCount = 0
-  return {
-    getItem: (key) => store.has(key) ? store.get(key) : null,
-    setItem: (key, val) => {
-      writeCount++
-      // Allow checkpoint write but fail on the actual state write
-      if (writeCount > 1 && key === STORAGE_KEY) {
-        throw new Error('Storage full')
-      }
-      store.set(key, val)
-    },
-    removeItem: (key) => store.delete(key),
-    keys: () => [...store.keys()],
+}
+
+function assertEqual(actual, expected, label) {
+  if (actual !== expected) {
+    throw new Error(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)
   }
 }
 
@@ -187,164 +52,243 @@ function test(name, fn) {
     console.log(`  ✓ PASS: ${name}`)
     passed++
   } catch (e) {
-    console.error(`  ✗ FAIL: ${name}`)
-    console.error(`         ${e.message}`)
+    console.log(`  ✗ FAIL: ${name}`)
+    console.log(`    → ${e.message}`)
     failed++
   }
 }
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message || 'Assertion failed')
+console.log('=== SK-004: Transactional Import/Restore Regression Tests (Production Code) ===\n')
+
+const sampleValidTx = {
+  id: 'tx-001',
+  amount: 25000,
+  type: 'expense',
+  date: '2026-06-15T10:00:00.000Z',
+  category: 'makanan',
+  paymentMethod: 'tunai',
+  description: 'Makan siang',
 }
 
-function assertEqual(actual, expected, label = '') {
-  if (actual !== expected) {
-    throw new Error(`${label} expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)
-  }
-}
+// ── Group 1: Schema & Content Validation ──
+console.log('Group 1: Schema and Content Validation')
 
-console.log('\n🧪 SK-004 Import/Restore Tests\n')
-
-// ── Group 1: Current behavior (should pass) ──
-console.log('Group 1: Current behavior')
-
-test('Valid SakuKilat backup replaces transactions', () => {
-  const existing = { schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'old' }] }
-  const storage = makeStorage(existing)
-  const backup = { app: 'SakuKilat', schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'new1' }, { id: 'new2' }] }
-
-  const result = importFile_CURRENT(storage, JSON.stringify(backup))
-  assert(result.success, 'Import should succeed')
-  assertEqual(result.merged.length, 2, 'Should have 2 transactions (replaced)')
+test('Valid SakuKilat backup is accepted with preview metadata', () => {
+  const storage = makeStorage({ [STORAGE_KEY]: JSON.stringify({ transactions: [sampleValidTx] }) })
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [sampleValidTx, { ...sampleValidTx, id: 'tx-002', amount: 50000 }],
+  })
+  const plan = planImport(backup, storage)
+  assert(plan.valid === true, 'Plan should be valid')
+  assertEqual(plan.isSakuKilatBackup, true, 'isSakuKilatBackup')
+  assertEqual(plan.mode, 'replace', 'mode')
+  assertEqual(plan.newTransactionCount, 2, 'newTransactionCount')
 })
 
-test('Empty transactions backup is rejected', () => {
-  const storage = makeStorage({ schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'keep' }] })
-  const backup = { app: 'SakuKilat', schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [] }
-  const result = importFile_CURRENT(storage, JSON.stringify(backup))
-  assert(!result.success, 'Empty import should be rejected')
+test('Supported old schema version (v6) is accepted', () => {
+  const storage = makeStorage()
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: 6,
+    transactions: [sampleValidTx],
+  })
+  const plan = planImport(backup, storage)
+  assert(plan.valid === true, 'Old schema version should be accepted')
 })
 
-// ── Group 2: Checkpoint tests (should FAIL before fix) ──
-console.log('\nGroup 2: Pre-import checkpoint (expect FAIL before fix)')
-
-test('Import creates pre-import checkpoint', () => {
-  const existing = { schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'precious' }] }
-  const storage = makeStorage(existing)
-  const backup = { app: 'SakuKilat', schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'new' }] }
-
-  const result = importFile_CURRENT(storage, JSON.stringify(backup))
-  assert(result.success, 'Import should succeed')
-
-  // CRITICAL: current code does NOT create checkpoint
-  assert(
-    result.checkpointCreated === true,
-    'Current importFile should create checkpoint before modifying state'
-  )
+test('Future schema version (> CURRENT_SCHEMA_VERSION) is REJECTED', () => {
+  const storage = makeStorage()
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: 999,
+    transactions: [sampleValidTx],
+  })
+  const plan = planImport(backup, storage)
+  assert(plan.valid === false, 'Future schema version must be rejected')
 })
 
-test('Checkpoint preserves exact pre-import state', () => {
-  const existing = { schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'original', amount: 500 }] }
-  const storage = makeStorage(existing)
-  const backup = { app: 'SakuKilat', schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'replacement' }] }
+test('Backup missing transactions array is REJECTED', () => {
+  const storage = makeStorage()
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+  })
+  const plan = planImport(backup, storage)
+  assert(plan.valid === false, 'Missing transactions must be rejected')
+})
 
-  importFile_CURRENT(storage, JSON.stringify(backup))
+test('Backup with empty transactions array is REJECTED', () => {
+  const storage = makeStorage()
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [],
+  })
+  const plan = planImport(backup, storage)
+  assert(plan.valid === false, 'Empty transactions array must be rejected')
+})
 
-  // After import, checkpoint should contain the original state
+test('Mixed valid and invalid transactions must be REJECTED (no silent record dropping)', () => {
+  const storage = makeStorage({ [STORAGE_KEY]: JSON.stringify({ transactions: [sampleValidTx] }) })
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [
+      sampleValidTx,
+      { id: 'broken-1' }, // missing amount, type, date, etc.
+    ],
+  })
+  const plan = planImport(backup, storage)
+  assert(plan.valid === false, 'Backup with corrupted rows must be rejected, not silently truncated')
+})
+
+test('Invalid transaction fields (negative amount, bad type, bad date) must be REJECTED', () => {
+  const storage = makeStorage()
+  const badAmount = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [{ ...sampleValidTx, amount: -5000 }],
+  })
+  assert(planImport(badAmount, storage).valid === false, 'Negative amount must be rejected')
+
+  const badType = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [{ ...sampleValidTx, type: 'invalid_type' }],
+  })
+  assert(planImport(badType, storage).valid === false, 'Invalid type must be rejected')
+
+  const badDate = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [{ ...sampleValidTx, date: 'not-a-date' }],
+  })
+  assert(planImport(badDate, storage).valid === false, 'Invalid date must be rejected')
+})
+
+test('Duplicate transaction IDs in backup must be REJECTED', () => {
+  const storage = makeStorage()
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [
+      { ...sampleValidTx, id: 'dup-1' },
+      { ...sampleValidTx, id: 'dup-1', description: 'Duplicated ID' },
+    ],
+  })
+  const plan = planImport(backup, storage)
+  assert(plan.valid === false, 'Duplicate IDs in backup must be rejected')
+})
+
+// ── Group 2: Checkpoint & Multi-Key Transactional Execution ──
+console.log('\nGroup 2: Checkpoint and Multi-Key Transactional Execution')
+
+test('Checkpoint MUST preserve both primary state AND goals before modification', () => {
+  const initialPrimary = JSON.stringify({ transactions: [sampleValidTx] })
+  const initialGoals = JSON.stringify([{ id: 'goal-1', title: 'Beli laptop', targetAmount: 15000000 }])
+  const storage = makeStorage({
+    [STORAGE_KEY]: initialPrimary,
+    [GOAL_STORAGE_KEY]: initialGoals,
+  })
+
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [{ ...sampleValidTx, id: 'tx-new' }],
+    goals: [{ id: 'goal-2', title: 'Liburan', targetAmount: 5000000 }],
+  })
+  const plan = planImport(backup, storage)
+  assert(plan.valid === true, 'Plan should be valid')
+
+  const exec = executeImportTransaction(storage, plan, { confirmed: true })
+  assert(exec.success === true, 'Import should succeed')
+
+  // Verify checkpoint was created
   const checkpoint = storage.getItem(CHECKPOINT_KEY)
-  assert(
-    checkpoint !== null,
-    'Checkpoint should exist after import'
+  assert(checkpoint !== null, 'Primary checkpoint must exist')
+  const goalCheckpoint = storage.getItem(GOAL_CHECKPOINT_KEY) || (JSON.parse(checkpoint)[GOAL_STORAGE_KEY])
+  assert(goalCheckpoint !== undefined && goalCheckpoint !== null, 'Goal checkpoint must be preserved')
+})
+
+test('Failure on goals write triggers full rollback of primary state', () => {
+  const initialPrimary = JSON.stringify({ transactions: [sampleValidTx] })
+  const initialGoals = JSON.stringify([{ id: 'goal-1', targetAmount: 1000 }])
+  // storage will fail when writing GOAL_STORAGE_KEY
+  const storage = makeStorage(
+    { [STORAGE_KEY]: initialPrimary, [GOAL_STORAGE_KEY]: initialGoals },
+    { failKeys: [GOAL_STORAGE_KEY] }
   )
+
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [{ ...sampleValidTx, id: 'tx-new-999' }],
+    goals: [{ id: 'goal-new', targetAmount: 9000 }],
+  })
+  const plan = planImport(backup, storage)
+  assert(plan.valid === true, 'Plan valid')
+
+  const exec = executeImportTransaction(storage, plan, { confirmed: true })
+  assert(exec.success === false, 'Import execution should fail')
+  assert(exec.rollbackAttempted === true, 'Rollback should have been attempted')
+
+  // Crucial: Primary state must NOT have been left modified!
+  assertEqual(storage.getItem(STORAGE_KEY), initialPrimary, 'Primary state must be restored to original upon goal failure')
 })
 
-test('Rollback restores pre-import state', () => {
-  const existing = { schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'precious', amount: 999 }] }
-  const storage = makeStorage(existing)
-  const backup = { app: 'SakuKilat', schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'unwanted' }] }
+test('Rollback restores all keys (primary and goals)', () => {
+  const initialPrimary = JSON.stringify({ transactions: [sampleValidTx] })
+  const initialGoals = JSON.stringify([{ id: 'goal-original' }])
+  const storage = makeStorage({
+    [STORAGE_KEY]: initialPrimary,
+    [GOAL_STORAGE_KEY]: initialGoals,
+  })
 
-  importFile_CURRENT(storage, JSON.stringify(backup))
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [{ ...sampleValidTx, id: 'tx-imported' }],
+    goals: [{ id: 'goal-imported' }],
+  })
+  const plan = planImport(backup, storage)
+  executeImportTransaction(storage, plan, { confirmed: true })
 
-  const rolledBack = rollbackFromCheckpoint(storage)
-  assert(rolledBack, 'Rollback should succeed')
-
-  const restored = JSON.parse(storage.getItem(STORAGE_KEY))
-  assert(
-    restored.transactions.some(t => t.id === 'precious'),
-    'Original transaction should be restored after rollback'
-  )
+  // Now trigger manual/system rollback
+  const rollbackResult = executeRollback(storage)
+  assert(rollbackResult.success === true, 'Rollback should succeed')
+  assertEqual(storage.getItem(STORAGE_KEY), initialPrimary, 'Primary must match pre-import')
+  assertEqual(storage.getItem(GOAL_STORAGE_KEY), initialGoals, 'Goals must match pre-import')
 })
 
-// ── Group 3: Schema validation ──
-console.log('\nGroup 3: Schema validation')
+// ── Group 3: Confirmation & Mode Safety ──
+console.log('\nGroup 3: Confirmation and Mode Safety')
 
-test('Backup without transactions array has proper handling', () => {
-  const existing = { schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'safe' }] }
-  const storage = makeStorage(existing)
-  // This is an invalid backup — has app marker but no transactions
-  const badBackup = { app: 'SakuKilat', schemaVersion: CURRENT_SCHEMA_VERSION }
+test('Replace mode fails if not explicitly confirmed (confirmed: false or omitted)', () => {
+  const initialPrimary = JSON.stringify({ transactions: [sampleValidTx] })
+  const storage = makeStorage({ [STORAGE_KEY]: initialPrimary })
 
-  const result = importFile_CURRENT(storage, JSON.stringify(badBackup))
-  // Current: this results in empty import → rejected (PASS because 0 transactions)
-  // But ideally should give a specific schema error
-  assert(!result.success, 'Should reject backup without transactions')
-})
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [{ ...sampleValidTx, id: 'tx-replace' }],
+  })
+  const plan = planImport(backup, storage)
+  assert(plan.mode === 'replace', 'Backup must be replace mode')
 
-// ── Group 4: Expected behavior (after fix) ──
-console.log('\nGroup 4: Expected behavior (after fix)')
-
-test('EXPECTED: Import creates checkpoint and provides rollback', () => {
-  const existing = { schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'precious' }] }
-  const storage = makeStorage(existing)
-  const backup = { app: 'SakuKilat', schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'new' }] }
-
-  const result = importFile_EXPECTED(storage, JSON.stringify(backup))
-  assert(result.success, 'Import should succeed')
-  assert(result.checkpointCreated, 'Checkpoint should be created')
-  assert(result.rollbackAvailable, 'Rollback should be available')
-
-  // Verify checkpoint exists
-  const checkpoint = storage.getItem(CHECKPOINT_KEY)
-  assert(checkpoint !== null, 'Checkpoint key should exist')
-  const checkpointData = JSON.parse(checkpoint)
-  assert(checkpointData.transactions.some(t => t.id === 'precious'), 'Checkpoint should have original data')
-})
-
-test('EXPECTED: Rollback restores exact pre-import state', () => {
-  const existing = { schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'gold', amount: 1000 }] }
-  const storage = makeStorage(existing)
-  const backup = { app: 'SakuKilat', schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [{ id: 'junk' }] }
-
-  importFile_EXPECTED(storage, JSON.stringify(backup))
-  rollbackFromCheckpoint(storage)
-
-  const restored = JSON.parse(storage.getItem(STORAGE_KEY))
-  assertEqual(restored.transactions.length, 1, 'Should have 1 transaction')
-  assertEqual(restored.transactions[0].id, 'gold', 'Should be the original transaction')
-})
-
-// ── Group 5: Copy text accuracy ──
-console.log('\nGroup 5: Copy text accuracy')
-
-test('Copy text should NOT claim "data lama tidak dihapus" for backup replace', () => {
-  // This is a documentation/UX test — we verify the expected behavior
-  const isSakuKilatBackup = true
-  const copyText = isSakuKilatBackup
-    ? 'Backup JSON menggantikan seluruh data.'
-    : 'Data lama tidak dihapus; transaksi duplikat dilewati.'
-
-  assert(
-    !copyText.includes('tidak dihapus') || !isSakuKilatBackup,
-    'Backup restore copy must NOT claim data is preserved when it replaces everything'
-  )
+  // Attempt without confirmation
+  const unconfirmed = executeImportTransaction(storage, plan, { confirmed: false })
+  assert(unconfirmed.success === false, 'Unconfirmed replace must be rejected')
+  assertEqual(storage.getItem(STORAGE_KEY), initialPrimary, 'Storage must not be touched')
 })
 
 // ── Summary ──
 console.log('\n' + '─'.repeat(50))
-console.log(`\nResults: ${passed}/${total} passed, ${failed} failed\n`)
+console.log(`Results: ${passed}/${total} passed, ${failed} failed\n`)
 
 if (failed > 0) {
-  console.error('❌ Some tests failed. Checkpoint tests will pass after SK-004 fix.\n')
+  console.error(`❌ Expected failure on baseline: ${failed} tests failed as expected before fix.\n`)
   process.exit(1)
 } else {
   console.log('✅ All SK-004 tests passed!\n')
