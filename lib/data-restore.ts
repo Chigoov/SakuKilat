@@ -3,6 +3,9 @@
  * Centralizes import validation, planning, multi-key checkpointing, and atomic rollback.
  */
 
+import { parseDelimitedToRecords } from './csv-parser.ts'
+import { deduplicateTransactions } from './dedup.ts'
+
 export const CURRENT_SCHEMA_VERSION = 8
 export const STORAGE_KEY = 'sakukilat:v2:local-state'
 export const GOAL_STORAGE_KEY = 'sakukilat:v2:goals'
@@ -24,6 +27,8 @@ export interface ImportPlanSuccess {
   rawBackup?: any
   currentTransactionCount: number
   newTransactionCount: number
+  duplicateCount?: number
+  invalidCount?: number
   dateRange: { start?: string; end?: string }
   affectedKeys: string[]
   hasGoals: boolean
@@ -88,29 +93,61 @@ export function planImport(rawText: string, storage: StorageLike, options: { isC
 
   // Handle explicit CSV mode or plain CSV text
   if (options.isCsv || (!rawText.trim().startsWith('{') && !rawText.trim().startsWith('['))) {
-    const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
-    if (lines.length <= 1) {
+    const { records, errors } = parseDelimitedToRecords(rawText)
+    if (errors.length > 0 && records.length === 0) {
+      return { valid: false, error: errors[0] }
+    }
+    if (records.length === 0) {
       return { valid: false, error: 'File CSV kosong atau hanya berisi header.' }
     }
-    // Minimal mock for test validation of CSV merge
+
     const parsedCsvTxs: any[] = []
-    for (let i = 1; i < lines.length; i++) {
-      const parts = lines[i].split(',')
-      if (parts.length >= 4) {
-        parsedCsvTxs.push({
-          id: `csv-${Date.now()}-${i}`,
-          amount: Number(parts[3]) || 10000,
-          type: parts[1]?.toLowerCase().includes('masuk') ? 'income' : 'expense',
-          date: parts[0] || new Date().toISOString(),
-          description: parts[2] || 'Impor CSV',
-          category: parts[4] || 'lainnya',
-          paymentMethod: parts[6] || 'tunai',
-        })
+    const csvErrors: string[] = []
+    for (let i = 0; i < records.length; i++) {
+      const rec = records[i]
+      // Try to extract standard fields
+      const dateVal = rec['tanggal'] || rec['date'] || rec['Tanggal'] || rec['Date'] || ''
+      const typeVal = rec['tipe'] || rec['type'] || rec['Tipe'] || rec['Type'] || rec['jenis'] || rec['Jenis'] || ''
+      const descVal = rec['deskripsi'] || rec['description'] || rec['Deskripsi'] || rec['Description'] || rec['keterangan'] || rec['Keterangan'] || 'Impor CSV'
+      const amountVal = rec['nominal'] || rec['amount'] || rec['Nominal'] || rec['Amount'] || rec['jumlah'] || rec['Jumlah'] || ''
+      const categoryVal = rec['kategori'] || rec['category'] || rec['Kategori'] || rec['Category'] || 'lainnya'
+      const paymentVal = rec['metode'] || rec['payment'] || rec['Metode'] || rec['Payment'] || rec['pembayaran'] || 'tunai'
+
+      // Parse amount strictly — no fallback
+      const amountNum = Number(String(amountVal).replace(/[^0-9.-]/g, ''))
+      if (!Number.isFinite(amountNum) || amountNum <= 0) {
+        csvErrors.push(`Baris ${i + 2}: nominal tidak valid ("${amountVal}")`)
+        continue
       }
+
+      // Parse date
+      const parsedDate = dateVal ? new Date(dateVal) : new Date()
+      if (dateVal && !Number.isFinite(parsedDate.getTime())) {
+        csvErrors.push(`Baris ${i + 2}: tanggal tidak valid ("${dateVal}")`)
+        continue
+      }
+
+      // Parse type
+      const typeLower = typeVal.toLowerCase()
+      const isIncome = ['income', 'masuk', 'pemasukan', 'credit', 'kredit'].some(t => typeLower.includes(t))
+
+      parsedCsvTxs.push({
+        id: `csv-${Date.now()}-${i}`,
+        amount: Math.round(amountNum),
+        type: isIncome ? 'income' : 'expense',
+        date: parsedDate.toISOString(),
+        description: descVal.trim() || 'Impor CSV',
+        category: categoryVal.trim().toLowerCase() || 'lainnya',
+        paymentMethod: paymentVal.trim().toLowerCase() || 'tunai',
+      })
     }
 
     if (parsedCsvTxs.length === 0) {
-      return { valid: false, error: 'Tidak ada baris transaksi yang valid di file CSV.' }
+      return {
+        valid: false,
+        error: 'Tidak ada baris transaksi yang valid di file CSV.',
+        details: csvErrors.length > 0 ? csvErrors : undefined,
+      }
     }
 
     return {
@@ -120,10 +157,11 @@ export function planImport(rawText: string, storage: StorageLike, options: { isC
       transactions: parsedCsvTxs,
       currentTransactionCount: currentTxCount,
       newTransactionCount: parsedCsvTxs.length,
+      invalidCount: csvErrors.length,
       dateRange: {},
       affectedKeys: [STORAGE_KEY],
       hasGoals: false,
-      summary: `${parsedCsvTxs.length} transaksi baru akan digabungkan ke data yang ada (data lama tidak dihapus).`,
+      summary: `${parsedCsvTxs.length} transaksi baru akan digabungkan ke data yang ada (data lama tidak dihapus).${csvErrors.length > 0 ? ` ${csvErrors.length} baris dilewati karena tidak valid.` : ''}`,
     }
   }
 
@@ -287,7 +325,9 @@ export function executeImportTransaction(
     const rollback = executeRollback(storage)
     return {
       success: false,
-      error: 'Gagal menulis data utama. Rollback berhasil.',
+      error: rollback.success
+        ? 'Gagal menulis data utama. Data dipulihkan ke kondisi semula.'
+        : 'PERINGATAN: Gagal menulis data utama DAN rollback gagal. Gunakan checkpoint untuk pemulihan manual.',
       rollbackAttempted: true,
       rollbackSucceeded: rollback.success,
     }
@@ -306,7 +346,9 @@ export function executeImportTransaction(
       const rollback = executeRollback(storage)
       return {
         success: false,
-        error: 'Gagal menulis target/goals. Seluruh data dipulihkan ke kondisi semula.',
+        error: rollback.success
+          ? 'Gagal menulis target/goals. Seluruh data dipulihkan ke kondisi semula.'
+          : 'PERINGATAN: Gagal menulis target/goals DAN rollback gagal. Gunakan checkpoint untuk pemulihan manual.',
         rollbackAttempted: true,
         rollbackSucceeded: rollback.success,
       }

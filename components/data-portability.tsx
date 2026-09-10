@@ -374,52 +374,11 @@ function normalizeTransaction(raw: unknown, index: number): Transaction | null {
   }
 }
 
-function detectDelimiter(firstLine: string): string {
-  return [',', ';', '\t'].reduce((best, delimiter) =>
-    firstLine.split(delimiter).length > firstLine.split(best).length ? delimiter : best
-  )
-}
-
-function parseDelimited(text: string): string[][] {
-  const delimiter = detectDelimiter(text.split(/\r?\n/, 1)[0] ?? '')
-  const rows: string[][] = []
-  let row: string[] = []
-  let cell = ''
-  let quoted = false
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i]
-    if (quoted) {
-      if (char === '"' && text[i + 1] === '"') {
-        cell += '"'
-        i += 1
-      } else if (char === '"') {
-        quoted = false
-      } else {
-        cell += char
-      }
-    } else if (char === '"') {
-      quoted = true
-    } else if (char === delimiter) {
-      row.push(cell)
-      cell = ''
-    } else if (char === '\n') {
-      row.push(cell)
-      rows.push(row)
-      row = []
-      cell = ''
-    } else if (char !== '\r') {
-      cell += char
-    }
-  }
-
-  row.push(cell)
-  rows.push(row)
-  return rows.filter(items => items.some(item => item.trim()))
-}
+// CSV parsing now uses the shared module
+import { parseDelimited as parseDelimitedShared } from '@/lib/csv-parser'
 
 function csvToTransactions(text: string): Transaction[] {
-  const rows = parseDelimited(text)
+  const rows = parseDelimitedShared(text)
   const headers = rows[0]?.map(normalizeHeader) ?? []
   return rows.slice(1)
     .map((cells, index) => {
