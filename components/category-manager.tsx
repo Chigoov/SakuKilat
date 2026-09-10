@@ -11,6 +11,7 @@ import {
 import { getBuiltinCategoryType, formatIDR, type TransactionType } from '@/lib/parser'
 import { cn } from '@/lib/utils'
 import { BottomSheet } from '@/components/bottom-sheet'
+import { RupiahInput } from '@/components/rupiah-input'
 
 const NEW_CATEGORY_ID = '__new-category__'
 
@@ -352,16 +353,14 @@ export function CategoryManager() {
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[var(--sk-text-dim)]">
                   Batas per bulan (opsional)
                 </label>
-                <input
-                  inputMode="numeric"
+                <RupiahInput
                   value={editor.monthlyBudget}
-                  onChange={(event) => setEditor((prev) => prev ? { ...prev, monthlyBudget: event.target.value.replace(/[^0-9]/g, '') } : prev)}
-                  placeholder="mis. 1000000 - kosongkan bila tanpa batas"
-                  className="w-full rounded-xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-3 py-2 text-sm text-[var(--sk-text)] outline-none"
+                  onChange={(_num, str) => setEditor((prev) => prev ? { ...prev, monthlyBudget: str.replace(/\./g, '') } : prev)}
+                  placeholder="mis. 1.000.000 - kosongkan bila tanpa batas"
+                  containerClassName="w-full rounded-xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)]"
+                  prefixClassName="text-sm pl-3 pr-1"
+                  className="text-sm py-2 pr-3"
                 />
-                {editor.monthlyBudget ? (
-                  <p className="mt-1 text-[11px] text-[var(--sk-text-dim)]">{formatIDR(Number(editor.monthlyBudget))} / bulan</p>
-                ) : null}
               </div>
             )}
             <div className="rounded-2xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">

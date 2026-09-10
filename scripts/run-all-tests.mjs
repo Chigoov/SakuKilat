@@ -42,6 +42,11 @@ const testSuites = [
     type: 'regression',
   },
   {
+    name: 'Live Rupiah Formatting & Parsing',
+    script: 'scripts/test-amount-rupiah.mjs',
+    type: 'regression',
+  },
+  {
     name: 'SK-001: Scanner Data Personal & Finansial',
     script: 'scripts/scan-personal-data.mjs',
     type: 'security-scan',

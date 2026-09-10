@@ -7,6 +7,7 @@ import { formatIDR, formatIDRCompact } from '@/lib/parser'
 import { formatNaturalAmountInput, parseAmountInput } from '@/lib/amount'
 import { cn } from '@/lib/utils'
 import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
+import { RupiahInput } from '@/components/rupiah-input'
 
 /**
  * SakuKilat Goal Tracker
@@ -276,14 +277,15 @@ const GoalCard = memo(function GoalCard({ goal, onContribute, onEdit, onRemove, 
           {expanded && (
             <div className="mt-2 space-y-2">
               <div className="flex gap-1.5">
-                <input
+                <RupiahInput
                   value={contribRaw}
-                  onChange={e => setContribRaw(formatNaturalAmountInput(e.target.value))}
+                  onChange={(_num, str) => setContribRaw(str)}
                   onKeyDown={e => e.key === 'Enter' && handleContribute()}
-                  placeholder="cth. 100k"
-                  inputMode="decimal"
+                  placeholder="cth. 100.000"
                   autoFocus
-                  className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] outline-none text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] focus:border-[var(--sk-cyan)]"
+                  containerClassName="flex-1 min-w-0 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] focus-within:border-[var(--sk-cyan)]"
+                  prefixClassName="text-xs pl-2.5 pr-0.5"
+                  className="px-1 py-1.5 text-xs"
                 />
                 <button
                   onClick={handleContribute}
@@ -382,12 +384,13 @@ function GoalForm({ initial, onCancel, onSave }: GoalFormProps) {
           className="w-full px-3 py-2 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] outline-none text-sm text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] focus:border-[var(--sk-cyan)]"
         />
         <div className="grid grid-cols-2 gap-2">
-          <input
+          <RupiahInput
             value={targetRaw}
-            onChange={e => setTargetRaw(formatNaturalAmountInput(e.target.value))}
-            placeholder="Target (5jt)"
-            inputMode="decimal"
-            className="px-3 py-2 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] outline-none text-sm text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] focus:border-[var(--sk-cyan)] tabular-nums"
+            onChange={(_num, str) => setTargetRaw(str)}
+            placeholder="Target cth. 5.000.000"
+            containerClassName="rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] focus-within:border-[var(--sk-cyan)]"
+            prefixClassName="text-xs pl-2.5 pr-0.5"
+            className="px-1 py-2 text-sm tabular-nums"
           />
           <input
             value={deadline}

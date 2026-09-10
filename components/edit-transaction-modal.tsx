@@ -28,6 +28,7 @@ import { formatIDR } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
 import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
+import { RupiahInput } from '@/components/rupiah-input'
 
 interface EditTransactionModalProps {
   open: boolean
@@ -305,13 +306,12 @@ export const EditTransactionModal = memo(function EditTransactionModal({
                 </span>
               )}
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
+            <RupiahInput
               value={amountRaw}
-              onChange={e => setAmountRaw(formatAmountFieldInput(e.target.value))}
+              onChange={(_num, str) => setAmountRaw(str)}
               placeholder="Nominal transaksi"
-              className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm font-semibold text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)] caret-[var(--sk-cyan)] tabular-nums"
+              containerClassName="w-full mt-1 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] focus-within:border-[var(--sk-cyan)]"
+              className="py-2 text-sm font-semibold tabular-nums"
             />
             {/* Quick Amount Chips */}
             <div className="mt-2 flex flex-wrap gap-1.5">

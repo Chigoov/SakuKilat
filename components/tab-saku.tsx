@@ -10,6 +10,7 @@ import { formatIDR } from '@/lib/parser'
 import { formatAmountFieldInput, parseAmountInput } from '@/lib/amount'
 import type { WalletType } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
+import { RupiahInput } from '@/components/rupiah-input'
 
 const WALLET_TYPE_LABELS: Record<WalletType, string> = {
   cash: 'Cash',
@@ -45,13 +46,13 @@ function BudgetSettings() {
 
       <div className="rounded-xl bg-[var(--sk-surface)] border border-[var(--sk-border)] p-3">
         <div className="flex items-center gap-2">
-          <input
+          <RupiahInput
             value={raw}
-            onChange={e => setRaw(formatAmountFieldInput(e.target.value))}
+            onChange={(_num, str) => setRaw(str)}
             onKeyDown={e => e.key === 'Enter' && handleSave()}
-            placeholder="cth. 1,5jt"
-            inputMode="decimal"
-            className="flex-1 min-w-0 bg-transparent outline-none text-sm text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)]"
+            placeholder="cth. 1.500.000"
+            containerClassName="flex-1 min-w-0 bg-transparent border-0"
+            className="py-0 pr-0"
           />
           <button
             type="button"
@@ -199,13 +200,14 @@ function WalletManager() {
               <option value="other">Lainnya</option>
             </select>
           </div>
-          <div className="grid grid-cols-[1fr_auto] gap-2">
-            <input
+          <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
+            <RupiahInput
               value={balance}
-              onChange={e => setBalance(formatAmountFieldInput(e.target.value))}
-              placeholder="Saldo awal, cth. 250rb"
-              inputMode="decimal"
-              className="min-w-0 bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] outline-none border border-[var(--sk-border)]"
+              onChange={(_num, str) => setBalance(str)}
+              placeholder="Saldo awal"
+              containerClassName="min-w-0 rounded-lg text-xs"
+              prefixClassName="text-xs pl-2.5 pr-0.5"
+              className="text-xs py-1.5 pr-2.5"
             />
             <button
               type="button"
@@ -257,11 +259,12 @@ function WalletManager() {
                       <option value="other">Lainnya</option>
                     </select>
                   </div>
-                  <input
+                  <RupiahInput
                     value={draft.balance}
-                    onChange={e => setDraft(prev => ({ ...prev, balance: formatAmountFieldInput(e.target.value) }))}
-                    inputMode="decimal"
-                    className="bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] outline-none border border-[var(--sk-border)]"
+                    onChange={(_num, str) => setDraft(prev => ({ ...prev, balance: str }))}
+                    containerClassName="min-w-0 rounded-lg text-xs"
+                    prefixClassName="text-xs pl-2.5 pr-0.5"
+                    className="text-xs py-1.5 pr-2.5"
                     placeholder="Saldo"
                   />
                   <input
@@ -372,12 +375,13 @@ function MoneyMovePanel() {
             {wallets.map(wallet => <option key={wallet.id} value={wallet.id}>Ke {wallet.label}</option>)}
           </select>
         </div>
-        <input
+        <RupiahInput
           value={amount}
-          onChange={e => setAmount(formatAmountFieldInput(e.target.value))}
-          placeholder="Nominal, cth. 100k"
-          inputMode="decimal"
-          className="bg-[var(--sk-surface-2)] rounded-lg px-3 py-2 text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] outline-none border border-[var(--sk-border)]"
+          onChange={(_num, str) => setAmount(str)}
+          placeholder="Nominal transfer"
+          containerClassName="min-w-0 rounded-lg text-xs"
+          prefixClassName="text-xs pl-2.5 pr-0.5"
+          className="text-xs py-1.5 pr-2.5"
         />
         <div className="grid grid-cols-2 gap-2">
           <button

@@ -1,4 +1,4 @@
-import { formatIDR, parseAmountToken } from './parser'
+import { formatIDR, parseAmountToken } from './parser.ts'
 
 const FORMAT_SKIP_PREV = new Set([
   'bagi',
@@ -84,3 +84,55 @@ export function formatAmountFieldInput(raw: string): string {
   if (!trimmed) return ''
   return formatNaturalAmountInput(raw).replace(/^Rp\s*/i, '')
 }
+
+/**
+ * Strips all non-digit characters and normalizes leading zeros.
+ * E.g., "Rp 1.250.000" -> "1250000", "0050" -> "50", "0" -> "0", "" -> ""
+ */
+export function stripToDigits(raw: string): string {
+  if (!raw) return ''
+  const digits = raw.replace(/\D/g, '')
+  if (!digits) return ''
+  return digits.replace(/^0+(?=\d)/, '')
+}
+
+/**
+ * Formats a raw digit string or number into Indonesian Rupiah format with dots.
+ * E.g., "1250000" -> "1.250.000", 50000 -> "50.000"
+ */
+export function formatRupiahLive(raw: string | number): string {
+  if (raw === null || raw === undefined || raw === '') return ''
+  const digits = typeof raw === 'number'
+    ? Math.round(Math.max(0, raw)).toString()
+    : stripToDigits(String(raw))
+  if (!digits) return ''
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+/**
+ * Calculates the new cursor position after reformatting the input text with thousand separators.
+ * Preserves the user's editing position by tracking the number of digits before the cursor.
+ */
+export function calculateCursorPosition(
+  oldFormatted: string,
+  newFormatted: string,
+  oldCursor: number
+): number {
+  if (oldCursor <= 0) return 0
+  if (oldCursor >= oldFormatted.length) return newFormatted.length
+
+  const digitsBefore = oldFormatted.slice(0, oldCursor).replace(/\D/g, '').length
+  if (digitsBefore === 0) return 0
+
+  let count = 0
+  for (let i = 0; i < newFormatted.length; i++) {
+    if (/\d/.test(newFormatted[i])) {
+      count++
+      if (count === digitsBefore) {
+        return i + 1
+      }
+    }
+  }
+  return newFormatted.length
+}
+
