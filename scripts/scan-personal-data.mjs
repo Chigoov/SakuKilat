@@ -1,12 +1,16 @@
 /**
  * SK-001 — Personal/Financial Data Scan
  *
- * CI gate: memastikan tidak ada dataset finansial personal yang tracked di repo.
- *
  * Checks:
  * 1. preloaded-state.json tidak boleh ada di tracked files
  * 2. Tidak ada file besar di android assets
  * 3. Tidak ada file JSON dengan banyak transaction records di tracked assets
+ *
+ * BATASAN & SCOPE SCANNER:
+ * - Scanner ini HANYA memeriksa working tree dan tracked files pada local HEAD.
+ * - Scanner ini BUKAN scanner riwayat Git (git history/commits lama masih dapat memuat blob).
+ * - Scanner ini BUKAN detektor PII universal; scanner ini memeriksa aset finansial spesifik proyek.
+ * - History purge membutuhkan eksekusi terpisah (misal git-filter-repo / BFG) dengan izin owner.
  *
  * Jalankan: node scripts/scan-personal-data.mjs
  */
@@ -119,8 +123,8 @@ try {
 console.log('\n' + '─'.repeat(50))
 if (failures > 0) {
   console.error(`\n❌ ${failures} check(s) FAILED — personal data may be exposed!\n`)
-  process.exit(1)
+  process.exitCode = 1
 } else {
   console.log('\n✅ All checks passed — no personal data detected in tracked files.\n')
-  process.exit(0)
+  process.exitCode = 0
 }
