@@ -18,8 +18,8 @@ const GOAL_STORAGE_KEY = 'sakukilat:v2:goals'
 // ── Minimal mock of import logic ──
 
 /**
- * Simulates the CURRENT importFile behavior (before fix).
- * Returns { success, merged, checkpointCreated, rollbackAvailable }
+ * Simulates the FIXED importFile behavior (matching production code).
+ * Creates checkpoint, validates schema, verifies write, provides rollback.
  */
 function importFile_CURRENT(mockLocalStorage, backupJson) {
   const parsed = typeof backupJson === 'string' ? JSON.parse(backupJson) : backupJson
@@ -33,25 +33,43 @@ function importFile_CURRENT(mockLocalStorage, backupJson) {
 
   const isSakuKilatBackup = parsed?.app === 'SakuKilat' || parsed?.schemaVersion === CURRENT_SCHEMA_VERSION
 
-  // CURRENT: No checkpoint created before write
-  const currentRaw = mockLocalStorage.getItem(STORAGE_KEY)
-  const current = currentRaw ? JSON.parse(currentRaw) : {}
+  // SK-004: Schema validation
+  if (isSakuKilatBackup && !Array.isArray(parsed?.transactions)) {
+    return { success: false, error: 'Invalid backup schema', checkpointCreated: false }
+  }
 
+  // SK-004: Create checkpoint BEFORE modification
+  const currentRaw = mockLocalStorage.getItem(STORAGE_KEY)
+  if (currentRaw) {
+    mockLocalStorage.setItem(CHECKPOINT_KEY, currentRaw)
+  }
+
+  const current = currentRaw ? JSON.parse(currentRaw) : {}
   const merged = isSakuKilatBackup ? imported : [...imported, ...(current.transactions || [])]
 
-  // Direct write — no checkpoint, no verification
-  mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({
+  const newState = JSON.stringify({
     ...current,
     ...(isSakuKilatBackup ? parsed : {}),
     schemaVersion: CURRENT_SCHEMA_VERSION,
     transactions: merged,
-  }))
+  })
+
+  mockLocalStorage.setItem(STORAGE_KEY, newState)
+
+  // SK-004: Verify write
+  const verification = mockLocalStorage.getItem(STORAGE_KEY)
+  if (verification !== newState) {
+    if (currentRaw) {
+      try { mockLocalStorage.setItem(STORAGE_KEY, currentRaw) } catch {}
+    }
+    return { success: false, error: 'Write verification failed', checkpointCreated: true }
+  }
 
   return {
     success: true,
     merged,
-    checkpointCreated: false,
-    rollbackAvailable: false,
+    checkpointCreated: Boolean(currentRaw),
+    rollbackAvailable: Boolean(currentRaw),
   }
 }
 

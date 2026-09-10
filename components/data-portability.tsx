@@ -678,6 +678,24 @@ export function DataPortability() {
     const current = currentRaw ? JSON.parse(currentRaw) as RawRecord : {}
     const backupRecord = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as RawRecord : null
     const isSakuKilatBackup = backupRecord?.app === 'SakuKilat' || backupRecord?.schemaVersion === CURRENT_SCHEMA_VERSION
+
+    // SK-004: Schema validation — SakuKilat backup must have transactions array
+    if (isSakuKilatBackup && !Array.isArray(backupRecord?.transactions)) {
+      showToast('Backup tidak valid: data transaksi tidak ditemukan.', 'error')
+      return
+    }
+
+    // SK-004: Create pre-import checkpoint BEFORE any modification
+    const CHECKPOINT_KEY = 'sakukilat:v2:import-checkpoint'
+    if (currentRaw) {
+      try {
+        window.localStorage.setItem(CHECKPOINT_KEY, currentRaw)
+      } catch {
+        showToast('Gagal membuat cadangan sebelum impor. Batal.', 'error')
+        return
+      }
+    }
+
     const existingSignatures = new Set(transactions.map(transactionSignature))
 
     // Untuk impor non-SakuKilat: auto-buat saku & kategori yang belum ada,
@@ -697,7 +715,7 @@ export function DataPortability() {
       merged
     )
 
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    const newStatePayload = JSON.stringify({
       ...current,
       ...(isSakuKilatBackup ? backupRecord : {}),
       schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -706,7 +724,21 @@ export function DataPortability() {
       monthlyBudget: typeof backupRecord?.monthlyBudget === 'number' ? backupRecord.monthlyBudget : monthlyBudget,
       customPayments: Array.isArray(backupRecord?.customPayments) ? backupRecord.customPayments : (augment ? augment.customPayments : customPayments),
       customCategories: nextCustomCategories,
-    }))
+    })
+
+    window.localStorage.setItem(STORAGE_KEY, newStatePayload)
+
+    // SK-004: Verify write succeeded
+    const verification = window.localStorage.getItem(STORAGE_KEY)
+    if (verification !== newStatePayload) {
+      // Rollback from checkpoint
+      if (currentRaw) {
+        try { window.localStorage.setItem(STORAGE_KEY, currentRaw) } catch { /* best-effort */ }
+      }
+      showToast('Gagal menyimpan impor. Data dipulihkan dari cadangan.', 'error')
+      return
+    }
+
     if (isSakuKilatBackup && Array.isArray(backupRecord?.goals)) {
       window.localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(backupRecord.goals))
     }
@@ -770,7 +802,7 @@ export function DataPortability() {
         {lastAction === 'import' ? 'Impor siap' : 'Impor JSON / CSV'}
       </button>
       <p className="text-[11px] leading-relaxed text-[var(--sk-text-dim)]">
-        CSV hanya membawa transaksi. Data lama tidak dihapus; transaksi duplikat dilewati. Pakai Backup JSON untuk memindahkan semua data aplikasi.
+        Backup JSON menggantikan seluruh data aplikasi. CSV menambah transaksi tanpa menghapus data lama; duplikat dilewati. Buat backup sebelum impor.
       </p>
       <input
         ref={inputRef}
