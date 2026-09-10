@@ -1,7 +1,7 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { Check, Download, FileJson, Upload } from 'lucide-react'
+import { useRef, useState, useEffect } from 'react'
+import { Check, Download, FileJson, Upload, Undo2, AlertTriangle } from 'lucide-react'
 import {
   CURRENT_SCHEMA_VERSION,
   STORAGE_KEY,
@@ -11,6 +11,13 @@ import {
   useTransactionData,
   useWalletStore,
 } from '@/lib/store'
+import {
+  planImport,
+  executeImportTransaction,
+  executeRollback,
+  canRollback,
+  type ImportPlanSuccess,
+} from '@/lib/data-restore'
 import type { Transaction } from '@/lib/mock-data'
 import type { WalletAccount, WalletType } from '@/lib/mock-data'
 import type { CustomCategory, CustomPayment, TransactionType } from '@/lib/parser'
@@ -589,6 +596,16 @@ export function DataPortability() {
   const { showToast } = useFeedbackStore()
   const inputRef = useRef<HTMLInputElement>(null)
   const [lastAction, setLastAction] = useState<'json' | 'csv' | 'import' | null>(null)
+  const [pendingPlan, setPendingPlan] = useState<ImportPlanSuccess | null>(null)
+  const [showRollbackConfirm, setShowRollbackConfirm] = useState(false)
+  const [hasRollback, setHasRollback] = useState(false)
+  const [isExecuting, setIsExecuting] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setHasRollback(canRollback(window.localStorage))
+    }
+  }, [lastAction])
 
   const pulseAction = (action: 'json' | 'csv' | 'import') => {
     triggerPortableHaptic()
@@ -660,114 +677,69 @@ export function DataPortability() {
     showToast(exportMessage('CSV', result), 'success')
   }
 
+  const performExecution = (plan: ImportPlanSuccess, confirmed: boolean) => {
+    setIsExecuting(true)
+    try {
+      const result = executeImportTransaction(window.localStorage, plan, { confirmed })
+      if (!result.success) {
+        showToast(result.error || 'Gagal mengimpor data.', 'error')
+        setPendingPlan(null)
+        setIsExecuting(false)
+        return
+      }
+
+      bumpCount(IMPORT_COUNT_KEY)
+      pulseAction('import')
+      setPendingPlan(null)
+      showToast(
+        plan.mode === 'replace'
+          ? `${plan.newTransactionCount} transaksi dipulihkan. Memuat ulang...`
+          : `${plan.newTransactionCount} transaksi baru digabungkan. Memuat ulang...`,
+        'success',
+        undefined,
+        4000
+      )
+      setTimeout(() => window.location.reload(), 700)
+    } catch {
+      showToast('Gagal memproses impor transaksi.', 'error')
+      setPendingPlan(null)
+      setIsExecuting(false)
+    }
+  }
+
   const importFile = async (file: File) => {
     const text = await file.text()
     const trimmed = text.trim()
     const isJson = file.name.toLowerCase().endsWith('.json') || trimmed.startsWith('{') || trimmed.startsWith('[')
-    const parsed = isJson ? JSON.parse(trimmed) as unknown : null
-    const imported = isJson
-      ? extractRows(parsed).map(normalizeTransaction).filter((item): item is Transaction => Boolean(item))
-      : csvToTransactions(text)
 
-    if (imported.length === 0) {
-      showToast('File tidak berisi transaksi yang bisa dibaca.', 'error')
+    const plan = planImport(text, window.localStorage, { isCsv: !isJson })
+    if (!plan.valid) {
+      showToast(plan.error, 'error')
       return
     }
 
-    const currentRaw = window.localStorage.getItem(STORAGE_KEY)
-    const current = currentRaw ? JSON.parse(currentRaw) as RawRecord : {}
-    const backupRecord = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as RawRecord : null
-    const isSakuKilatBackup = backupRecord?.app === 'SakuKilat' || backupRecord?.schemaVersion === CURRENT_SCHEMA_VERSION
-
-    // SK-004: Schema validation — SakuKilat backup must have transactions array
-    if (isSakuKilatBackup && !Array.isArray(backupRecord?.transactions)) {
-      showToast('Backup tidak valid: data transaksi tidak ditemukan.', 'error')
+    if (plan.mode === 'replace') {
+      setPendingPlan(plan)
       return
     }
 
-    // SK-004: Create pre-import checkpoint BEFORE any modification
-    const CHECKPOINT_KEY = 'sakukilat:v2:import-checkpoint'
-    if (currentRaw) {
-      try {
-        window.localStorage.setItem(CHECKPOINT_KEY, currentRaw)
-      } catch {
-        showToast('Gagal membuat cadangan sebelum impor. Batal.', 'error')
-        return
+    performExecution(plan, true)
+  }
+
+  const handleRollback = () => {
+    try {
+      const result = executeRollback(window.localStorage)
+      if (result.success) {
+        showToast(`Data dipulihkan dari cadangan (${result.restoredKeys.join(', ')}). Memuat ulang...`, 'success')
+        setTimeout(() => window.location.reload(), 700)
+      } else {
+        showToast(result.error || 'Gagal melakukan rollback.', 'error')
       }
+    } catch {
+      showToast('Terjadi kesalahan saat memulihkan cadangan.', 'error')
+    } finally {
+      setShowRollbackConfirm(false)
     }
-
-    const existingSignatures = new Set(transactions.map(transactionSignature))
-
-    // Untuk impor non-SakuKilat: auto-buat saku & kategori yang belum ada,
-    // lalu remap transaksi ke id kanonik supaya tidak ada data yatim.
-    const augment = isSakuKilatBackup
-      ? null
-      : augmentFromImport(imported, wallets, customPayments, customCategories)
-    const importedFinal = (augment ? augment.transactions : imported).map(normalizeParentIncome)
-    const freshImported = importedFinal.filter(t => !existingSignatures.has(transactionSignature(t)))
-
-    const merged = isSakuKilatBackup
-      ? importedFinal
-      : [...freshImported, ...transactions]
-
-    const nextCustomCategories = ensureParentIncomeCategory(
-      Array.isArray(backupRecord?.customCategories) ? backupRecord.customCategories : (augment ? augment.customCategories : customCategories),
-      merged
-    )
-
-    const newStatePayload = JSON.stringify({
-      ...current,
-      ...(isSakuKilatBackup ? backupRecord : {}),
-      schemaVersion: CURRENT_SCHEMA_VERSION,
-      transactions: merged.map(serializeTransaction),
-      wallets: Array.isArray(backupRecord?.wallets) ? backupRecord.wallets : (augment ? augment.wallets : wallets),
-      monthlyBudget: typeof backupRecord?.monthlyBudget === 'number' ? backupRecord.monthlyBudget : monthlyBudget,
-      customPayments: Array.isArray(backupRecord?.customPayments) ? backupRecord.customPayments : (augment ? augment.customPayments : customPayments),
-      customCategories: nextCustomCategories,
-    })
-
-    window.localStorage.setItem(STORAGE_KEY, newStatePayload)
-
-    // SK-004: Verify write succeeded
-    const verification = window.localStorage.getItem(STORAGE_KEY)
-    if (verification !== newStatePayload) {
-      // Rollback from checkpoint
-      if (currentRaw) {
-        try { window.localStorage.setItem(STORAGE_KEY, currentRaw) } catch { /* best-effort */ }
-      }
-      showToast('Gagal menyimpan impor. Data dipulihkan dari cadangan.', 'error')
-      return
-    }
-
-    if (isSakuKilatBackup && Array.isArray(backupRecord?.goals)) {
-      window.localStorage.setItem(GOAL_STORAGE_KEY, JSON.stringify(backupRecord.goals))
-    }
-    bumpCount(IMPORT_COUNT_KEY)
-    const goals = isSakuKilatBackup && Array.isArray(backupRecord?.goals)
-      ? backupRecord.goals
-      : readGoalSnapshot()
-    const badges = evaluateBadges(buildContext({
-      transactions: merged,
-      walletsCount: (Array.isArray(backupRecord?.wallets) ? backupRecord.wallets : (augment ? augment.wallets : wallets)).length,
-      customPaymentsCount: (Array.isArray(backupRecord?.customPayments) ? backupRecord.customPayments : (augment ? augment.customPayments : customPayments)).length,
-      customCategoriesCount: nextCustomCategories.length,
-      goalsTotal: goals.length,
-      goalsCompleted: goals.filter(goal => goal.saved >= goal.target).length,
-    }))
-    const freshBadges = syncUnlocks(badges)
-    if (freshBadges.length > 0) queueUnlockCelebrations(freshBadges)
-    pulseAction('import')
-    const skippedCount = isSakuKilatBackup ? 0 : importedFinal.length - freshImported.length
-    const importedCount = isSakuKilatBackup ? importedFinal.length : freshImported.length
-    showToast(
-      isSakuKilatBackup
-        ? `${importedCount} transaksi dipulihkan. Memuat ulang...`
-        : skippedCount > 0
-          ? `${importedCount} transaksi baru diimpor, ${skippedCount} duplikat dilewati. Memuat ulang...`
-          : `${importedCount} transaksi baru diimpor. Memuat ulang...`,
-      'success'
-    )
-    setTimeout(() => window.location.reload(), 700)
   }
 
   return (
@@ -801,9 +773,125 @@ export function DataPortability() {
         {lastAction === 'import' ? <Check className="w-4 h-4 text-[var(--sk-green)]" /> : <Upload className="w-4 h-4" />}
         {lastAction === 'import' ? 'Impor siap' : 'Impor JSON / CSV'}
       </button>
+
+      {hasRollback && (
+        <button
+          type="button"
+          onClick={() => setShowRollbackConfirm(true)}
+          className="min-h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:text-amber-300 text-xs font-semibold flex items-center justify-center gap-2 mt-1"
+        >
+          <Undo2 className="w-4 h-4" />
+          Batalkan Impor Terakhir (Rollback)
+        </button>
+      )}
+
       <p className="text-[11px] leading-relaxed text-[var(--sk-text-dim)]">
-        Backup JSON menggantikan seluruh data aplikasi. CSV menambah transaksi tanpa menghapus data lama; duplikat dilewati. Buat backup sebelum impor.
+        Backup JSON menggantikan seluruh data aplikasi setelah konfirmasi. CSV menambah transaksi tanpa menghapus data lama; duplikat dilewati. Cadangan checkpoint otomatis dibuat sebelum penulisan.
       </p>
+
+      {/* Confirmation & Preview Modal for Replace Mode */}
+      {pendingPlan && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[var(--sk-card,#141A29)] border border-amber-500/30 rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-white">
+            <div className="flex items-center space-x-3 text-amber-400">
+              <div className="p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Pratinjau Impor Cadangan</h3>
+                <p className="text-[11px] text-amber-400 font-medium">Mode: Ganti Seluruh Data (Replace)</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-800 text-xs space-y-2 text-slate-300">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Transaksi Saat Ini:</span>
+                <span className="font-mono font-bold text-white">{pendingPlan.currentTransactionCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Transaksi Baru (Cadangan):</span>
+                <span className="font-mono font-bold text-emerald-400">{pendingPlan.newTransactionCount}</span>
+              </div>
+              {pendingPlan.dateRange.start && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Rentang Tanggal:</span>
+                  <span className="font-mono text-[11px] text-slate-300">
+                    {new Date(pendingPlan.dateRange.start).toLocaleDateString('id-ID')} s/d {pendingPlan.dateRange.end ? new Date(pendingPlan.dateRange.end).toLocaleDateString('id-ID') : '?'}
+                  </span>
+                </div>
+              )}
+              {pendingPlan.hasGoals && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Target Tabungan (Goals):</span>
+                  <span className="font-mono text-cyan-400 font-semibold">{pendingPlan.goals?.length ?? 0} target</span>
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Tindakan ini akan <strong className="text-amber-400 font-semibold">menggantikan seluruh data</strong> yang ada saat ini dengan data cadangan ini. Checkpoint otomatis dibuat dan dapat dibatalkan (rollback) kapan saja.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                disabled={isExecuting}
+                onClick={() => setPendingPlan(null)}
+                className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isExecuting}
+                onClick={() => performExecution(pendingPlan, true)}
+                className="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg"
+              >
+                {isExecuting ? 'Memproses...' : 'Lanjutkan Impor'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rollback Confirmation Modal */}
+      {showRollbackConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[var(--sk-card,#141A29)] border border-cyan-500/30 rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-white">
+            <div className="flex items-center space-x-3 text-cyan-400">
+              <div className="p-2 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                <Undo2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Batalkan Impor (Rollback)</h3>
+                <p className="text-[11px] text-cyan-400 font-medium">Pulihkan Checkpoint Sebelumnya</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Apakah Anda yakin ingin membatalkan impor terakhir dan mengembalikan semua data transaksi dan target ke kondisi persis sebelum impor dilakukan?
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowRollbackConfirm(false)}
+                className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={handleRollback}
+                className="py-2.5 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-lg"
+              >
+                Ya, Pulihkan Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <input
         ref={inputRef}
         type="file"

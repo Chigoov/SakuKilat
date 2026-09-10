@@ -283,14 +283,95 @@ test('Replace mode fails if not explicitly confirmed (confirmed: false or omitte
   assertEqual(storage.getItem(STORAGE_KEY), initialPrimary, 'Storage must not be touched')
 })
 
+test('User cancel does not modify storage or execute import', () => {
+  const initialPrimary = JSON.stringify({ transactions: [sampleValidTx] })
+  const storage = makeStorage({ [STORAGE_KEY]: initialPrimary })
+
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [{ ...sampleValidTx, id: 'tx-cancelled' }],
+  })
+  const plan = planImport(backup, storage)
+  assert(plan.valid === true, 'Plan should be valid')
+
+  // User explicitly cancels dialog: no execution called
+  // Storage remains pristine
+  assertEqual(storage.getItem(STORAGE_KEY), initialPrimary, 'Storage remains untouched on user cancel')
+})
+
+test('Failure on primary write triggers rollback and restores pre-import data', () => {
+  const initialPrimary = JSON.stringify({ transactions: [sampleValidTx] })
+  let writeCount = 0
+  const store = new Map([[STORAGE_KEY, initialPrimary]])
+  const storage = {
+    getItem: (key) => store.get(key) || null,
+    setItem: (key, val) => {
+      if (key === STORAGE_KEY) {
+        writeCount++
+        if (writeCount === 1) {
+          // Primary write throws (e.g. quota exceeded)
+          throw new Error('Disk quota exceeded on primary write')
+        }
+      }
+      store.set(key, val)
+    },
+    removeItem: (key) => store.delete(key),
+    keys: () => [...store.keys()],
+  }
+
+  const backup = JSON.stringify({
+    app: 'SakuKilat',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    transactions: [{ ...sampleValidTx, id: 'tx-fail-write' }],
+  })
+  const plan = planImport(backup, storage)
+  const exec = executeImportTransaction(storage, plan, { confirmed: true })
+  assert(exec.success === false, 'Execution must fail on write error')
+  assert(exec.rollbackAttempted === true, 'Rollback must be attempted')
+  assertEqual(storage.getItem(STORAGE_KEY), initialPrimary, 'Storage must be restored after primary write error')
+})
+
+test('Rollback failure is safely caught and reported without silent success', () => {
+  const initialPrimary = JSON.stringify({ transactions: [sampleValidTx] })
+  const storage = {
+    getItem: (key) => {
+      if (key === CHECKPOINT_KEY) return 'INVALID_NON_JSON_CORRUPT_CHECKPOINT'
+      return initialPrimary
+    },
+    setItem: () => {},
+    removeItem: () => {},
+  }
+
+  const rollback = executeRollback(storage)
+  assert(rollback.success === false, 'Rollback should report failure when checkpoint is corrupted')
+})
+
+test('CSV merge mode appends transactions without deleting existing data', () => {
+  const initialPrimary = JSON.stringify({ transactions: [sampleValidTx] })
+  const storage = makeStorage({ [STORAGE_KEY]: initialPrimary })
+
+  const csvContent = "tanggal,tipe,deskripsi,nominal,kategori,subkategori,dompet\n2026-06-20,keluar,Beli bensin,30000,bensin,,tunai"
+  const plan = planImport(csvContent, storage, { isCsv: true })
+  assert(plan.valid === true, 'CSV plan valid')
+  assertEqual(plan.mode, 'merge', 'CSV mode must be merge')
+
+  const exec = executeImportTransaction(storage, plan, { confirmed: true })
+  assert(exec.success === true, 'Merge should succeed')
+
+  const updated = JSON.parse(storage.getItem(STORAGE_KEY))
+  assert(updated.transactions.length === 2, 'Should have 2 transactions (existing + imported)')
+  assert(updated.transactions.some(t => t.id === sampleValidTx.id), 'Existing transaction must be preserved')
+})
+
 // ── Summary ──
 console.log('\n' + '─'.repeat(50))
 console.log(`Results: ${passed}/${total} passed, ${failed} failed\n`)
 
 if (failed > 0) {
   console.error(`❌ Expected failure on baseline: ${failed} tests failed as expected before fix.\n`)
-  process.exit(1)
+  process.exitCode = 1
 } else {
   console.log('✅ All SK-004 tests passed!\n')
-  process.exit(0)
+  process.exitCode = 0
 }
