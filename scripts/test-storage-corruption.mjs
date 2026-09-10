@@ -4,60 +4,72 @@
  * Menguji bahwa loadPersistedState menangani setiap status storage
  * dengan benar: valid, missing, corrupt, incompatible.
  *
- * Tests ini SENGAJA dibuat gagal dulu (red) sebelum production fix,
- * agar perubahan di store.tsx bisa diverifikasi.
- *
  * Jalankan: node scripts/test-storage-corruption.mjs
  */
 
-// ── Minimal mock of the CURRENT loadPersistedState behavior ──
-// Replika logic dari lib/store.tsx lines 425-446 yang akan diuji.
+// ── Replika logic dari lib/store.tsx (AFTER SK-003 fix) ──
 const CURRENT_SCHEMA_VERSION = 8
 const STORAGE_KEY = 'sakukilat:v2:local-state'
 
 /**
- * Simulates the CURRENT loadPersistedState behavior exactly as written.
- * Returns whatever the current code would return.
+ * Mirror of the FIXED loadPersistedState from lib/store.tsx.
+ * Returns typed LoadResult with status/state/error fields.
  */
-function loadPersistedState_CURRENT(mockLocalStorage) {
-  try {
-    const raw = mockLocalStorage.getItem(STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object') return {}
-    // Skip migration for test simplicity — we only test parse/detect
-    return parsed
-  } catch {
-    // Current: silently returns empty object on any parse error
-    return {}
-  }
-}
-
-/**
- * Simulates the EXPECTED loadPersistedState behavior after fix.
- * Returns a typed LoadResult.
- *
- * @typedef {'valid'|'missing'|'corrupt'|'incompatible'} LoadStatus
- * @typedef {{status: LoadStatus, state?: object, raw?: string, error?: string, version?: number}} LoadResult
- */
-function loadPersistedState_EXPECTED(mockLocalStorage) {
+function loadPersistedState(mockLocalStorage) {
   const raw = mockLocalStorage.getItem(STORAGE_KEY)
-  if (raw === null || raw === undefined) return { status: 'missing' }
-  if (raw === '') return { status: 'corrupt', raw, error: 'Empty string' }
+  if (raw === null || raw === undefined) {
+    return { status: 'missing', state: {} }
+  }
+
+  if (raw === '') {
+    quarantineCorrupt(mockLocalStorage, raw)
+    return { status: 'corrupt', state: {}, quarantinedRaw: raw, error: 'Empty storage value' }
+  }
 
   try {
     const parsed = JSON.parse(raw)
     if (!parsed || typeof parsed !== 'object') {
-      return { status: 'corrupt', raw, error: 'Parsed value is not an object' }
+      quarantineCorrupt(mockLocalStorage, raw)
+      return { status: 'corrupt', state: {}, quarantinedRaw: raw, error: 'Parsed value is not an object' }
     }
 
     if (parsed.schemaVersion && parsed.schemaVersion > CURRENT_SCHEMA_VERSION) {
-      return { status: 'incompatible', state: parsed, version: parsed.schemaVersion }
+      return {
+        status: 'incompatible',
+        state: parsed,
+        detectedVersion: parsed.schemaVersion,
+      }
     }
 
     return { status: 'valid', state: parsed }
   } catch (error) {
-    return { status: 'corrupt', raw, error: String(error) }
+    quarantineCorrupt(mockLocalStorage, raw)
+    return { status: 'corrupt', state: {}, quarantinedRaw: raw, error: String(error) }
+  }
+}
+
+function quarantineCorrupt(mockLocalStorage, raw) {
+  try {
+    const quarantineKey = `${STORAGE_KEY}:quarantine:${Date.now()}`
+    mockLocalStorage.setItem(quarantineKey, raw)
+  } catch {
+    // Best-effort
+  }
+}
+
+/**
+ * Mirror of the FIXED persistState from lib/store.tsx.
+ * Blocks writes on corrupt/incompatible status.
+ */
+function persistState(mockLocalStorage, state, storageStatus) {
+  if (storageStatus === 'corrupt' || storageStatus === 'incompatible') {
+    return false // blocked
+  }
+  try {
+    mockLocalStorage.setItem(STORAGE_KEY, JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, ...state }))
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -75,6 +87,7 @@ function makeStorage(data) {
     getItem: (key) => store.has(key) ? store.get(key) : null,
     setItem: (key, val) => store.set(key, val),
     removeItem: (key) => store.delete(key),
+    keys: () => [...store.keys()],
   }
 }
 
@@ -103,133 +116,136 @@ function assertEqual(actual, expected, label = '') {
 
 console.log('\n🧪 SK-003 Storage Corruption Tests\n')
 
-// ── Group 1: Tests that verify CURRENT behavior (should PASS) ──
-console.log('Group 1: Current behavior (expect PASS)')
+// ── Group 1: Valid and Missing states ──
+console.log('Group 1: Valid and Missing states')
 
-test('Valid JSON state returns parsed object', () => {
+test('Valid JSON state returns status "valid"', () => {
   const storage = makeStorage(JSON.stringify({
     schemaVersion: CURRENT_SCHEMA_VERSION,
     transactions: [],
     wallets: [],
   }))
-  const result = loadPersistedState_CURRENT(storage)
-  assert(result.schemaVersion === CURRENT_SCHEMA_VERSION, 'Should have schemaVersion')
-  assert(Array.isArray(result.transactions), 'Should have transactions array')
+  const result = loadPersistedState(storage)
+  assertEqual(result.status, 'valid', 'status')
+  assert(result.state.schemaVersion === CURRENT_SCHEMA_VERSION, 'Should have schemaVersion')
+  assert(Array.isArray(result.state.transactions), 'Should have transactions array')
 })
 
-test('Missing key (null) returns empty object for first run', () => {
+test('Missing key (null) returns status "missing"', () => {
   const storage = makeStorage() // no data set
-  const result = loadPersistedState_CURRENT(storage)
-  assert(typeof result === 'object', 'Should return object')
-  assert(Object.keys(result).length === 0, 'Should be empty')
+  const result = loadPersistedState(storage)
+  assertEqual(result.status, 'missing', 'status')
+  assert(Object.keys(result.state).length === 0, 'State should be empty')
 })
 
-// ── Group 2: Tests that verify EXPECTED behavior (should FAIL before fix) ──
-console.log('\nGroup 2: Expected behavior after fix (expect FAIL before fix)')
-
-test('Truncated JSON returns CORRUPT status, not empty object', () => {
-  const corruptData = '{"transactions":[{"id":"abc'
-  const storage = makeStorage(corruptData)
-
-  // The CURRENT behavior returns {} — this test verifies the FIX
-  const result = loadPersistedState_EXPECTED(storage)
-  assertEqual(result.status, 'corrupt', 'status')
-  assert(result.raw === corruptData, 'Should preserve raw payload')
-  assert(typeof result.error === 'string', 'Should have error message')
-
-  // CRITICAL: verify the current code does NOT do this correctly
-  const currentResult = loadPersistedState_CURRENT(storage)
-  // After fix, the current code should also return a typed result.
-  // For now, current code returns {} which is indistinguishable from first-run.
-  assert(
-    currentResult.status === 'corrupt',
-    'Current loadPersistedState should return { status: "corrupt" } for truncated JSON'
-  )
-})
-
-test('Malformed JSON returns CORRUPT status', () => {
-  const storage = makeStorage('{not valid json!}')
-  const result = loadPersistedState_EXPECTED(storage)
-  assertEqual(result.status, 'corrupt', 'status')
-
-  const currentResult = loadPersistedState_CURRENT(storage)
-  assert(
-    currentResult.status === 'corrupt',
-    'Current loadPersistedState should return { status: "corrupt" } for malformed JSON'
-  )
-})
-
-test('Empty string returns CORRUPT status', () => {
-  const storage = makeStorage('')
-  const result = loadPersistedState_EXPECTED(storage)
-  assertEqual(result.status, 'corrupt', 'status')
-
-  const currentResult = loadPersistedState_CURRENT(storage)
-  assert(
-    currentResult.status === 'corrupt',
-    'Current loadPersistedState should return { status: "corrupt" } for empty string'
-  )
-})
-
-test('Future schema version returns INCOMPATIBLE status', () => {
-  const storage = makeStorage(JSON.stringify({ schemaVersion: 999, transactions: [] }))
-  const result = loadPersistedState_EXPECTED(storage)
-  assertEqual(result.status, 'incompatible', 'status')
-  assertEqual(result.version, 999, 'version')
-
-  const currentResult = loadPersistedState_CURRENT(storage)
-  assert(
-    currentResult.status === 'incompatible',
-    'Current loadPersistedState should return { status: "incompatible" } for future schema'
-  )
-})
-
-test('Corrupt primary must NOT be overwritten by empty state', () => {
-  // Simulate the full load→persist cycle
-  const corruptData = '{"transactions":[BROKEN'
-  const storage = makeStorage(corruptData)
-
-  // Load (current behavior returns {})
-  const loadResult = loadPersistedState_CURRENT(storage)
-
-  // Simulate persist with default state (what happens after load returns {})
-  const isCorruptedButTreatedAsEmpty = Object.keys(loadResult).length === 0
-  if (isCorruptedButTreatedAsEmpty) {
-    // This is what the current code does: persist empty state over corrupt data
-    const defaultState = { schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [], wallets: [] }
-    storage.setItem(STORAGE_KEY, JSON.stringify(defaultState))
-  }
-
-  // After the cycle, the corrupt data should STILL be recoverable
-  const afterCycle = storage.getItem(STORAGE_KEY)
-  const afterParsed = JSON.parse(afterCycle)
-  assert(
-    afterParsed.transactions && afterParsed.transactions.length > 0,
-    'Corrupt data should NOT be overwritten by empty defaults — original data must be recoverable'
-  )
-})
-
-test('Valid state returns status "valid"', () => {
+test('Valid state with current schema returns "valid"', () => {
   const storage = makeStorage(JSON.stringify({
     schemaVersion: CURRENT_SCHEMA_VERSION,
     transactions: [{ id: 'test', amount: 100 }],
   }))
-  const currentResult = loadPersistedState_CURRENT(storage)
-  assertEqual(
-    currentResult.status,
-    'valid',
-    'Current loadPersistedState should return { status: "valid" } for valid state'
-  )
+  const result = loadPersistedState(storage)
+  assertEqual(result.status, 'valid', 'status')
+  assert(result.state.transactions.length === 1, 'Should have 1 transaction')
 })
 
-test('Missing key returns status "missing"', () => {
+// ── Group 2: Corrupt states ──
+console.log('\nGroup 2: Corrupt state handling')
+
+test('Truncated JSON returns CORRUPT status', () => {
+  const corruptData = '{"transactions":[{"id":"abc'
+  const storage = makeStorage(corruptData)
+  const result = loadPersistedState(storage)
+  assertEqual(result.status, 'corrupt', 'status')
+  assert(result.quarantinedRaw === corruptData, 'Should preserve raw payload')
+  assert(typeof result.error === 'string', 'Should have error message')
+})
+
+test('Malformed JSON returns CORRUPT status', () => {
+  const storage = makeStorage('{not valid json!}')
+  const result = loadPersistedState(storage)
+  assertEqual(result.status, 'corrupt', 'status')
+  assert(typeof result.error === 'string', 'Should have error message')
+})
+
+test('Empty string returns CORRUPT status', () => {
+  const storage = makeStorage('')
+  const result = loadPersistedState(storage)
+  assertEqual(result.status, 'corrupt', 'status')
+  assert(typeof result.error === 'string', 'Should have error message')
+})
+
+test('Corrupt state is quarantined to separate key', () => {
+  const corruptData = '{"broken'
+  const storage = makeStorage(corruptData)
+  loadPersistedState(storage)
+  const quarantineKeys = storage.keys().filter(k => k.includes(':quarantine:'))
+  assert(quarantineKeys.length > 0, 'Should create quarantine key')
+  assertEqual(storage.getItem(quarantineKeys[0]), corruptData, 'Quarantine should contain original data')
+})
+
+// ── Group 3: Incompatible states ──
+console.log('\nGroup 3: Incompatible state handling')
+
+test('Future schema version returns INCOMPATIBLE status', () => {
+  const storage = makeStorage(JSON.stringify({ schemaVersion: 999, transactions: [] }))
+  const result = loadPersistedState(storage)
+  assertEqual(result.status, 'incompatible', 'status')
+  assertEqual(result.detectedVersion, 999, 'detectedVersion')
+})
+
+// ── Group 4: Persist blocking ──
+console.log('\nGroup 4: Persist blocking on corrupt/incompatible')
+
+test('Corrupt primary must NOT be overwritten by empty state', () => {
+  const corruptData = '{"transactions":[BROKEN'
+  const storage = makeStorage(corruptData)
+  const loadResult = loadPersistedState(storage)
+  assertEqual(loadResult.status, 'corrupt', 'load status')
+
+  // Try to persist default state — should be BLOCKED
+  const defaultState = { transactions: [], wallets: [] }
+  const didPersist = persistState(storage, defaultState, loadResult.status)
+  assert(didPersist === false, 'persistState should return false (blocked)')
+
+  // Original corrupt data should still be in the quarantine, not overwritten
+  const currentRaw = storage.getItem(STORAGE_KEY)
+  assertEqual(currentRaw, corruptData, 'Original data must NOT be overwritten')
+})
+
+test('Incompatible state must NOT be overwritten', () => {
+  const futureData = JSON.stringify({ schemaVersion: 999, transactions: [{ id: 'future' }] })
+  const storage = makeStorage(futureData)
+  const loadResult = loadPersistedState(storage)
+  assertEqual(loadResult.status, 'incompatible', 'load status')
+
+  const didPersist = persistState(storage, { transactions: [] }, loadResult.status)
+  assert(didPersist === false, 'persistState should be blocked')
+
+  const currentRaw = storage.getItem(STORAGE_KEY)
+  assertEqual(currentRaw, futureData, 'Future data must NOT be overwritten')
+})
+
+test('Valid state CAN be persisted', () => {
+  const storage = makeStorage(JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [] }))
+  const loadResult = loadPersistedState(storage)
+  assertEqual(loadResult.status, 'valid', 'load status')
+
+  const newState = { transactions: [{ id: 'new', amount: 50 }] }
+  const didPersist = persistState(storage, newState, loadResult.status)
+  assert(didPersist === true, 'persistState should succeed')
+
+  const saved = JSON.parse(storage.getItem(STORAGE_KEY))
+  assert(saved.transactions.length === 1, 'New data should be saved')
+})
+
+test('Missing state CAN be persisted (first run)', () => {
   const storage = makeStorage() // no data
-  const currentResult = loadPersistedState_CURRENT(storage)
-  assertEqual(
-    currentResult.status,
-    'missing',
-    'Current loadPersistedState should return { status: "missing" } when key is null'
-  )
+  const loadResult = loadPersistedState(storage)
+  assertEqual(loadResult.status, 'missing', 'load status')
+
+  const newState = { transactions: [{ id: 'first', amount: 100 }] }
+  const didPersist = persistState(storage, newState, loadResult.status)
+  assert(didPersist === true, 'persistState should succeed for first run')
 })
 
 // ── Summary ──
@@ -237,9 +253,9 @@ console.log('\n' + '─'.repeat(50))
 console.log(`\nResults: ${passed}/${total} passed, ${failed} failed\n`)
 
 if (failed > 0) {
-  console.error('❌ Some tests failed. These will pass after SK-003 fix is applied.\n')
+  console.error('❌ Some tests failed.\n')
   process.exit(1)
 } else {
-  console.log('✅ All tests passed!\n')
+  console.log('✅ All SK-003 tests passed!\n')
   process.exit(0)
 }

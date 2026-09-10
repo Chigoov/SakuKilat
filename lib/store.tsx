@@ -422,31 +422,91 @@ function migratePersistedState(state: PersistedState): PersistedState {
   return { ...next, schemaVersion: CURRENT_SCHEMA_VERSION }
 }
 
-function loadPersistedState(): PersistedState {
-  if (typeof window === 'undefined') return {}
+// ── SK-003: Typed storage load result ──────────────────────────────────────
+type StorageStatus = 'valid' | 'missing' | 'corrupt' | 'incompatible'
 
+interface LoadResult {
+  status: StorageStatus
+  state: PersistedState
+  /** Raw corrupt payload preserved for recovery */
+  quarantinedRaw?: string
+  /** Error message when corrupt */
+  error?: string
+  /** Schema version when incompatible */
+  detectedVersion?: number
+}
+
+function loadPersistedState(): LoadResult {
+  if (typeof window === 'undefined') return { status: 'missing', state: {} }
+
+  // Cleanup stale keys (unchanged from original)
   try {
     for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
       const key = window.localStorage.key(i)
       if (!key?.startsWith('sakukilat:')) continue
       if (KNOWN_STORAGE_KEYS.has(key) || key.startsWith(ONBOARDING_STORAGE_KEY_PREFIX)) continue
       if (PRESERVED_KEY_PREFIXES.some(prefix => key.startsWith(prefix))) continue
+      // SK-003: preserve quarantine keys
+      if (key.includes(':quarantine:')) continue
       window.localStorage.removeItem(key)
     }
+  } catch {
+    // Cleanup failure is non-critical
+  }
 
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return {}
+  const raw = window.localStorage.getItem(STORAGE_KEY)
+  if (raw === null || raw === undefined) {
+    return { status: 'missing', state: {} }
+  }
+
+  if (raw === '') {
+    quarantineCorrupt(raw)
+    return { status: 'corrupt', state: {}, quarantinedRaw: raw, error: 'Empty storage value' }
+  }
+
+  try {
     const parsed = JSON.parse(raw) as PersistedState
-    if (!parsed || typeof parsed !== 'object') return {}
-    return migratePersistedState(parsed)
+    if (!parsed || typeof parsed !== 'object') {
+      quarantineCorrupt(raw)
+      return { status: 'corrupt', state: {}, quarantinedRaw: raw, error: 'Parsed value is not an object' }
+    }
+
+    // SK-003: detect incompatible future schema
+    if (parsed.schemaVersion && parsed.schemaVersion > CURRENT_SCHEMA_VERSION) {
+      return {
+        status: 'incompatible',
+        state: parsed,
+        detectedVersion: parsed.schemaVersion,
+      }
+    }
+
+    return { status: 'valid', state: migratePersistedState(parsed) }
   } catch (error) {
-    console.warn('Gagal membaca auto-save SakuKilat:', error)
-    return {}
+    // SK-003: QUARANTINE corrupt payload instead of discarding
+    quarantineCorrupt(raw)
+    console.error('SK-003: Corrupt state detected and quarantined.', error)
+    return { status: 'corrupt', state: {}, quarantinedRaw: raw, error: String(error) }
   }
 }
 
-function persistState(state: PersistedState) {
+/** SK-003: Save corrupt raw payload to a timestamped quarantine key for potential recovery. */
+function quarantineCorrupt(raw: string) {
+  try {
+    const quarantineKey = `${STORAGE_KEY}:quarantine:${Date.now()}`
+    window.localStorage.setItem(quarantineKey, raw)
+  } catch {
+    // Best-effort quarantine — storage might be full
+  }
+}
+
+function persistState(state: PersistedState, storageStatus: StorageStatus) {
   if (typeof window === 'undefined') return
+
+  // SK-003: NEVER overwrite storage when state was corrupt or incompatible
+  if (storageStatus === 'corrupt' || storageStatus === 'incompatible') {
+    console.warn(`SK-003: Skipping persist — storage status is "${storageStatus}"`)
+    return
+  }
 
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, ...state }))
@@ -682,11 +742,11 @@ function triggerHaptic(duration = 35) {
 
 // ── Provider ─────────────────────────────────────────────────────────────────
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const persistedStateRef = useRef<PersistedState | null>(null)
-  if (persistedStateRef.current === null) {
-    persistedStateRef.current = loadPersistedState()
+  const loadResultRef = useRef<LoadResult | null>(null)
+  if (loadResultRef.current === null) {
+    loadResultRef.current = loadPersistedState()
   }
-  const persisted = persistedStateRef.current
+  const { status: storageStatus, state: persisted } = loadResultRef.current
   const needsBundleSeed =
     !Array.isArray(persisted.transactions) &&
     !Array.isArray(persisted.wallets) &&
@@ -863,7 +923,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!bundleSeedResolved) return
-    persistState(persistedSnapshot)
+    persistState(persistedSnapshot, storageStatus)
   }, [bundleSeedResolved, persistedSnapshot])
 
   // Keep the display registry in sync with custom slang
