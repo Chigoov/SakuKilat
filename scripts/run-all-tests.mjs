@@ -27,8 +27,18 @@ const testSuites = [
     type: 'regression',
   },
   {
+    name: 'Future Schema Safety & Recovery',
+    script: 'scripts/test-future-schema-safety.mjs',
+    type: 'regression',
+  },
+  {
     name: 'SK-004: Transactional Restore',
     script: 'scripts/test-import-restore.mjs',
+    type: 'regression',
+  },
+  {
+    name: 'Sublayer Navigation Back Stack',
+    script: 'scripts/test-navigation-stack.mjs',
     type: 'regression',
   },
   {
