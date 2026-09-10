@@ -144,8 +144,8 @@
     </div>
 
     <div class="notice-box">
-      <strong>Status Resmi Fase 0:</strong> LOCAL REMEDIATION COMPLETE — REMOTE HEAD & HISTORY PURGE PENDING OWNER APPROVAL.<br>
-      Seluruh kelemahan kode produksi pada SK-001, SK-003, dan SK-004 telah diperbaiki dan diuji langsung terhadap production code. Repositori bersih dari mutasi berbahaya saat storage korup, restore kini transaksional multi-key, dan 34 regression tests green.
+      <strong>Status Resmi Fase 0:</strong> LOCAL & REMOTE HEAD CONTAINMENT COMPLETE — HISTORY PURGE PENDING OWNER APPROVAL.<br>
+      Seluruh kelemahan kode produksi pada SK-001, SK-003, dan SK-004 telah diperbaiki dan diuji langsung terhadap production code. File personal data telah resmi terhapus dari HEAD remote origin/main pasca-normal push (commit 81255a4). Repositori bersih dari mutasi berbahaya saat storage korup, restore kini transaksional multi-key, dan 34 regression tests green. History purge tetap menunggu persetujuan owner.
     </div>
 
     <div class="card">
@@ -156,8 +156,8 @@
           <td class="mono">main @ 7707ab86adde25c47149a7d80ff1eca76c177673</td>
         </tr>
         <tr>
-          <td style="color: var(--text-muted);">Current Local HEAD</td>
-          <td class="mono">20d340a (13 commits ahead of origin/main)</td>
+          <td style="color: var(--text-muted);">Current Local HEAD & origin/main</td>
+          <td class="mono">81255a4 (Sinkron penuh, 0 ahead, 0 behind)</td>
         </tr>
         <tr>
           <td style="color: var(--text-muted);">Working Tree</td>
@@ -171,7 +171,7 @@
     </div>
 
     <div class="card">
-      <div class="card-title">2. Urutan 13 Commit Terpisah (Phase 0)</div>
+      <div class="card-title">2. Urutan 16 Commit Terpisah (Phase 0)</div>
       <table>
         <thead>
           <tr>
@@ -195,6 +195,9 @@
           <tr><td>11</td><td class="mono">e2b0308</td><td>Docs</td><td>Catat laporan Phase 0 korektif resmi di docs/</td></tr>
           <tr><td>12</td><td class="mono">51aee27</td><td>Docs</td><td>Tambahkan deliverable Word (.docx) pertama</td></tr>
           <tr><td>13</td><td class="mono">20d340a</td><td>Docs</td><td>Sinkronisasi commit count & hash telemetry</td></tr>
+          <tr><td>14</td><td class="mono">f689225</td><td>Docs</td><td>Finalisasi deliverable Word (.docx) lengkap</td></tr>
+          <tr><td>15</td><td class="mono">920be07</td><td>Docs</td><td>Finalisasi laporan Phase 0 dalam format DOCX, HTML, dan Markdown</td></tr>
+          <tr><td>16</td><td class="mono">81255a4</td><td>Docs</td><td>Sinkronisasi laporan Phase 0 sebelum normal push ke remote</td></tr>
         </tbody>
       </table>
     </div>
@@ -270,19 +273,19 @@
     </div>
 
     <div class="card">
-      <div class="card-title">4. Dua Persetujuan yang Menunggu Keputusan Owner</div>
+      <div class="card-title">4. Status Persetujuan & Tindakan</div>
       
       <div class="action-card">
-        <h4 style="margin: 0 0 6px 0; color: #fff;">Persetujuan A — Normal Push 13 Commit ke origin/main <span class="badge badge-green">Risiko: Rendah</span></h4>
+        <h4 style="margin: 0 0 6px 0; color: #fff;">Persetujuan A — Normal Push ke origin/main <span class="badge badge-green">STATUS: SELESAI</span></h4>
         <p style="margin: 0; font-size: 13px; color: var(--text-muted);">
-          Menjalankan <code>git push origin main</code> (fast-forward) untuk menghapus <code>preloaded-state.json</code> dari HEAD remote publik GitHub dan menyinkronkan seluruh proteksi data SK-001, SK-003, dan SK-004.
+          Telah berhasil dieksekusi via normal push (<code>7707ab8..81255a4</code>). File <code>preloaded-state.json</code> telah resmi terhapus dari HEAD remote <code>origin/main</code> publik GitHub dan seluruh proteksi data SK-001, SK-003, dan SK-004 telah aktif. Local dan remote telah sinkron penuh.
         </p>
       </div>
 
       <div class="action-card danger">
-        <h4 style="margin: 0 0 6px 0; color: #fff;">Persetujuan B — Git History Purge & Force Push <span class="badge badge-red">Risiko: Sangat Tinggi</span></h4>
+        <h4 style="margin: 0 0 6px 0; color: #fff;">Persetujuan B — Git History Purge & Force Push <span class="badge badge-red">STATUS: PENDING OWNER APPROVAL</span></h4>
         <p style="margin: 0; font-size: 13px; color: var(--text-muted);">
-          Menjalankan <code>git-filter-repo</code> / BFG untuk menghapus permanen blob transaksi personal dari riwayat commit <code>97e04aa</code> di masa lalu, diikuti <code>git push origin main --force</code>.
+          Menjalankan <code>git-filter-repo</code> / BFG untuk menghapus permanen blob transaksi personal dari riwayat commit <code>97e04aa</code> di masa lalu, diikuti <code>git push origin main --force</code>. Tindakan ini tetap menunggu izin eksplisit owner.
         </p>
       </div>
     </div>

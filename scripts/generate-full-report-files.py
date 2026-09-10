@@ -52,9 +52,9 @@ def create_full_docx(output_path):
     meta_data = [
         ("Tanggal Pelaksanaan", "10 September 2026"),
         ("Baseline Awal", "main @ 7707ab86adde25c47149a7d80ff1eca76c177673"),
-        ("Current Local HEAD", "20d340a (13 commits ahead of origin/main)"),
+        ("Current Local HEAD & origin/main", "81255a4 (Sinkron penuh, 0 ahead, 0 behind)"),
         ("Repository", "C:\\Users\\HYPE AMD\\Projects\\SakuKilat"),
-        ("Status Resmi Fase 0", "LOCAL REMEDIATION COMPLETE — REMOTE HEAD & HISTORY PURGE PENDING OWNER APPROVAL")
+        ("Status Resmi Fase 0", "LOCAL & REMOTE HEAD CONTAINMENT COMPLETE — HISTORY PURGE PENDING OWNER APPROVAL")
     ]
     for idx, (label, val) in enumerate(meta_data):
         row = meta_table.rows[idx]
@@ -81,13 +81,13 @@ def create_full_docx(output_path):
 
     # Statement Note
     note_p = doc.add_paragraph()
-    note_run = note_p.add_run("Catatan Kepatuhan & Transparansi:\nLaporan ini mengoreksi secara jujur klaim awal 'Phase 0 Complete'. Perlindungan kode lokal, validasi integritas data, dan regression test langsung terhadap kode produksi telah selesai 100%. Tidak ada data personal pada working tree lokal, mutasi saat storage rusak telah diblokir, restore transaksional multi-key telah aktif, dan 34 regression tests lulus. Tindakan remote push dan history purge membutuhkan persetujuan eksplisit owner sesuai DEV-PROTOCOL.")
+    note_run = note_p.add_run("Catatan Kepatuhan & Transparansi:\nLaporan ini mengoreksi secara jujur klaim awal 'Phase 0 Complete'. Perlindungan kode lokal, validasi integritas data, dan regression test langsung terhadap kode produksi telah selesai 100%. File data personal telah resmi terhapus dari HEAD remote origin/main pasca-normal push (commit 81255a4). Tindakan remote push telah selesai dan terverifikasi sinkron penuh, sementara history purge tetap membutuhkan persetujuan eksplisit owner sesuai DEV-PROTOCOL.")
     note_run.font.italic = True
     note_run.font.size = Pt(9.5)
     note_run.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
 
     # 1. Ringkasan Eksekusi & Commit
-    h1 = doc.add_heading('1. Ringkasan Eksekusi & Daftar 13 Commit', level=1)
+    h1 = doc.add_heading('1. Ringkasan Eksekusi & Daftar 16 Commit', level=1)
     h1.runs[0].font.color.rgb = RGBColor(0x0F, 0x2A, 0x4A)
 
     commits_data = [
@@ -103,7 +103,10 @@ def create_full_docx(output_path):
         ("10", "1450a10", "SK-001", "[KOREKSI] Hubungkan scanner data personal ke pnpm test via scripts/run-all-tests.mjs secara jujur"),
         ("11", "e2b0308", "Docs", "[KOREKSI] Laporan Phase 0 korektif resmi di folder docs repository"),
         ("12", "51aee27", "Docs", "Laporan Microsoft Word (.docx) pertama untuk review owner"),
-        ("13", "20d340a", "Docs", "docs: sync HEAD hash and commit counts in Phase 0 report"),
+        ("13", "20d340a", "Docs", "Sinkronisasi commit count & HEAD hash ke dokumen laporan"),
+        ("14", "f689225", "Docs", "Finalisasi deliverable laporan Word (.docx) lengkap"),
+        ("15", "920be07", "Docs", "Finalisasi laporan Phase 0 dalam format DOCX, HTML, dan Markdown"),
+        ("16", "81255a4", "Docs", "Sinkronisasi laporan Phase 0 sebelum normal push ke remote"),
     ]
 
     c_table = doc.add_table(rows=1, cols=4)
@@ -138,13 +141,17 @@ def create_full_docx(output_path):
     doc.add_heading('2.1 SK-001: Data Exposure Containment', level=2)
     p = doc.add_paragraph()
     p.add_run('Status: ').bold = True
-    p.add_run('Local HEAD Containment Selesai. Remote HEAD & History Purge Menunggu Persetujuan Owner.\n')
+    p.add_run('Local & Remote HEAD Containment Selesai. History Purge Tetap Menunggu Persetujuan Owner.\n')
     p.add_run('• Local Containment: ').bold = True
     p.add_run('File preloaded-state.json (424KB, 1.437 transaksi) telah dihapus dari repositori lokal sejak commit b8bf646. Aturan .gitignore telah ditambahkan.\n')
+    p.add_run('• Remote HEAD Containment: ').bold = True
+    p.add_run('Selesai. Normal push fast-forward telah berhasil dieksekusi ke origin/main (7707ab8..81255a4). File personal preloaded-state.json telah resmi hilang dari HEAD remote publik GitHub.\n')
     p.add_run('• Integrasi Gate: ').bold = True
     p.add_run('scripts/scan-personal-data.mjs kini otomatis dijalankan setiap pnpm test.\n')
     p.add_run('• Batasan Scanner: ').bold = True
     p.add_run('Scanner memverifikasi kebersihan working tree dan tracked files lokal. Scanner bukan history scanner dan bukan PII scanner universal.\n')
+    p.add_run('• History Purge: ').bold = True
+    p.add_run('Tetap menunggu persetujuan owner untuk rewrite history commit 97e04aa.\n')
 
     doc.add_heading('2.2 SK-003: Storage Corruption & Mode Kehilangan Data', level=2)
     p = doc.add_paragraph()
@@ -231,20 +238,20 @@ def create_full_docx(output_path):
     p.add_run('Scanner checks dilaporkan terpisah dan tidak dicampuradukkan sebagai regression tests.\n')
 
     # 5. Persetujuan Owner
-    h5 = doc.add_heading('5. Tindakan yang Menunggu Persetujuan Owner', level=1)
+    h5 = doc.add_heading('5. Status Persetujuan & Tindakan', level=1)
     h5.runs[0].font.color.rgb = RGBColor(0x0F, 0x2A, 0x4A)
 
     p1 = doc.add_paragraph()
-    r1 = p1.add_run('Persetujuan A — Normal Push 13 Commit ke origin/main (Risiko: Rendah)')
+    r1 = p1.add_run('Persetujuan A — Normal Push ke origin/main (SELESAI)')
     r1.bold = True
     r1.font.color.rgb = RGBColor(0x0A, 0x66, 0x44)
-    doc.add_paragraph('Menjalankan fast-forward git push origin main untuk menghapus preloaded-state.json dari HEAD remote publik GitHub dan menyinkronkan perbaikan SK-001, SK-003, dan SK-004.')
+    doc.add_paragraph('Telah berhasil dieksekusi via normal push (7707ab8..81255a4). File personal preloaded-state.json telah resmi hilang dari HEAD remote origin/main di GitHub. Local dan remote telah sinkron penuh.')
 
     p2 = doc.add_paragraph()
-    r2 = p2.add_run('Persetujuan B — Git History Purge & Force Push (Risiko: Sangat Tinggi)')
+    r2 = p2.add_run('Persetujuan B — Git History Purge & Force Push (TETAP PENDING OWNER APPROVAL)')
     r2.bold = True
     r2.font.color.rgb = RGBColor(0xB9, 0x1C, 0x1C)
-    doc.add_paragraph('Menjalankan git-filter-repo / BFG untuk menghapus permanen blob commit 97e04aa dari histori Git masa lalu, diikuti git push origin main --force.')
+    doc.add_paragraph('Menjalankan git-filter-repo / BFG untuk menghapus permanen blob commit 97e04aa dari histori Git masa lalu, diikuti git push origin main --force. Tindakan ini tetap menunggu izin eksplisit owner.')
 
     doc.save(output_path)
     print(f"DOCX created: {output_path}")
@@ -396,8 +403,8 @@ def create_full_html(output_path):
     </div>
 
     <div class="notice-box">
-      <strong>Status Resmi Fase 0:</strong> LOCAL REMEDIATION COMPLETE — REMOTE HEAD & HISTORY PURGE PENDING OWNER APPROVAL.<br>
-      Seluruh kelemahan kode produksi pada SK-001, SK-003, dan SK-004 telah diperbaiki dan diuji langsung terhadap production code. Repositori bersih dari mutasi berbahaya saat storage korup, restore kini transaksional multi-key, dan 34 regression tests green.
+      <strong>Status Resmi Fase 0:</strong> LOCAL & REMOTE HEAD CONTAINMENT COMPLETE — HISTORY PURGE PENDING OWNER APPROVAL.<br>
+      Seluruh kelemahan kode produksi pada SK-001, SK-003, dan SK-004 telah diperbaiki dan diuji langsung terhadap production code. File personal data telah resmi terhapus dari HEAD remote origin/main pasca-normal push (commit 81255a4). Repositori bersih dari mutasi berbahaya saat storage korup, restore kini transaksional multi-key, dan 34 regression tests green. History purge tetap menunggu persetujuan owner.
     </div>
 
     <div class="card">
@@ -408,8 +415,8 @@ def create_full_html(output_path):
           <td class="mono">main @ 7707ab86adde25c47149a7d80ff1eca76c177673</td>
         </tr>
         <tr>
-          <td style="color: var(--text-muted);">Current Local HEAD</td>
-          <td class="mono">20d340a (13 commits ahead of origin/main)</td>
+          <td style="color: var(--text-muted);">Current Local HEAD & origin/main</td>
+          <td class="mono">81255a4 (Sinkron penuh, 0 ahead, 0 behind)</td>
         </tr>
         <tr>
           <td style="color: var(--text-muted);">Working Tree</td>
@@ -423,7 +430,7 @@ def create_full_html(output_path):
     </div>
 
     <div class="card">
-      <div class="card-title">2. Urutan 13 Commit Terpisah (Phase 0)</div>
+      <div class="card-title">2. Urutan 16 Commit Terpisah (Phase 0)</div>
       <table>
         <thead>
           <tr>
@@ -447,6 +454,9 @@ def create_full_html(output_path):
           <tr><td>11</td><td class="mono">e2b0308</td><td>Docs</td><td>Catat laporan Phase 0 korektif resmi di docs/</td></tr>
           <tr><td>12</td><td class="mono">51aee27</td><td>Docs</td><td>Tambahkan deliverable Word (.docx) pertama</td></tr>
           <tr><td>13</td><td class="mono">20d340a</td><td>Docs</td><td>Sinkronisasi commit count & hash telemetry</td></tr>
+          <tr><td>14</td><td class="mono">f689225</td><td>Docs</td><td>Finalisasi deliverable Word (.docx) lengkap</td></tr>
+          <tr><td>15</td><td class="mono">920be07</td><td>Docs</td><td>Finalisasi laporan Phase 0 dalam format DOCX, HTML, dan Markdown</td></tr>
+          <tr><td>16</td><td class="mono">81255a4</td><td>Docs</td><td>Sinkronisasi laporan Phase 0 sebelum normal push ke remote</td></tr>
         </tbody>
       </table>
     </div>
@@ -522,19 +532,19 @@ def create_full_html(output_path):
     </div>
 
     <div class="card">
-      <div class="card-title">4. Dua Persetujuan yang Menunggu Keputusan Owner</div>
+      <div class="card-title">4. Status Persetujuan & Tindakan</div>
       
       <div class="action-card">
-        <h4 style="margin: 0 0 6px 0; color: #fff;">Persetujuan A — Normal Push 13 Commit ke origin/main <span class="badge badge-green">Risiko: Rendah</span></h4>
+        <h4 style="margin: 0 0 6px 0; color: #fff;">Persetujuan A — Normal Push ke origin/main <span class="badge badge-green">STATUS: SELESAI</span></h4>
         <p style="margin: 0; font-size: 13px; color: var(--text-muted);">
-          Menjalankan <code>git push origin main</code> (fast-forward) untuk menghapus <code>preloaded-state.json</code> dari HEAD remote publik GitHub dan menyinkronkan seluruh proteksi data SK-001, SK-003, dan SK-004.
+          Telah berhasil dieksekusi via normal push (<code>7707ab8..81255a4</code>). File <code>preloaded-state.json</code> telah resmi terhapus dari HEAD remote <code>origin/main</code> publik GitHub dan seluruh proteksi data SK-001, SK-003, dan SK-004 telah aktif. Local dan remote telah sinkron penuh.
         </p>
       </div>
 
       <div class="action-card danger">
-        <h4 style="margin: 0 0 6px 0; color: #fff;">Persetujuan B — Git History Purge & Force Push <span class="badge badge-red">Risiko: Sangat Tinggi</span></h4>
+        <h4 style="margin: 0 0 6px 0; color: #fff;">Persetujuan B — Git History Purge & Force Push <span class="badge badge-red">STATUS: PENDING OWNER APPROVAL</span></h4>
         <p style="margin: 0; font-size: 13px; color: var(--text-muted);">
-          Menjalankan <code>git-filter-repo</code> / BFG untuk menghapus permanen blob transaksi personal dari riwayat commit <code>97e04aa</code> di masa lalu, diikuti <code>git push origin main --force</code>.
+          Menjalankan <code>git-filter-repo</code> / BFG untuk menghapus permanen blob transaksi personal dari riwayat commit <code>97e04aa</code> di masa lalu, diikuti <code>git push origin main --force</code>. Tindakan ini tetap menunggu izin eksplisit owner.
         </p>
       </div>
     </div>
