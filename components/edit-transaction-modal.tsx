@@ -27,6 +27,7 @@ import { formatAmountFieldInput, parseAmountInput } from '@/lib/amount'
 import { formatIDR } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
+import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
 
 interface EditTransactionModalProps {
   open: boolean
@@ -99,6 +100,34 @@ export const EditTransactionModal = memo(function EditTransactionModal({
     setIsAddingSub(false)
     setNewSubName('')
   }, [open, transaction, wallets])
+
+  // Back-stack integration: register modal, confirm delete dialog, and add sub dialog
+  useEffect(() => {
+    if (open) {
+      pushBackLayer({ id: 'edit-transaction-modal', type: 'modal', onClose })
+    } else {
+      removeBackLayer('edit-transaction-modal')
+    }
+    return () => removeBackLayer('edit-transaction-modal')
+  }, [open, onClose])
+
+  useEffect(() => {
+    if (confirmDelete) {
+      pushBackLayer({ id: 'edit-transaction-confirm-delete', type: 'dialog', onClose: () => setConfirmDelete(false) })
+    } else {
+      removeBackLayer('edit-transaction-confirm-delete')
+    }
+    return () => removeBackLayer('edit-transaction-confirm-delete')
+  }, [confirmDelete])
+
+  useEffect(() => {
+    if (isAddingSub) {
+      pushBackLayer({ id: 'edit-transaction-add-sub', type: 'dialog', onClose: () => setIsAddingSub(false) })
+    } else {
+      removeBackLayer('edit-transaction-add-sub')
+    }
+    return () => removeBackLayer('edit-transaction-add-sub')
+  }, [isAddingSub])
 
   useEffect(() => {
     if (!open) return

@@ -33,6 +33,7 @@ import {
   syncUnlocks,
 } from '@/lib/achievements'
 import { cn } from '@/lib/utils'
+import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
 
 // ── Auto-create saku & kategori dari data impor ───────────────────────────────
 function slugifyId(value: string): string {
@@ -565,6 +566,24 @@ export function DataPortability() {
       setHasRollback(canRollback(window.localStorage))
     }
   }, [lastAction])
+
+  useEffect(() => {
+    if (pendingPlan) {
+      pushBackLayer({ id: 'import-preview-modal', type: 'modal', onClose: () => setPendingPlan(null) })
+    } else {
+      removeBackLayer('import-preview-modal')
+    }
+    return () => removeBackLayer('import-preview-modal')
+  }, [pendingPlan])
+
+  useEffect(() => {
+    if (showRollbackConfirm) {
+      pushBackLayer({ id: 'rollback-confirm-modal', type: 'dialog', onClose: () => setShowRollbackConfirm(false) })
+    } else {
+      removeBackLayer('rollback-confirm-modal')
+    }
+    return () => removeBackLayer('rollback-confirm-modal')
+  }, [showRollbackConfirm])
 
   const pulseAction = (action: 'json' | 'csv' | 'import') => {
     triggerPortableHaptic()

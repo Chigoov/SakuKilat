@@ -38,6 +38,7 @@ import {
 } from '@/lib/stats'
 import { monthlyBreakdownForYear } from '@/lib/stats-rekapan-yearly'
 import { cn } from '@/lib/utils'
+import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
 
 type RecapMode = 'history' | 'calendar' | 'monthly' | 'trend'
 type RangeMode = 'month' | '7d' | '30d' | '1y' | 'period'
@@ -228,6 +229,15 @@ export const TabRekapan = memo(function TabRekapan() {
   const [allocationType, setAllocationType] = useState<'expense' | 'income'>('expense')
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [detailSheet, setDetailSheet] = useState<DetailSheetState | null>(null)
+
+  useEffect(() => {
+    if (detailSheet) {
+      pushBackLayer({ id: 'rekapan-detail-sheet', type: 'sheet', onClose: () => setDetailSheet(null) })
+    } else {
+      removeBackLayer('rekapan-detail-sheet')
+    }
+    return () => removeBackLayer('rekapan-detail-sheet')
+  }, [detailSheet])
 
   useEffect(() => {
     void import('@/lib/achievements').then((module) => {

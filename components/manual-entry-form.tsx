@@ -23,6 +23,7 @@ import { formatAmountFieldInput, parseAmountInput } from '@/lib/amount'
 import { formatIDR, formatIDRCompact, getBuiltinCategoryType, parseTransaction } from '@/lib/parser'
 import { findPhraseSuggestions } from '@/lib/suggestions'
 import { cn } from '@/lib/utils'
+import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
 
 interface ManualEntryFormProps {
   open: boolean
@@ -126,6 +127,25 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     setIsAddingSub(false)
     setNewSubName('')
   }, [open, seedInput, wallets])
+
+  // Back-stack integration: register/unregister modal
+  useEffect(() => {
+    if (open) {
+      pushBackLayer({ id: 'manual-entry-form', type: 'modal', onClose })
+    } else {
+      removeBackLayer('manual-entry-form')
+    }
+    return () => removeBackLayer('manual-entry-form')
+  }, [open, onClose])
+
+  useEffect(() => {
+    if (isAddingSub) {
+      pushBackLayer({ id: 'manual-entry-add-sub', type: 'dialog', onClose: () => setIsAddingSub(false) })
+    } else {
+      removeBackLayer('manual-entry-add-sub')
+    }
+    return () => removeBackLayer('manual-entry-add-sub')
+  }, [isAddingSub])
 
   useEffect(() => {
     if (!open) return

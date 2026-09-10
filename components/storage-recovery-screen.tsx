@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AlertTriangle, Copy, Download, RefreshCw, CheckCircle2, ShieldAlert } from 'lucide-react'
 import { resetCorruptState, type LoadResult } from '@/lib/storage'
+import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
 
 interface StorageRecoveryScreenProps {
   loadResult: LoadResult
@@ -11,6 +12,15 @@ interface StorageRecoveryScreenProps {
 export function StorageRecoveryScreen({ loadResult }: StorageRecoveryScreenProps) {
   const [copied, setCopied] = useState(false)
   const [showConfirmReset, setShowConfirmReset] = useState(false)
+
+  useEffect(() => {
+    if (showConfirmReset) {
+      pushBackLayer({ id: 'recovery-confirm-reset', type: 'dialog', onClose: () => setShowConfirmReset(false) })
+    } else {
+      removeBackLayer('recovery-confirm-reset')
+    }
+    return () => removeBackLayer('recovery-confirm-reset')
+  }, [showConfirmReset])
 
   const isCorrupt = loadResult.status === 'corrupt'
   const isIncompatible = loadResult.status === 'incompatible'

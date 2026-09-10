@@ -6,6 +6,7 @@ import { useFeedbackStore, useWalletStore } from '@/lib/store'
 import { formatIDR, formatIDRCompact } from '@/lib/parser'
 import { formatNaturalAmountInput, parseAmountInput } from '@/lib/amount'
 import { cn } from '@/lib/utils'
+import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
 
 /**
  * SakuKilat Goal Tracker
@@ -440,6 +441,23 @@ export const GoalTracker = memo(function GoalTracker() {
     if (!hydrated) return
     saveGoals(goals)
   }, [goals, hydrated])
+
+  // Back-stack integration for goal form / editing
+  useEffect(() => {
+    if (showForm || editing) {
+      pushBackLayer({
+        id: 'goal-form',
+        type: 'sublayer',
+        onClose: () => {
+          setShowForm(false)
+          setEditing(null)
+        },
+      })
+    } else {
+      removeBackLayer('goal-form')
+    }
+    return () => removeBackLayer('goal-form')
+  }, [showForm, editing])
 
   const upsertGoal = useCallback((data: Omit<Goal, 'id' | 'createdAt' | 'saved'> & { id?: string }) => {
     setGoals(prev => {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Home, BarChart2, Wallet, User, X, Fingerprint, KeyRound } from 'lucide-react'
+import { initBackStack } from '@/lib/back-stack'
 import pkg from '@/package.json'
 import { cn } from '@/lib/utils'
 import {
@@ -167,6 +168,11 @@ function AppShell() {
 
   useDailyRollover()
 
+  // Initialize back-stack for browser popstate + Android hardware back
+  useEffect(() => {
+    const cleanup = initBackStack()
+    return cleanup
+  }, [])
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)

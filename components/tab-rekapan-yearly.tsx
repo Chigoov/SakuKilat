@@ -37,6 +37,7 @@ import {
 } from '@/lib/stats'
 import { monthlyBreakdownForYear, type TrendPoint } from '@/lib/stats-rekapan-yearly'
 import { cn } from '@/lib/utils'
+import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
 
 type RecapMode = 'history' | 'calendar' | 'trend' | 'yearly'
 type RangeMode = 'month' | '7d' | '30d' | '1y' | 'period'
@@ -195,6 +196,15 @@ export const TabRekapan = memo(function TabRekapan() {
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear())
   const [allocationType, setAllocationType] = useState<'expense' | 'income'>('expense')
   const [detailSheet, setDetailSheet] = useState<DetailSheetState | null>(null)
+
+  useEffect(() => {
+    if (detailSheet) {
+      pushBackLayer({ id: 'rekapan-yearly-detail-sheet', type: 'sheet', onClose: () => setDetailSheet(null) })
+    } else {
+      removeBackLayer('rekapan-yearly-detail-sheet')
+    }
+    return () => removeBackLayer('rekapan-yearly-detail-sheet')
+  }, [detailSheet])
 
   useEffect(() => {
     void import('@/lib/achievements').then((module) => {
