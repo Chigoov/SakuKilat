@@ -40,6 +40,16 @@ import {
   CATEGORY_CONFIG,
   suggestCategoryIconKey,
 } from '@/components/category-badge'
+import {
+  loadPersistedState,
+  persistState,
+  canMutateState,
+  STORAGE_KEY,
+  CURRENT_SCHEMA_VERSION,
+  type StorageStatus,
+  type LoadResult,
+} from '@/lib/storage'
+import { StorageRecoveryScreen } from '@/components/storage-recovery-screen'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface MockUser {
@@ -231,7 +241,6 @@ const SEED_CATEGORIES: CustomCategory[] = [
   { id: 'expense-peliharaan', label: 'Peliharaan', keywords: ['kucing', 'anjing', 'catfood', 'vet', 'grooming'], type: 'expense' },
 ]
 const DEFAULT_MONTHLY_BUDGET = 0
-export const STORAGE_KEY = 'sakukilat:v2:local-state'
 const PRELOADED_STATE_URL = '/preloaded-state.json'
 const ONBOARDING_STORAGE_KEY_PREFIX = 'sakukilat:v2:onboarding-completed-v'
 const BUNDLE_SEED_TIMEOUT_MS = 1600
@@ -286,8 +295,6 @@ interface PersistedState {
   profileName?: string | null
   profileAvatarUrl?: string | null
 }
-
-export const CURRENT_SCHEMA_VERSION = 8
 
 // ── v2 → v3 demo-data purge helpers ─────────────────────────────────────────
 // Old builds shipped with hard-coded seed transactions and pre-filled wallet
@@ -422,97 +429,22 @@ function migratePersistedState(state: PersistedState): PersistedState {
   return { ...next, schemaVersion: CURRENT_SCHEMA_VERSION }
 }
 
-// ── SK-003: Typed storage load result ──────────────────────────────────────
-type StorageStatus = 'valid' | 'missing' | 'corrupt' | 'incompatible'
-
-interface LoadResult {
-  status: StorageStatus
-  state: PersistedState
-  /** Raw corrupt payload preserved for recovery */
-  quarantinedRaw?: string
-  /** Error message when corrupt */
-  error?: string
-  /** Schema version when incompatible */
-  detectedVersion?: number
+export {
+  STORAGE_KEY,
+  CURRENT_SCHEMA_VERSION,
+  type StorageStatus,
+  type LoadResult,
 }
 
-function loadPersistedState(): LoadResult {
-  if (typeof window === 'undefined') return { status: 'missing', state: {} }
-
-  // Cleanup stale keys (unchanged from original)
-  try {
-    for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
-      const key = window.localStorage.key(i)
-      if (!key?.startsWith('sakukilat:')) continue
-      if (KNOWN_STORAGE_KEYS.has(key) || key.startsWith(ONBOARDING_STORAGE_KEY_PREFIX)) continue
-      if (PRESERVED_KEY_PREFIXES.some(prefix => key.startsWith(prefix))) continue
-      // SK-003: preserve quarantine keys
-      if (key.includes(':quarantine:')) continue
-      window.localStorage.removeItem(key)
+function loadPersistedStateForStore(): LoadResult {
+  const result = loadPersistedState()
+  if (result.status === 'valid' && result.state) {
+    return {
+      ...result,
+      state: migratePersistedState(result.state),
     }
-  } catch {
-    // Cleanup failure is non-critical
   }
-
-  const raw = window.localStorage.getItem(STORAGE_KEY)
-  if (raw === null || raw === undefined) {
-    return { status: 'missing', state: {} }
-  }
-
-  if (raw === '') {
-    quarantineCorrupt(raw)
-    return { status: 'corrupt', state: {}, quarantinedRaw: raw, error: 'Empty storage value' }
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as PersistedState
-    if (!parsed || typeof parsed !== 'object') {
-      quarantineCorrupt(raw)
-      return { status: 'corrupt', state: {}, quarantinedRaw: raw, error: 'Parsed value is not an object' }
-    }
-
-    // SK-003: detect incompatible future schema
-    if (parsed.schemaVersion && parsed.schemaVersion > CURRENT_SCHEMA_VERSION) {
-      return {
-        status: 'incompatible',
-        state: parsed,
-        detectedVersion: parsed.schemaVersion,
-      }
-    }
-
-    return { status: 'valid', state: migratePersistedState(parsed) }
-  } catch (error) {
-    // SK-003: QUARANTINE corrupt payload instead of discarding
-    quarantineCorrupt(raw)
-    console.error('SK-003: Corrupt state detected and quarantined.', error)
-    return { status: 'corrupt', state: {}, quarantinedRaw: raw, error: String(error) }
-  }
-}
-
-/** SK-003: Save corrupt raw payload to a timestamped quarantine key for potential recovery. */
-function quarantineCorrupt(raw: string) {
-  try {
-    const quarantineKey = `${STORAGE_KEY}:quarantine:${Date.now()}`
-    window.localStorage.setItem(quarantineKey, raw)
-  } catch {
-    // Best-effort quarantine — storage might be full
-  }
-}
-
-function persistState(state: PersistedState, storageStatus: StorageStatus) {
-  if (typeof window === 'undefined') return
-
-  // SK-003: NEVER overwrite storage when state was corrupt or incompatible
-  if (storageStatus === 'corrupt' || storageStatus === 'incompatible') {
-    console.warn(`SK-003: Skipping persist — storage status is "${storageStatus}"`)
-    return
-  }
-
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, ...state }))
-  } catch (error) {
-    console.warn('Gagal menyimpan auto-save SakuKilat:', error)
-  }
+  return result
 }
 
 function firstName(name: string): string {
@@ -744,7 +676,7 @@ function triggerHaptic(duration = 35) {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const loadResultRef = useRef<LoadResult | null>(null)
   if (loadResultRef.current === null) {
-    loadResultRef.current = loadPersistedState()
+    loadResultRef.current = loadPersistedStateForStore()
   }
   const { status: storageStatus, state: persisted } = loadResultRef.current
   const needsBundleSeed =
@@ -922,9 +854,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [themeMode])
 
   useEffect(() => {
-    if (!bundleSeedResolved) return
-    persistState(persistedSnapshot, storageStatus)
-  }, [bundleSeedResolved, persistedSnapshot])
+    if (!bundleSeedResolved || typeof window === 'undefined') return
+    persistState(window.localStorage, persistedSnapshot, storageStatus)
+  }, [bundleSeedResolved, persistedSnapshot, storageStatus])
 
   // Keep the display registry in sync with custom slang
   useEffect(() => {
@@ -966,6 +898,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ── Profil lokal ──────────────────────────────────────────────────────────
   const updateProfile = useCallback((name: string) => {
+    if (!canMutateState(storageStatus)) {
+      showToast('Penyimpanan terkunci (mode recovery). Profil tidak dapat diubah.', 'error')
+      return
+    }
     const trimmed = name.trim()
     if (!trimmed) {
       showToast('Nama profil tidak boleh kosong.', 'error')
@@ -975,14 +911,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setProfileName(trimmed)
     setUser(prev => prev ? applyProfileSettings(DEMO_USER, trimmed, profileAvatarRef.current) : prev)
     showToast('Profil diperbarui.', 'success')
-  }, [showToast])
+  }, [showToast, storageStatus])
 
   const updateProfileAvatar = useCallback((avatarUrl: string | null) => {
+    if (!canMutateState(storageStatus)) {
+      showToast('Penyimpanan terkunci (mode recovery). Profil tidak dapat diubah.', 'error')
+      return
+    }
     const trimmed = avatarUrl?.trim() || null
     setProfileAvatarUrl(trimmed)
     setUser(prev => prev ? applyProfileSettings(DEMO_USER, profileNameRef.current, trimmed) : prev)
     showToast(trimmed ? 'Foto profil diperbarui.' : 'Foto profil dikembalikan ke bawaan.', 'success')
-  }, [showToast])
+  }, [showToast, storageStatus])
 
   const totalStored = useMemo(
     () => wallets.reduce((sum, wallet) => sum + wallet.balance, 0),
@@ -990,6 +930,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const setMonthlyBudget = useCallback((amount: number) => {
+    if (!canMutateState(storageStatus)) {
+      showToast('Penyimpanan terkunci (mode recovery). Budget tidak dapat diubah.', 'error')
+      return
+    }
     const hadBudget = monthlyBudget > 0
     setMonthlyBudgetState(Math.max(0, Math.round(amount)))
     void import('./achievements').then(m => {
@@ -997,10 +941,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (hadBudget) m.setFlag('sakukilat:v2:ach-budget-up')
     })
     showToast('Budget bulanan diperbarui.', 'success')
-  }, [showToast, monthlyBudget])
+  }, [showToast, monthlyBudget, storageStatus])
 
   const addWallet = useCallback(
     (label: string, type: WalletType, balance: number, keywords: string[]) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Saku tidak dapat diubah.', 'error')
+        return
+      }
       const wallet = createWallet(label, type, balance, keywords)
       setWallets(prev => prev.some(item => item.id === wallet.id) ? prev : [...prev, wallet])
       setCustomPayments(prev =>
@@ -1010,11 +958,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       )
       showToast(`Saku "${wallet.label}" ditambahkan.`, 'success')
     },
-    [showToast]
+    [showToast, storageStatus]
   )
 
   const updateWallet = useCallback(
     (id: string, updates: { label: string; type: WalletType; balance: number; keywords: string[] }) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Saku tidak dapat diubah.', 'error')
+        return
+      }
       const label = updates.label.trim()
       if (!label) {
         showToast('Nama saku tidak boleh kosong.', 'error')
@@ -1043,21 +995,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       })
       showToast(`Saku "${label}" diperbarui.`, 'success')
     },
-    [showToast]
+    [showToast, storageStatus]
   )
 
   const removeWallet = useCallback(
     (id: string) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Saku tidak dapat diubah.', 'error')
+        return
+      }
       const wallet = wallets.find(item => item.id === id)
       if (!wallet) return
       setWallets(prev => prev.filter(item => item.id !== id))
       showToast(`Saku "${wallet.label}" dihapus.`, 'success')
     },
-    [wallets, showToast]
+    [wallets, showToast, storageStatus]
   )
 
   const createMove = useCallback(
     (fromWalletId: string, toWalletId: string, amount: number, note = 'Pindah uang', kind: TransactionKind = 'transfer', date = new Date()) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Transfer tidak dapat disimpan.', 'error')
+        return null
+      }
       const roundedAmount = Math.round(amount)
       if (!fromWalletId || !toWalletId || fromWalletId === toWalletId || roundedAmount <= 0) return null
 
@@ -1085,7 +1045,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTimeout(() => setNewTransactionId(null), 700)
       return move
     },
-    [wallets]
+    [wallets, storageStatus, showToast]
   )
 
   const transferMoney = useCallback(
@@ -1110,6 +1070,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // ── Optimistic add ──────────────────────────────────────────────────────────
   const addTransaction = useCallback(
     async (input: string): Promise<boolean> => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Transaksi tidak dapat disimpan.', 'error')
+        return false
+      }
       const parsed = parseEntry(input, parserExtras)
       if (!parsed || parsed.amount === 0) {
         showToast('Belum paham. Coba: "makan 25k gopay" atau "pindah 100k ovo ke gopay"', 'error')
@@ -1175,7 +1139,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       )
       return true
     },
-    [parserExtras, showToast, transferMoney, wallets]
+    [parserExtras, showToast, transferMoney, wallets, storageStatus]
   )
 
   /** Manual entry — bypasses the parser entirely. Used by the modal form
@@ -1183,6 +1147,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    *  precise wallet assignment. Same soft-balance semantics. */
   const addManualTransaction = useCallback(
     async (input: ManualTransactionInput): Promise<boolean> => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Transaksi tidak dapat disimpan.', 'error')
+        return false
+      }
       if (!Number.isFinite(input.amount) || input.amount <= 0) {
         showToast('Lengkapi nominal dulu.', 'error')
         return false
@@ -1216,11 +1184,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       return true
     },
-    [wallets, showToast]
+    [wallets, showToast, storageStatus]
   )
 
   const deleteTransaction = useCallback(
     (id: string) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Transaksi tidak dapat dihapus.', 'error')
+        return
+      }
       const transaction = transactions.find(t => t.id === id)
       if (!transaction) return
 
@@ -1242,12 +1214,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         5500
       )
     },
-    [transactions, showToast]
+    [transactions, showToast, storageStatus]
   )
 
   // ── Custom slang management ──────────────────────────────────────────────────
   const updateTransaction = useCallback(
     (id: string, updates: TransactionUpdateInput) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Perubahan tidak dapat disimpan.', 'error')
+        return
+      }
       const transaction = transactions.find(t => t.id === id)
       if (!transaction) return
 
@@ -1306,11 +1282,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       void import('./achievements').then(m => m.bumpCount(m.EDIT_COUNT_KEY))
       showToast('Transaksi diperbarui.', 'success')
     },
-    [transactions, wallets, showToast]
+    [transactions, wallets, showToast, storageStatus]
   )
 
   const addCustomPayment = useCallback(
     (label: string, keywords: string[]) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Operasi dibatalkan.', 'error')
+        return
+      }
       const id = slugify(label)
       const kws = Array.from(new Set([id, ...keywords.map(k => k.toLowerCase().trim()).filter(Boolean)]))
       setHiddenPaymentIds(prev => prev.filter(item => item !== id))
@@ -1324,11 +1304,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       )
       showToast(`Metode "${label.trim()}" ditambahkan.`, 'success')
     },
-    [showToast]
+    [showToast, storageStatus]
   )
 
   const updateCustomPayment = useCallback(
     (id: string, updates: { label: string; keywords: string[] }) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Operasi dibatalkan.', 'error')
+        return
+      }
       const label = updates.label.trim()
       if (!label) {
         showToast('Nama metode bayar tidak boleh kosong.', 'error')
@@ -1346,10 +1330,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       )
       showToast(`Metode "${label}" diperbarui.`, 'success')
     },
-    [showToast]
+    [showToast, storageStatus]
   )
 
   const removeCustomPayment = useCallback((id: string) => {
+    if (!canMutateState(storageStatus)) {
+      showToast('Penyimpanan terkunci (mode recovery). Operasi dibatalkan.', 'error')
+      return
+    }
     const isBuiltin = [
       'gopay', 'ovo', 'dana', 'shopeepay',
       'bca', 'bni', 'bri', 'mandiri',
@@ -1363,15 +1351,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return
     }
     showToast('Metode dihapus.', 'success')
-  }, [showToast])
+  }, [showToast, storageStatus])
 
   const restoreHiddenPayment = useCallback((id: string) => {
+    if (!canMutateState(storageStatus)) {
+      showToast('Penyimpanan terkunci (mode recovery). Operasi dibatalkan.', 'error')
+      return
+    }
     setHiddenPaymentIds(prev => prev.filter(item => item !== id))
     showToast('Metode bawaan dimunculkan lagi.', 'success')
-  }, [showToast])
+  }, [showToast, storageStatus])
 
   const addCustomCategory = useCallback(
     (label: string, keywords: string[], subcategories: string[] = [], type: TransactionType = 'expense', monthlyBudget = 0, icon?: string) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Operasi dibatalkan.', 'error')
+        return
+      }
       const id = buildCustomCategoryId(label, type)
       const kws = Array.from(new Set(keywords.map(k => k.toLowerCase().trim()).filter(Boolean)))
       const subs = Array.from(new Set(subcategories.map(item => item.trim()).filter(Boolean)))
@@ -1385,11 +1381,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       )
       showToast(`Kategori "${label.trim()}" ditambahkan.`, 'success')
     },
-    [showToast]
+    [showToast, storageStatus]
   )
 
   const updateCustomCategory = useCallback(
     (id: string, updates: { label: string; keywords: string[]; subcategories?: string[]; type?: TransactionType; monthlyBudget?: number; icon?: string }) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Operasi dibatalkan.', 'error')
+        return
+      }
       const label = updates.label.trim()
       if (!label) return
       const kws = Array.from(new Set(updates.keywords.map(k => k.toLowerCase().trim()).filter(Boolean)))
@@ -1421,10 +1421,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       )
       showToast(`Kategori "${label}" diperbarui.`, 'success')
     },
-    [showToast]
+    [showToast, storageStatus]
   )
 
   const removeCustomCategory = useCallback((id: string) => {
+    if (!canMutateState(storageStatus)) {
+      showToast('Penyimpanan terkunci (mode recovery). Operasi dibatalkan.', 'error')
+      return
+    }
     const isBuiltin = id in CATEGORY_CONFIG
     if (isBuiltin && (id === 'lainnya' || id === 'transfer')) {
       showToast('Kategori inti tidak bisa disembunyikan.', 'error')
@@ -1437,12 +1441,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return
     }
     showToast('Kategori dihapus.', 'success')
-  }, [showToast])
+  }, [showToast, storageStatus])
 
   const restoreHiddenCategory = useCallback((id: string) => {
+    if (!canMutateState(storageStatus)) {
+      showToast('Penyimpanan terkunci (mode recovery). Operasi dibatalkan.', 'error')
+      return
+    }
     setHiddenCategoryIds(prev => prev.filter(item => item !== id))
     showToast('Kategori bawaan dimunculkan lagi.', 'success')
-  }, [showToast])
+  }, [showToast, storageStatus])
 
   const toggleZen = useCallback(() => setZenMode(z => {
     const next = !z
@@ -1590,6 +1598,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ]
   )
 
+  const content = !canMutateState(storageStatus) && loadResultRef.current ? (
+    <StorageRecoveryScreen loadResult={loadResultRef.current} />
+  ) : (
+    children
+  )
+
   return (
     <AuthContext.Provider value={authValue}>
       <TransactionDataContext.Provider value={transactionDataValue}>
@@ -1600,7 +1614,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 <CustomizationContext.Provider value={customizationValue}>
                   <PreferenceContext.Provider value={preferenceValue}>
                     <FeedbackContext.Provider value={feedbackValue}>
-                      <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
+                      <StoreContext.Provider value={value}>{content}</StoreContext.Provider>
                     </FeedbackContext.Provider>
                   </PreferenceContext.Provider>
                 </CustomizationContext.Provider>

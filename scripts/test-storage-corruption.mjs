@@ -243,8 +243,8 @@ console.log(`Results: ${passed}/${total} passed, ${failed} failed\n`)
 
 if (failed > 0) {
   console.error(`❌ Expected failure on baseline: ${failed} tests failed as expected before fix.\n`)
-  process.exit(1)
+  process.exitCode = 1
 } else {
   console.log('✅ All SK-003 tests passed!\n')
-  process.exit(0)
+  process.exitCode = 0
 }
