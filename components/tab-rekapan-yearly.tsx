@@ -38,6 +38,7 @@ import {
 import { monthlyBreakdownForYear, type TrendPoint } from '@/lib/stats-rekapan-yearly'
 import { cn } from '@/lib/utils'
 import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
+import { CategoryYearExplorer } from '@/components/category-year-explorer'
 
 type RecapMode = 'history' | 'calendar' | 'trend' | 'yearly'
 type RangeMode = 'month' | '7d' | '30d' | '1y' | 'period'
@@ -196,6 +197,9 @@ export const TabRekapan = memo(function TabRekapan() {
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear())
   const [allocationType, setAllocationType] = useState<'expense' | 'income'>('expense')
   const [detailSheet, setDetailSheet] = useState<DetailSheetState | null>(null)
+  const [showCategoryExplorer, setShowCategoryExplorer] = useState(false)
+  const [explorerCategory, setExplorerCategory] = useState<string>('makanan')
+  const [explorerType, setExplorerType] = useState<'expense' | 'income'>('expense')
 
   useEffect(() => {
     if (detailSheet) {
@@ -788,6 +792,28 @@ export const TabRekapan = memo(function TabRekapan() {
               </div>
             </div>
 
+            {/* Jejak Kategori Setahun Feature Banner */}
+            <div className="rounded-[16px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3.5 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-[var(--sk-text)] flex items-center gap-1.5">
+                  <span className="text-base">📊</span> Jejak Kategori Setahun
+                </p>
+                <p className="text-xs text-[var(--sk-text-dim)] mt-0.5">
+                  Analisis mendalam, grafik 12 bulan & drilldown per kategori
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setExplorerType('expense')
+                  setShowCategoryExplorer(true)
+                }}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border border-[var(--sk-cyan)] hover:opacity-90 active:scale-95 transition-all shrink-0 min-h-[44px]"
+              >
+                Buka Jejak
+              </button>
+            </div>
+
             <div className="overflow-hidden rounded-[16px] border border-[var(--sk-border)] bg-[var(--sk-surface)] md:rounded-[28px]">
               {yearlyRows.map((row) => {
                 const hasData = row.income !== 0 || row.expense !== 0
@@ -942,6 +968,13 @@ export const TabRekapan = memo(function TabRekapan() {
           />
         )}
       </BottomSheet>
+      <CategoryYearExplorer
+        open={showCategoryExplorer}
+        onClose={() => setShowCategoryExplorer(false)}
+        initialYear={selectedYear}
+        initialCategoryId={explorerCategory}
+        initialType={explorerType}
+      />
     </div>
   )
 })

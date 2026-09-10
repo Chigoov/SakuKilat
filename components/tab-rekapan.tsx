@@ -39,6 +39,7 @@ import {
 import { monthlyBreakdownForYear } from '@/lib/stats-rekapan-yearly'
 import { cn } from '@/lib/utils'
 import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
+import { CategoryYearExplorer } from '@/components/category-year-explorer'
 
 type RecapMode = 'history' | 'calendar' | 'monthly' | 'trend'
 type RangeMode = 'month' | '7d' | '30d' | '1y' | 'period'
@@ -229,6 +230,9 @@ export const TabRekapan = memo(function TabRekapan() {
   const [allocationType, setAllocationType] = useState<'expense' | 'income'>('expense')
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [detailSheet, setDetailSheet] = useState<DetailSheetState | null>(null)
+  const [showCategoryExplorer, setShowCategoryExplorer] = useState(false)
+  const [explorerCategory, setExplorerCategory] = useState<string>('makanan')
+  const [explorerType, setExplorerType] = useState<'expense' | 'income'>('expense')
 
   useEffect(() => {
     if (detailSheet) {
@@ -958,6 +962,17 @@ export const TabRekapan = memo(function TabRekapan() {
                               >
                                 Lihat Semua Transaksi ({subSlices.reduce((acc, s) => acc + s.count, 0)})
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExplorerCategory(slice.category)
+                                  setExplorerType(allocationType)
+                                  setShowCategoryExplorer(true)
+                                }}
+                                className="w-full mt-1.5 py-2 rounded-xl bg-[var(--sk-cyan-dim)] border border-[var(--sk-cyan)] text-center text-xs font-bold text-[var(--sk-cyan)] hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-1.5 min-h-[44px]"
+                              >
+                                📊 Jejak {getCategoryConfig(slice.category).label} Setahun
+                              </button>
                             </div>
                           )}
                         </div>
@@ -1220,6 +1235,13 @@ export const TabRekapan = memo(function TabRekapan() {
           />
         )}
       </BottomSheet>
+      <CategoryYearExplorer
+        open={showCategoryExplorer}
+        onClose={() => setShowCategoryExplorer(false)}
+        initialYear={selectedYear}
+        initialCategoryId={explorerCategory}
+        initialType={explorerType}
+      />
     </div>
   )
 })

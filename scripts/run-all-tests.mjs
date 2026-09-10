@@ -47,6 +47,11 @@ const testSuites = [
     type: 'regression',
   },
   {
+    name: 'Jejak Kategori Setahun Analytics',
+    script: 'scripts/test-category-yearly.mjs',
+    type: 'regression',
+  },
+  {
     name: 'SK-001: Scanner Data Personal & Finansial',
     script: 'scripts/scan-personal-data.mjs',
     type: 'security-scan',
