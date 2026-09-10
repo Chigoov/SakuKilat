@@ -31,6 +31,10 @@ android/app/*.keystore
 android/app/src/main/assets/public/
 android/app/src/main/assets/capacitor.config.json
 
+# ── SK-001: Block personal/financial data assets ──
+android/app/src/personal/assets/public/preloaded-state.json
+**/preloaded-state.json
+
 # ── Verifikasi logika murni (emit sementara tsc) ──
 scripts/.verify-build/
 
