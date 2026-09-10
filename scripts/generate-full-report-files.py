@@ -52,7 +52,7 @@ def create_full_docx(output_path):
     meta_data = [
         ("Tanggal Pelaksanaan", "10 September 2026"),
         ("Baseline Awal", "main @ 7707ab86adde25c47149a7d80ff1eca76c177673"),
-        ("Current Local HEAD", "f689225 (14 commits ahead of origin/main)"),
+        ("Current Local HEAD", "20d340a (13 commits ahead of origin/main)"),
         ("Repository", "C:\\Users\\HYPE AMD\\Projects\\SakuKilat"),
         ("Status Resmi Fase 0", "LOCAL REMEDIATION COMPLETE — REMOTE HEAD & HISTORY PURGE PENDING OWNER APPROVAL")
     ]
@@ -87,7 +87,7 @@ def create_full_docx(output_path):
     note_run.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
 
     # 1. Ringkasan Eksekusi & Commit
-    h1 = doc.add_heading('1. Ringkasan Eksekusi & Daftar 14 Commit', level=1)
+    h1 = doc.add_heading('1. Ringkasan Eksekusi & Daftar 13 Commit', level=1)
     h1.runs[0].font.color.rgb = RGBColor(0x0F, 0x2A, 0x4A)
 
     commits_data = [
@@ -103,8 +103,7 @@ def create_full_docx(output_path):
         ("10", "1450a10", "SK-001", "[KOREKSI] Hubungkan scanner data personal ke pnpm test via scripts/run-all-tests.mjs secara jujur"),
         ("11", "e2b0308", "Docs", "[KOREKSI] Laporan Phase 0 korektif resmi di folder docs repository"),
         ("12", "51aee27", "Docs", "Laporan Microsoft Word (.docx) pertama untuk review owner"),
-        ("13", "20d340a", "Docs", "Sinkronisasi commit count & HEAD hash ke dokumen laporan"),
-        ("14", "f689225", "Docs", "Finalisasi deliverable laporan Word (.docx) lengkap"),
+        ("13", "20d340a", "Docs", "docs: sync HEAD hash and commit counts in Phase 0 report"),
     ]
 
     c_table = doc.add_table(rows=1, cols=4)
@@ -236,7 +235,7 @@ def create_full_docx(output_path):
     h5.runs[0].font.color.rgb = RGBColor(0x0F, 0x2A, 0x4A)
 
     p1 = doc.add_paragraph()
-    r1 = p1.add_run('Persetujuan A — Normal Push 14 Commit ke origin/main (Risiko: Rendah)')
+    r1 = p1.add_run('Persetujuan A — Normal Push 13 Commit ke origin/main (Risiko: Rendah)')
     r1.bold = True
     r1.font.color.rgb = RGBColor(0x0A, 0x66, 0x44)
     doc.add_paragraph('Menjalankan fast-forward git push origin main untuk menghapus preloaded-state.json dari HEAD remote publik GitHub dan menyinkronkan perbaikan SK-001, SK-003, dan SK-004.')
@@ -410,7 +409,7 @@ def create_full_html(output_path):
         </tr>
         <tr>
           <td style="color: var(--text-muted);">Current Local HEAD</td>
-          <td class="mono">f689225 (14 commits ahead of origin/main)</td>
+          <td class="mono">20d340a (13 commits ahead of origin/main)</td>
         </tr>
         <tr>
           <td style="color: var(--text-muted);">Working Tree</td>
@@ -424,7 +423,7 @@ def create_full_html(output_path):
     </div>
 
     <div class="card">
-      <div class="card-title">2. Urutan 14 Commit Terpisah (Phase 0)</div>
+      <div class="card-title">2. Urutan 13 Commit Terpisah (Phase 0)</div>
       <table>
         <thead>
           <tr>
@@ -448,7 +447,6 @@ def create_full_html(output_path):
           <tr><td>11</td><td class="mono">e2b0308</td><td>Docs</td><td>Catat laporan Phase 0 korektif resmi di docs/</td></tr>
           <tr><td>12</td><td class="mono">51aee27</td><td>Docs</td><td>Tambahkan deliverable Word (.docx) pertama</td></tr>
           <tr><td>13</td><td class="mono">20d340a</td><td>Docs</td><td>Sinkronisasi commit count & hash telemetry</td></tr>
-          <tr><td>14</td><td class="mono">f689225</td><td>Docs</td><td>Finalisasi deliverable Word (.docx) lengkap</td></tr>
         </tbody>
       </table>
     </div>
@@ -527,7 +525,7 @@ def create_full_html(output_path):
       <div class="card-title">4. Dua Persetujuan yang Menunggu Keputusan Owner</div>
       
       <div class="action-card">
-        <h4 style="margin: 0 0 6px 0; color: #fff;">Persetujuan A — Normal Push 14 Commit ke origin/main <span class="badge badge-green">Risiko: Rendah</span></h4>
+        <h4 style="margin: 0 0 6px 0; color: #fff;">Persetujuan A — Normal Push 13 Commit ke origin/main <span class="badge badge-green">Risiko: Rendah</span></h4>
         <p style="margin: 0; font-size: 13px; color: var(--text-muted);">
           Menjalankan <code>git push origin main</code> (fast-forward) untuk menghapus <code>preloaded-state.json</code> dari HEAD remote publik GitHub dan menyinkronkan seluruh proteksi data SK-001, SK-003, dan SK-004.
         </p>
@@ -550,6 +548,7 @@ def create_full_html(output_path):
 
 if __name__ == '__main__':
     project_docs = r'c:\Users\HYPE AMD\Projects\SakuKilat\docs'
+    downloads_root = r'c:\Users\HYPE AMD\Downloads'
     downloads_review = r'c:\Users\HYPE AMD\Downloads\REVIEW SAKU KILAT'
 
     docx_proj = os.path.join(project_docs, 'LAPORAN_REMEDIASI_PHASE0_SAKUKILAT.docx')
@@ -558,7 +557,12 @@ if __name__ == '__main__':
     create_full_docx(docx_proj)
     create_full_html(html_proj)
 
-    # Copy to Downloads workspace for instant access
+    # Copy to Downloads directly as requested
+    downloads_docx = os.path.join(downloads_root, 'LAPORAN_REMEDIASI_PHASE0_SAKUKILAT.docx')
+    shutil.copy2(docx_proj, downloads_docx)
+    print(f"Copied DOCX to {downloads_docx}")
+
+    # Copy to Downloads review workspace if exists
     if os.path.exists(downloads_review):
         shutil.copy2(docx_proj, os.path.join(downloads_review, 'LAPORAN_REMEDIASI_PHASE0_SAKUKILAT.docx'))
         shutil.copy2(html_proj, os.path.join(downloads_review, 'LAPORAN_REMEDIASI_PHASE0_SAKUKILAT.html'))
