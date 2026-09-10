@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan Final Koreksi, UX Upgrade & Category Analytics — SakuKilat</title>
+  <style>
+    :root {
+      --bg: #0B0F19;
+      --card: #111827;
+      --card-border: #1F2937;
+      --text: #F3F4F6;
+      --text-muted: #9CA3AF;
+      --accent: #38BDF8;
+      --accent-green: #10B981;
+      --accent-emerald: #059669;
+      --accent-amber: #F59E0B;
+      --accent-rose: #F43F5E;
+      --table-header: #1E293B;
+      --code-bg: #1E2433;
+    }
+    @media print {
+      body { background: white !important; color: #1e293b !important; }
+      .card { border: 1px solid #cbd5e1 !important; background: white !important; box-shadow: none !important; }
+      th { background: #f1f5f9 !important; color: #0f172a !important; }
+      td { border-color: #e2e8f0 !important; color: #334155 !important; }
+      .badge-green { background: #dcfce7 !important; color: #166534 !important; border-color: #86efac !important; }
+      .badge-blue { background: #e0f2fe !important; color: #0369a1 !important; border-color: #7dd3fc !important; }
+      .meta-box { background: #f8fafc !important; border-color: #cbd5e1 !important; color: #0f172a !important; }
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      margin: 0;
+      padding: 36px 18px;
+    }
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 24px;
+    }
+    h1 {
+      font-size: 26px;
+      margin: 0 0 10px 0;
+      color: #FFFFFF;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+      font-weight: 400;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+    .meta-box {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 18px 24px;
+      margin-bottom: 28px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .meta-item {
+      font-size: 13px;
+    }
+    .meta-item strong {
+      color: var(--text-muted);
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 3px;
+    }
+    .meta-item span {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 26px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-top: 0;
+      margin-bottom: 16px;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    p, li {
+      font-size: 14px;
+      color: #D1D5DB;
+    }
+    ul, ol {
+      margin: 8px 0;
+      padding-left: 24px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    strong {
+      color: #FFFFFF;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 10px 14px;
+      border: 1px solid var(--card-border);
+      text-align: left;
+    }
+    th {
+      background: var(--table-header);
+      color: #FFFFFF;
+      font-weight: 600;
+    }
+    td {
+      color: #D1D5DB;
+    }
+    tr:nth-child(even) td {
+      background: rgba(255,255,255,0.02);
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .badge-green {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34D399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-blue {
+      background: rgba(56, 189, 248, 0.15);
+      color: #7DD3FC;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    code {
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #38BDF8;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 14px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #E2E8F0;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 720px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .stat-title {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>SAKUKILAT — LAPORAN RESMI FINAL CORRECTION, UX UPGRADE & CATEGORY ANALYTICS</h1>
+      <div class="subtitle">Dokumentasi Komprehensif Penyelesaian Remediasi Storage, Parser CSV, Navigasi Back Stack, Live Input Rupiah, Desain Form Catat Transaksi, dan Modul Jejak Kategori Setahun</div>
+    </div>
+
+    <div class="meta-box">
+      <div class="meta-item">
+        <strong>Tanggal Eksekusi</strong>
+        <span>11 September 2026</span>
+      </div>
+      <div class="meta-item">
+        <strong>Branch Kerja Aktif</strong>
+        <span><code>feat/navigation-entry-category-responsive</code></span>
+      </div>
+      <div class="meta-item">
+        <strong>Base Commit & Remote</strong>
+        <span><code>f01f76e</code> (origin/main)</span>
+      </div>
+      <div class="meta-item">
+        <strong>Current HEAD Local</strong>
+        <span><code>1bae659</code> (8 commits ahead)</span>
+      </div>
+      <div class="meta-item">
+        <strong>Status Pelaksanaan</strong>
+        <span style="color: #34D399;">✓ SELESAI PENUH (8/8 Commits, All Tests Green)</span>
+      </div>
+      <div class="meta-item">
+        <strong>Repository</strong>
+        <span>C:\Users\HYPE AMD\Projects\SakuKilat</span>
+      </div>
+    </div>
+
+    <!-- Card 1 -->
+    <div class="card">
+      <div class="card-title">1. Ringkasan Eksekutif</div>
+      <p>Sesuai instruksi dan panduan rekayasa perangkat lunak SakuKilat, seluruh pekerjaan final remediation dan peningkatan kapabilitas aplikasi telah diselesaikan 100% tanpa menambahkan library pihak ketiga di luar Recharts yang sudah ada, tanpa memperkenalkan fitur yang tidak diminta (seperti rekonsiliasi bank otomatis atau sinkronisasi cloud), serta dengan integritas data lokal yang terjaga penuh.</p>
+      
+      <div class="grid-2">
+        <div class="stat-card">
+          <div class="stat-title">REGRESSION TEST SUITES</div>
+          <div class="stat-value" style="color: #34D399;">7 / 7 LULUS (79 Tests)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">SECURITY SCAN SUITES</div>
+          <div class="stat-value" style="color: #38BDF8;">1 / 1 CLEAN (3 Checks)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">NEXT.JS WEB BUILD</div>
+          <div class="stat-value" style="color: #34D399;">COMPILED (0 Error)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">MOBILE EXPORT BUILD</div>
+          <div class="stat-value" style="color: #34D399;">SUCCESS (3 Pages Static)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="card">
+      <div class="card-title">2. Histori Commit di Branch Kerja</div>
+      <p>Pekerjaan dilakukan secara disiplin dalam commit-commit atomik yang masing-masing disertai unit test dan verifikasi.</p>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 15%;">Hash</th>
+            <th style="width: 25%;">Scope & Type</th>
+            <th style="width: 60%;">Pesan & Deskripsi Perubahan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>4e1eed3</code></td>
+            <td><span class="badge badge-blue">fix(storage)</span></td>
+            <td>Prevent destructive incompatible reset and preserve future keys</td>
+          </tr>
+          <tr>
+            <td><code>38bfc6d</code></td>
+            <td><span class="badge badge-blue">fix(import)</span></td>
+            <td>Strict CSV parser, dedup engine, and honest rollback reporting</td>
+          </tr>
+          <tr>
+            <td><code>2497937</code></td>
+            <td><span class="badge badge-blue">test(navigation)</span></td>
+            <td>Define nested back-stack behavior</td>
+          </tr>
+          <tr>
+            <td><code>3c336bd</code></td>
+            <td><span class="badge badge-blue">fix(navigation)</span></td>
+            <td>Return sublayers to their parent via LIFO back-stack</td>
+          </tr>
+          <tr>
+            <td><code>e0546a0</code></td>
+            <td><span class="badge badge-blue">fix(amount)</span></td>
+            <td>Apply live Rupiah formatting consistently across forms</td>
+          </tr>
+          <tr>
+            <td><code>57e9bf7</code></td>
+            <td><span class="badge badge-blue">feat(entry)</span></td>
+            <td>Improve expense and income entry UI</td>
+          </tr>
+          <tr>
+            <td><code>fae2f13</code></td>
+            <td><span class="badge badge-blue">feat(category-year)</span></td>
+            <td>Add yearly category explorer</td>
+          </tr>
+          <tr>
+            <td><code>1bae659</code></td>
+            <td><span class="badge badge-blue">fix(responsive)</span></td>
+            <td>Optimize supported viewport sizes</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="card">
+      <div class="card-title">3. Detail Remediasi dan Fitur per Bagian</div>
+
+      <h3>3.1 Bagian A — Keselamatan Data & Storage</h3>
+      <ul>
+        <li><strong>Perlindungan Skema Masa Depan:</strong> <code>lib/storage.ts</code> memblokir eksekusi reset pada status <code>incompatible</code>. Unknown keys dari versi skema lebih baru tidak dihapus. UI karantina <code>StorageRecoveryScreen</code> kini menyembunyikan tombol reset destruktif dan memberikan tombol salin/unduh raw JSON.</li>
+        <li><strong>Parser CSV RFC 4180 Ketat:</strong> Modul mandiri <code>lib/csv-parser.ts</code> mendukung koma di dalam tanda kutip, escaped quotes, multiline breaks, dan validasi UTF-8. Fallback berbahaya <code>|| 10000</code> dihapus total.</li>
+        <li><strong>Dedup Engine Transaksi Impor:</strong> Modul <code>lib/dedup.ts</code> menyaring transaksi ganda berdasarkan signature deterministik (ISO date + type + amount + normalized description + category + subcategory + paymentMethod).</li>
+        <li><strong>Pelaporan Rollback yang Jujur:</strong> Sistem memvalidasi status riil eksekusi rollback sebelum menampilkan notifikasi keberhasilan semu.</li>
+      </ul>
+
+      <h3>3.2 Bagian B — Navigasi Sublayer dan Back Stack</h3>
+      <ul>
+        <li><strong>Modul Navigasi LIFO:</strong> <code>lib/back-stack.ts</code> melacak hirarki modal dan sheet yang terbuka.</li>
+        <li><strong>Hardware Back & Popstate:</strong> Mengaitkan event hardware back button Capacitor dan browser popstate ke stack LIFO sehingga setiap penekanan tombol kembali menutup sublayer teratas secara berurutan.</li>
+        <li><strong>Isolasi State Parent:</strong> Menutup modal tidak mereset state tab induk, nilai filter tanggal, ataupun posisi scroll pengguna.</li>
+      </ul>
+
+      <h3>3.3 Bagian C — Live Rupiah Input</h3>
+      <ul>
+        <li><strong>Modul Pendukung:</strong> <code>lib/amount.ts</code> menyediakan <code>stripToDigits</code>, <code>formatRupiahLive</code>, dan kalkulasi posisi kursor <code>calculateCursorPosition</code>.</li>
+        <li><strong>Komponen <code>&lt;RupiahInput&gt;</code>:</strong> Prefix "Rp" terisolasi di luar input teks (tidak dapat terhapus backspace), pemisah ribuan otomatis tanpa loncatan kursor, dan normalisasi paste/shortcuts natural (<code>50rb</code>, <code>1,5jt</code>).</li>
+        <li><strong>Penggantian Menyeluruh:</strong> Digunakan pada <code>tab-saku.tsx</code>, <code>edit-transaction-modal.tsx</code>, <code>goal-tracker.tsx</code>, dan <code>category-manager.tsx</code>.</li>
+      </ul>
+
+      <h3>3.4 Bagian D — UI Pencatatan Transaksi Baru</h3>
+      <ul>
+        <li><strong>Segmented Type Selector:</strong> Tiga tombol segmented lega (tinggi 44px) dengan diferensiasi warna kontras (Pengeluaran merah, Pemasukan hijau, Transfer biru).</li>
+        <li><strong>Amount Hero Section:</strong> Area input nominal visual dominan dengan badge <code>−</code> atau <code>+</code>, label dinamis, dan quick chip (+10rb, +50rb, +100rb, +500rb).</li>
+        <li><strong>Pengurutan Kategori Dinamis:</strong> Kategori disusun berdasarkan riwayat frekuensi pemakaian pengguna; mengingat kategori terakhir per tipe.</li>
+        <li><strong>Tombol Simpan Adaptif:</strong> Menampilkan nominal real-time (cth: <em>Catat Pengeluaran Rp 75.000</em>) serta pencegahan double-submit.</li>
+      </ul>
+
+      <h3>3.5 Bagian E — Fitur Baru: Jejak Kategori Setahun</h3>
+      <ul>
+        <li><strong>Statistik Engine:</strong> <code>lib/stats-category-yearly.ts</code> mengagregasi 12 bulan kalender secara akurat dengan mengecualikan transfer internal dan simpanan tabungan.</li>
+        <li><strong>Visualisasi Explorer:</strong> <code>components/category-year-explorer.tsx</code> menyediakan selector tahun/kategori, 5 kartu metrik analitis, grafik batang Recharts 12 bulan interaktif, dan drilldown transaksi bulanan saat batang diklik.</li>
+        <li><strong>Integrasi:</strong> Dapat diakses langsung dari <code>tab-rekapan-yearly.tsx</code> dan <code>tab-rekapan.tsx</code>.</li>
+      </ul>
+
+      <h3>3.6 Bagian F — Responsivitas Viewport</h3>
+      <ul>
+        <li>Proteksi overflow horizontal pada layar sempit (320px+) melalui <code>max-width: 100vw; overflow-x: hidden;</code> pada <code>app/globals.css</code>.</li>
+        <li>Utilitas <code>.scrollbar-none</code> untuk geser chip kategori horizontal tanpa gangguan scrollbar browser.</li>
+        <li>Penyematan safe-area top dan bottom untuk kompatibilitas perangkat mobile modern.</li>
+      </ul>
+    </div>
+
+    <!-- Card 4 -->
+    <div class="card">
+      <div class="card-title">4. Hasil Uji Otomatis & Verifikasi Build</div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Suite Pengujian</th>
+            <th>File Script</th>
+            <th>Cakupan</th>
+            <th>Hasil</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Logika Budget Hierarkis</td>
+            <td><code>scripts/test-budget-logic.mjs</code></td>
+            <td>15 Tests</td>
+            <td><span class="badge badge-green">PASS (100%)</span></td>
+          </tr>
+          <tr>
+            <td>SK-003: Storage Corruption Recovery</td>
+            <td><code>scripts/test-storage-corruption.mjs</code></td>
+            <td>18 Tests</td>
+            <td><span class="badge badge-green">PASS (100%)</span></td>
+          </tr>
+          <tr>
+            <td>Future Schema Safety & Recovery</td>
+            <td><code>scripts/test-future-schema-safety.mjs</code></td>
+            <td>11 Tests</td>
+            <td><span class="badge badge-green">PASS (100%)</span></td>
+          </tr>
+          <tr>
+            <td>SK-004: Transactional Restore & CSV</td>
+            <td><code>scripts/test-import-restore.mjs</code></td>
+            <td>16 Tests</td>
+            <td><span class="badge badge-green">PASS (100%)</span></td>
+          </tr>
+          <tr>
+            <td>Sublayer Navigation Back Stack</td>
+            <td><code>scripts/test-navigation-stack.mjs</code></td>
+            <td>7 Tests</td>
+            <td><span class="badge badge-green">PASS (100%)</span></td>
+          </tr>
+          <tr>
+            <td>Live Rupiah Formatting & Parsing</td>
+            <td><code>scripts/test-amount-rupiah.mjs</code></td>
+            <td>4 Groups</td>
+            <td><span class="badge badge-green">PASS (100%)</span></td>
+          </tr>
+          <tr>
+            <td>Jejak Kategori Setahun Analytics</td>
+            <td><code>scripts/test-category-yearly.mjs</code></td>
+            <td>5 Groups</td>
+            <td><span class="badge badge-green">PASS (100%)</span></td>
+          </tr>
+          <tr>
+            <td>SK-001: Scanner Data Personal & Finansial</td>
+            <td><code>scripts/scan-personal-data.mjs</code></td>
+            <td>3 Checks</td>
+            <td><span class="badge badge-green">CLEAN (0 Leaks)</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Verifikasi Build Produksi</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Perintah</th>
+            <th>Deskripsi Target</th>
+            <th>Hasil</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>pnpm exec tsc --noEmit</code></td>
+            <td>Pemeriksaan Strict Tipe TypeScript</td>
+            <td><span class="badge badge-green">0 Errors / Lulus</span></td>
+          </tr>
+          <tr>
+            <td><code>pnpm build</code></td>
+            <td>Next.js Web Production Build</td>
+            <td><span class="badge badge-green">Compiled Successfully (3/3 pages)</span></td>
+          </tr>
+          <tr>
+            <td><code>pnpm build:mobile</code></td>
+            <td>Next.js Mobile Export (BUILD_TARGET=mobile)</td>
+            <td><span class="badge badge-green">Compiled Successfully (3/3 pages)</span></td>
+          </tr>
+          <tr>
+            <td><code>git diff --check</code></td>
+            <td>Audit Whitespace & Format Git</td>
+            <td><span class="badge badge-green">Clean (0 warnings)</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Card 5 -->
+    <div class="card">
+      <div class="card-title">5. Panduan Pengujian Langsung oleh Pengguna</div>
+      <p>Untuk menguji secara visual melalui peramban:</p>
+      <ol>
+        <li>Jalankan dev server dengan perintah: <code>pnpm dev</code></li>
+        <li>Buka <code>http://localhost:3000</code> di browser Anda.</li>
+        <li><strong>Input Rupiah:</strong> Buka tab <strong>Saku</strong>, ubah saldo atau limit harian. Coba ketik angka atau shortcut <code>50rb</code> / <code>1,5jt</code>.</li>
+        <li><strong>Form Catat:</strong> Klik tombol <strong>+</strong>. Pilih Pengeluaran / Pemasukan / Transfer. Rasakan hero nominal dan perhatikan kategori teratas berdasarkan frekuensi.</li>
+        <li><strong>Tombol Kembali (Back):</strong> Saat modal terbuka, tekan tombol kembali pada peramban. Modal akan tertutup dengan mulus tanpa me-reload aplikasi.</li>
+        <li><strong>Jejak Kategori Setahun:</strong> Masuk tab <strong>Rekapan</strong> ➔ <strong>Tahunan</strong> ➔ Klik <strong>Jejak Kategori Setahun</strong>. Amati visualisasi batang 12 bulan dan klik salah satu batang untuk melihat daftar transaksi.</li>
+      </ol>
+    </div>
+
+    <div class="card" style="text-align: center; border-color: rgba(16, 185, 129, 0.3);">
+      <p style="margin: 0; color: #34D399; font-weight: 600;">Repository dalam kondisi bersih (*clean working tree*). Seluruh perubahan siap ditinjau dan digabungkan (*merge*).</p>
+    </div>
+  </div>
+</body>
+</html>
