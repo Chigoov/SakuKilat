@@ -24,6 +24,7 @@ import { formatIDR, formatIDRCompact, getBuiltinCategoryType, parseTransaction }
 import { findPhraseSuggestions } from '@/lib/suggestions'
 import { cn } from '@/lib/utils'
 import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
+import { RupiahInput } from '@/components/rupiah-input'
 
 interface ManualEntryFormProps {
   open: boolean
@@ -82,6 +83,12 @@ export const ManualEntryForm = memo(function ManualEntryForm({
   const [entryDate, setEntryDate] = useState(() => dateInputValue())
   const [entryTime, setEntryTime] = useState(() => timeInputValue())
   const [submitting, setSubmitting] = useState(false)
+
+  // Remember last used category per type (Bagian D)
+  const [lastCategoryPerType, setLastCategoryPerType] = useState<{ expense: string; income: string }>({
+    expense: 'makanan',
+    income: 'gaji',
+  })
 
   // State untuk inline add subcategory
   const [isAddingSub, setIsAddingSub] = useState(false)
@@ -203,8 +210,41 @@ export const ManualEntryForm = memo(function ManualEntryForm({
           subcategories: item.subcategories ?? [],
         }
       })
-    return [...filtered, ...custom]
-  }, [type, customCategories, hiddenCategoryIds])
+    const all = [...filtered, ...custom]
+
+    // Frequency sorting: frequently used categories appear first
+    const freq: Record<string, number> = {}
+    for (const tx of transactions) {
+      if (tx.category && (tx.type === type || (!tx.type && type === 'expense'))) {
+        freq[tx.category] = (freq[tx.category] || 0) + 1
+      }
+    }
+
+    return all.sort((a, b) => {
+      const countA = freq[a.id] ?? 0
+      const countB = freq[b.id] ?? 0
+      if (countB !== countA) return countB - countA
+      return 0
+    })
+  }, [type, customCategories, hiddenCategoryIds, transactions])
+
+  const handleTypeChange = (newType: EntryType) => {
+    setType(newType)
+    if (newType === 'expense') {
+      const remembered = lastCategoryPerType.expense
+      setCategory(remembered || 'makanan')
+    } else if (newType === 'income') {
+      const remembered = lastCategoryPerType.income
+      setCategory(remembered || 'gaji')
+    }
+  }
+
+  const handleCategoryPick = (catId: string) => {
+    setCategory(catId)
+    if (type === 'expense' || type === 'income') {
+      setLastCategoryPerType(prev => ({ ...prev, [type]: catId }))
+    }
+  }
 
   const selectedCategory = useMemo(
     () => categoryOptions.find(item => item.id === category),
@@ -326,31 +366,35 @@ export const ManualEntryForm = memo(function ManualEntryForm({
         </div>
 
         <div className="px-4 py-3 flex flex-col gap-3 overflow-y-auto">
-          <div className="grid grid-cols-3 gap-1.5">
+          {/* Segmented Type Selector (Bagian D) */}
+          <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)]">
             {([
-              ['expense', TrendingDown, 'Keluar'],
-              ['income', TrendingUp, 'Masuk'],
-              ['transfer', ArrowRightLeft, 'Pindah'],
-            ] as Array<[EntryType, React.ComponentType<{ className?: string }>, string]>).map(([itemType, Icon, label]) => (
-              <button
-                key={itemType}
-                type="button"
-                onClick={() => setType(itemType)}
-                className={cn(
-                  'h-9 rounded-lg flex items-center justify-center gap-1 text-[11px] font-semibold transition-colors border',
-                  type === itemType
-                    ? itemType === 'income'
-                      ? 'bg-[var(--sk-green-dim)] text-[var(--sk-green)] border-[var(--sk-green)]'
-                      : itemType === 'transfer'
-                        ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
-                        : 'bg-[var(--sk-red-dim)] text-[var(--sk-red)] border-[var(--sk-red)]'
-                    : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent hover:text-[var(--sk-text)]'
-                )}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {label}
-              </button>
-            ))}
+              ['expense', TrendingDown, 'Pengeluaran'],
+              ['income', TrendingUp, 'Pemasukan'],
+              ['transfer', ArrowRightLeft, 'Transfer'],
+            ] as Array<[EntryType, React.ComponentType<{ className?: string }>, string]>).map(([itemType, Icon, label]) => {
+              const active = type === itemType
+              return (
+                <button
+                  key={itemType}
+                  type="button"
+                  onClick={() => handleTypeChange(itemType)}
+                  className={cn(
+                    'h-11 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all border',
+                    active
+                      ? itemType === 'income'
+                        ? 'bg-[var(--sk-green-dim)] text-[var(--sk-green)] border-[var(--sk-green)] shadow-sm'
+                        : itemType === 'transfer'
+                          ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)] shadow-sm'
+                          : 'bg-[var(--sk-red-dim)] text-[var(--sk-red)] border-[var(--sk-red)] shadow-sm'
+                      : 'bg-transparent text-[var(--sk-text-dim)] border-transparent hover:text-[var(--sk-text)]'
+                  )}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{label}</span>
+                </button>
+              )
+            })}
           </div>
 
           <div>
@@ -380,41 +424,47 @@ export const ManualEntryForm = memo(function ManualEntryForm({
             )}
           </div>
 
-          <div>
-            <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)] flex items-center justify-between">
-              <span>Nominal</span>
+          {/* Amount Hero (Bagian C & D) */}
+          <div className="rounded-xl p-3.5 bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col gap-1.5 focus-within:border-[var(--sk-cyan)] transition-colors">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] uppercase tracking-widest font-bold text-[var(--sk-text-dim)]">
+                {type === 'transfer'
+                  ? 'Jumlah Transfer'
+                  : type === 'expense'
+                    ? 'Uang Keluar'
+                    : 'Uang Masuk'}
+              </label>
               {parsedAmount > 0 && (
                 <span className={cn(
-                  'text-[11px] font-bold tabular-nums normal-case tracking-normal',
-                  type === 'transfer' ? 'text-[var(--sk-cyan)]' : type === 'expense' ? 'text-[var(--sk-red)]' : 'text-[var(--sk-green)]'
+                  'text-xs font-extrabold tabular-nums px-2 py-0.5 rounded-full',
+                  type === 'transfer'
+                    ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)]'
+                    : type === 'expense'
+                      ? 'bg-[var(--sk-red-dim)] text-[var(--sk-red)]'
+                      : 'bg-[var(--sk-green-dim)] text-[var(--sk-green)]'
                 )}>
-                  {type === 'transfer' ? '' : type === 'expense' ? '-' : '+'}{formatIDR(parsedAmount)}
+                  {type === 'transfer' ? '' : type === 'expense' ? '− ' : '+ '}
+                  {formatIDR(parsedAmount)}
                 </span>
               )}
-            </label>
-            <input
-              type="text"
-              inputMode="decimal"
+            </div>
+            <RupiahInput
               autoFocus
               value={amountRaw}
-              onChange={event => {
-                const raw = event.target.value
-                const inputType = (event.nativeEvent as InputEvent | null)?.inputType ?? ''
-                const isDeleting = typeof inputType === 'string' && inputType.startsWith('delete')
-                if (isDeleting) {
-                  setAmountRaw(raw)
-                  return
-                }
-                setAmountRaw(formatAmountFieldInput(raw))
-              }}
-              onBlur={event => {
-                const cleaned = formatAmountFieldInput(event.target.value)
-                if (cleaned !== amountRaw) setAmountRaw(cleaned)
-              }}
-              placeholder="cth. 50000, 50rb, 1,5jt"
-              className="w-full mt-1 px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] focus:outline-none focus:border-[var(--sk-cyan)] caret-[var(--sk-cyan)] tabular-nums"
+              onChange={(_num, str) => setAmountRaw(str)}
+              placeholder="0"
+              containerClassName="bg-transparent border-0 py-0"
+              prefixClassName={cn(
+                'text-xl font-bold pl-0 pr-1',
+                type === 'transfer'
+                  ? 'text-[var(--sk-cyan)]'
+                  : type === 'expense'
+                    ? 'text-[var(--sk-red)]'
+                    : 'text-[var(--sk-green)]'
+              )}
+              className="text-2xl sm:text-3xl font-extrabold py-0 tracking-tight tabular-nums"
             />
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-1 flex flex-wrap gap-1.5">
               {[
                 { label: '+10rb', val: 10000 },
                 { label: '+20rb', val: 20000 },
@@ -430,7 +480,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
                     const next = current + chip.val
                     setAmountRaw(String(next))
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-xs font-semibold text-[var(--sk-text)] active:scale-95 transition-transform hover:bg-[var(--sk-surface-3)]"
+                  className="px-2.5 py-1 rounded-lg bg-[var(--sk-surface)] border border-[var(--sk-border)] text-xs font-semibold text-[var(--sk-text)] active:scale-95 transition-transform hover:bg-[var(--sk-surface-3)]"
                 >
                   {chip.label}
                 </button>
@@ -486,7 +536,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => setCategory(item.id)}
+                      onClick={() => handleCategoryPick(item.id)}
                       className={cn(
                         'px-2 py-2 rounded-lg flex flex-col items-center gap-0.5 transition-colors min-h-[44px] justify-center',
                         active
@@ -667,24 +717,36 @@ export const ManualEntryForm = memo(function ManualEntryForm({
           </button>
           <button
             type="submit"
-            disabled={!canSubmit}
+            disabled={!canSubmit || submitting}
             className={cn(
-              'flex-1 h-10 rounded-lg flex items-center justify-center gap-2 font-semibold text-sm transition-opacity',
-              canSubmit
+              'flex-1 min-h-[44px] rounded-xl flex items-center justify-center gap-2 font-bold text-sm transition-all',
+              canSubmit && !submitting
                 ? type === 'transfer'
-                  ? 'bg-[var(--sk-cyan)] text-[var(--sk-bg)] hover:opacity-90'
+                  ? 'bg-[var(--sk-cyan)] text-[#090D16] hover:opacity-90 active:scale-[0.99] shadow-md'
                   : type === 'expense'
-                    ? 'bg-[var(--sk-red)] text-[var(--sk-bg)] hover:opacity-90'
-                    : 'bg-[var(--sk-green)] text-[var(--sk-bg)] hover:opacity-90'
+                    ? 'bg-[var(--sk-red)] text-white hover:opacity-90 active:scale-[0.99] shadow-md'
+                    : 'bg-[var(--sk-green)] text-[#090D16] hover:opacity-90 active:scale-[0.99] shadow-md'
                 : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-dim)] cursor-not-allowed'
             )}
           >
-            {type === 'transfer'
-              ? <ArrowRightLeft className="w-4 h-4" />
-              : type === 'expense'
-                ? <ArrowUpRight className="w-4 h-4" />
-                : <ArrowDownLeft className="w-4 h-4" />}
-            {submitting ? 'Menyimpan...' : type === 'transfer' ? 'Pindah uang' : type === 'expense' ? 'Catat pengeluaran' : 'Catat pemasukan'}
+            {submitting ? (
+              <span>Menyimpan...</span>
+            ) : (
+              <>
+                {type === 'transfer'
+                  ? <ArrowRightLeft className="w-4 h-4" />
+                  : type === 'expense'
+                    ? <ArrowUpRight className="w-4 h-4" />
+                    : <ArrowDownLeft className="w-4 h-4" />}
+                <span>
+                  {type === 'transfer'
+                    ? parsedAmount ? `Transfer ${formatIDR(parsedAmount)}` : 'Transfer Uang'
+                    : type === 'expense'
+                      ? parsedAmount ? `Catat Pengeluaran ${formatIDR(parsedAmount)}` : 'Catat Pengeluaran'
+                      : parsedAmount ? `Catat Pemasukan ${formatIDR(parsedAmount)}` : 'Catat Pemasukan'}
+                </span>
+              </>
+            )}
           </button>
         </div>
       </form>
