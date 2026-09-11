@@ -18,6 +18,7 @@ import {
   canRollback,
   type ImportPlanSuccess,
 } from '@/lib/data-restore'
+import { parseDelimited as parseDelimitedShared } from '@/lib/csv-parser'
 import type { Transaction } from '@/lib/mock-data'
 import type { WalletAccount, WalletType } from '@/lib/mock-data'
 import type { CustomCategory, CustomPayment, TransactionType } from '@/lib/parser'
@@ -375,15 +376,12 @@ function normalizeTransaction(raw: unknown, index: number): Transaction | null {
   }
 }
 
-// CSV parsing now uses the shared module
-import { parseDelimited as parseDelimitedShared } from '@/lib/csv-parser'
-
 function csvToTransactions(text: string): Transaction[] {
-  const rows = parseDelimitedShared(text)
+  const { rows } = parseDelimitedShared(text)
   const headers = rows[0]?.map(normalizeHeader) ?? []
   return rows.slice(1)
-    .map((cells, index) => {
-      const record = headers.reduce<RawRecord>((acc, header, cellIndex) => {
+    .map((cells: string[], index: number) => {
+      const record = headers.reduce<RawRecord>((acc: RawRecord, header: string, cellIndex: number) => {
         if (!header || acc[header] !== undefined) return acc
         acc[header] = cells[cellIndex] ?? ''
         return acc
@@ -669,7 +667,7 @@ export function DataPortability() {
       if (result.noNewTransactions) {
         setPendingPlan(null)
         setIsExecuting(false)
-        showToast('Tidak ada transaksi baru yang ditambahkan (seluruh transaksi sudah ada atau duplikat).', 'info', undefined, 4000)
+        showToast('Tidak ada transaksi baru yang ditambahkan (seluruh transaksi sudah ada atau duplikat).', 'success', undefined, 4000)
         return
       }
 
@@ -711,7 +709,7 @@ export function DataPortability() {
     }
 
     if (plan.mode === 'merge' && plan.newTransactionCount === 0) {
-      showToast('Tidak ada transaksi baru yang ditemukan (seluruh transaksi dalam berkas sudah ada / duplikat).', 'info', undefined, 4000)
+      showToast('Tidak ada transaksi baru yang ditemukan (seluruh transaksi dalam berkas sudah ada / duplikat).', 'success', undefined, 4000)
       return
     }
 
