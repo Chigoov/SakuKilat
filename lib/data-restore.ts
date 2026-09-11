@@ -3,7 +3,13 @@
  * Centralizes import validation, planning, multi-key checkpointing, and atomic rollback.
  */
 
-import { parseDelimitedToRecords } from './csv-parser.ts'
+import {
+  parseDelimitedToRecords,
+  validateCsvHeaders,
+  parseCsvAmount,
+  parseCsvDate,
+  parseCsvType,
+} from './csv-parser.ts'
 import { deduplicateTransactions } from './dedup.ts'
 
 export const CURRENT_SCHEMA_VERSION = 8
@@ -28,6 +34,7 @@ export interface ImportPlanSuccess {
   currentTransactionCount: number
   newTransactionCount: number
   duplicateCount?: number
+  internalDuplicateCount?: number
   invalidCount?: number
   dateRange: { start?: string; end?: string }
   affectedKeys: string[]
@@ -43,6 +50,18 @@ export interface ImportPlanError {
 }
 
 export type ImportPlanResult = ImportPlanSuccess | ImportPlanError
+
+export interface ImportExecutionResult {
+  success: boolean
+  error?: string
+  noNewTransactions?: boolean
+  addedCount?: number
+  duplicateCount?: number
+  internalDuplicateCount?: number
+  message?: string
+  rollbackAttempted?: boolean
+  rollbackSucceeded?: boolean
+}
 
 /**
  * Validates an individual transaction record in a backup.
@@ -84,70 +103,107 @@ export function validateTransactionRecord(tx: unknown, index: number): { valid: 
 export function planImport(rawText: string, storage: StorageLike, options: { isCsv?: boolean } = {}): ImportPlanResult {
   const currentRaw = storage.getItem(STORAGE_KEY)
   let currentTxCount = 0
+  let currentTxs: any[] = []
   if (currentRaw) {
     try {
       const cur = JSON.parse(currentRaw)
-      if (Array.isArray(cur.transactions)) currentTxCount = cur.transactions.length
+      if (Array.isArray(cur.transactions)) {
+        currentTxCount = cur.transactions.length
+        currentTxs = cur.transactions
+      }
     } catch {}
   }
 
   // Handle explicit CSV mode or plain CSV text
   if (options.isCsv || (!rawText.trim().startsWith('{') && !rawText.trim().startsWith('['))) {
-    const { records, errors } = parseDelimitedToRecords(rawText)
-    if (errors.length > 0 && records.length === 0) {
-      return { valid: false, error: errors[0] }
+    const { headers, records, errors } = parseDelimitedToRecords(rawText)
+    if (errors.length > 0) {
+      return { valid: false, error: errors[0], details: errors }
     }
     if (records.length === 0) {
       return { valid: false, error: 'File CSV kosong atau hanya berisi header.' }
     }
 
+    const headerCheck = validateCsvHeaders(headers)
+    if (!headerCheck.valid) {
+      return { valid: false, error: headerCheck.error! }
+    }
+
     const parsedCsvTxs: any[] = []
     const csvErrors: string[] = []
+
     for (let i = 0; i < records.length; i++) {
       const rec = records[i]
-      // Try to extract standard fields
+      const rowNum = i + 2 // 1-indexed row number (header is row 1)
+
       const dateVal = rec['tanggal'] || rec['date'] || rec['Tanggal'] || rec['Date'] || ''
       const typeVal = rec['tipe'] || rec['type'] || rec['Tipe'] || rec['Type'] || rec['jenis'] || rec['Jenis'] || ''
       const descVal = rec['deskripsi'] || rec['description'] || rec['Deskripsi'] || rec['Description'] || rec['keterangan'] || rec['Keterangan'] || 'Impor CSV'
       const amountVal = rec['nominal'] || rec['amount'] || rec['Nominal'] || rec['Amount'] || rec['jumlah'] || rec['Jumlah'] || ''
       const categoryVal = rec['kategori'] || rec['category'] || rec['Kategori'] || rec['Category'] || 'lainnya'
-      const paymentVal = rec['metode'] || rec['payment'] || rec['Metode'] || rec['Payment'] || rec['pembayaran'] || 'tunai'
+      const paymentVal = rec['metode'] || rec['payment'] || rec['Metode'] || rec['Payment'] || rec['pembayaran'] || rec['dompet'] || 'tunai'
 
-      // Parse amount strictly — no fallback
-      const amountNum = Number(String(amountVal).replace(/[^0-9.-]/g, ''))
-      if (!Number.isFinite(amountNum) || amountNum <= 0) {
-        csvErrors.push(`Baris ${i + 2}: nominal tidak valid ("${amountVal}")`)
-        continue
+      // Parse amount strictly — no silent fallback
+      const amountParsed = parseCsvAmount(amountVal)
+      if (amountParsed.value === null) {
+        csvErrors.push(`Baris ${rowNum}: ${amountParsed.error}`)
       }
 
-      // Parse date
-      const parsedDate = dateVal ? new Date(dateVal) : new Date()
-      if (dateVal && !Number.isFinite(parsedDate.getTime())) {
-        csvErrors.push(`Baris ${i + 2}: tanggal tidak valid ("${dateVal}")`)
-        continue
+      // Parse date strictly — no defaulting to now
+      const dateParsed = parseCsvDate(dateVal)
+      if (dateParsed.value === null) {
+        csvErrors.push(`Baris ${rowNum}: ${dateParsed.error}`)
       }
 
-      // Parse type
-      const typeLower = typeVal.toLowerCase()
-      const isIncome = ['income', 'masuk', 'pemasukan', 'credit', 'kredit'].some(t => typeLower.includes(t))
+      // Parse type strictly — no defaulting to expense
+      const typeParsed = parseCsvType(typeVal)
+      if (typeParsed.value === null) {
+        csvErrors.push(`Baris ${rowNum}: ${typeParsed.error}`)
+      }
 
-      parsedCsvTxs.push({
-        id: `csv-${Date.now()}-${i}`,
-        amount: Math.round(amountNum),
-        type: isIncome ? 'income' : 'expense',
-        date: parsedDate.toISOString(),
-        description: descVal.trim() || 'Impor CSV',
-        category: categoryVal.trim().toLowerCase() || 'lainnya',
-        paymentMethod: paymentVal.trim().toLowerCase() || 'tunai',
-      })
+      if (amountParsed.value !== null && dateParsed.value !== null && typeParsed.value !== null) {
+        parsedCsvTxs.push({
+          id: `csv-${Date.now()}-${i}`,
+          amount: amountParsed.value,
+          type: typeParsed.value,
+          date: dateParsed.value,
+          description: descVal.trim() || 'Impor CSV',
+          category: categoryVal.trim().toLowerCase() || 'lainnya',
+          paymentMethod: paymentVal.trim().toLowerCase() || 'tunai',
+        })
+      }
+    }
+
+    // Strict policy: Reject entire file if any row is invalid
+    if (csvErrors.length > 0) {
+      return {
+        valid: false,
+        error: `File CSV tidak dapat diimpor karena terdapat ${csvErrors.length} kesalahan validasi.`,
+        details: csvErrors,
+      }
     }
 
     if (parsedCsvTxs.length === 0) {
       return {
         valid: false,
         error: 'Tidak ada baris transaksi yang valid di file CSV.',
-        details: csvErrors.length > 0 ? csvErrors : undefined,
       }
+    }
+
+    // Run deduplication against existing transactions and internal duplicates
+    const dedup = deduplicateTransactions(parsedCsvTxs, currentTxs)
+    const newCount = dedup.unique.length
+    const dupCount = dedup.duplicateCount
+    const internalDupCount = dedup.internalDuplicateCount
+
+    let summaryText = ''
+    if (newCount === 0) {
+      summaryText = `Semua ${parsedCsvTxs.length} transaksi dalam CSV sudah ada di sistem (seluruhnya duplikat). Tidak ada transaksi baru yang akan ditambahkan.`
+    } else {
+      const dupInfo = (dupCount + internalDupCount) > 0
+        ? ` (${dupCount + internalDupCount} transaksi duplikat dilewati).`
+        : '.'
+      summaryText = `${newCount} transaksi baru akan digabungkan ke data yang ada${dupInfo}`
     }
 
     return {
@@ -156,12 +212,14 @@ export function planImport(rawText: string, storage: StorageLike, options: { isC
       mode: 'merge',
       transactions: parsedCsvTxs,
       currentTransactionCount: currentTxCount,
-      newTransactionCount: parsedCsvTxs.length,
-      invalidCount: csvErrors.length,
+      newTransactionCount: newCount,
+      duplicateCount: dupCount,
+      internalDuplicateCount: internalDupCount,
+      invalidCount: 0,
       dateRange: {},
       affectedKeys: [STORAGE_KEY],
       hasGoals: false,
-      summary: `${parsedCsvTxs.length} transaksi baru akan digabungkan ke data yang ada (data lama tidak dihapus).${csvErrors.length > 0 ? ` ${csvErrors.length} baris dilewati karena tidak valid.` : ''}`,
+      summary: summaryText,
     }
   }
 
@@ -236,14 +294,34 @@ export function planImport(rawText: string, storage: StorageLike, options: { isC
     affectedKeys.push(GOAL_STORAGE_KEY)
   }
 
+  const mode = isSakuKilatBackup ? 'replace' : 'merge'
+  let newTransactionCount = rows.length
+  let duplicateCount = 0
+  let internalDuplicateCount = 0
+
+  if (mode === 'merge') {
+    const dedup = deduplicateTransactions(rows, currentTxs)
+    newTransactionCount = dedup.unique.length
+    duplicateCount = dedup.duplicateCount
+    internalDuplicateCount = dedup.internalDuplicateCount
+  }
+
+  const summary = isSakuKilatBackup
+    ? `${rows.length} transaksi akan menggantikan ${currentTxCount} transaksi saat ini.`
+    : newTransactionCount === 0
+      ? `Semua ${rows.length} transaksi dalam berkas sudah ada di sistem (seluruhnya duplikat). Tidak ada transaksi baru yang akan ditambahkan.`
+      : `${newTransactionCount} transaksi baru akan digabungkan ke data yang ada.${(duplicateCount + internalDuplicateCount) > 0 ? ` (${duplicateCount + internalDuplicateCount} duplikat dilewati).` : ''}`
+
   return {
     valid: true,
     isSakuKilatBackup: Boolean(isSakuKilatBackup),
-    mode: isSakuKilatBackup ? 'replace' : 'merge',
+    mode,
     transactions: rows,
     rawBackup: parsed,
     currentTransactionCount: currentTxCount,
-    newTransactionCount: rows.length,
+    newTransactionCount,
+    duplicateCount,
+    internalDuplicateCount,
     dateRange: {
       start: earliestDate ? earliestDate.toISOString() : undefined,
       end: latestDate ? latestDate.toISOString() : undefined,
@@ -251,9 +329,7 @@ export function planImport(rawText: string, storage: StorageLike, options: { isC
     affectedKeys,
     hasGoals: Array.isArray(parsed.goals),
     goals: parsed.goals,
-    summary: isSakuKilatBackup
-      ? `${rows.length} transaksi akan menggantikan ${currentTxCount} transaksi saat ini.`
-      : `${rows.length} transaksi akan digabungkan ke data yang ada.`,
+    summary,
   }
 }
 
@@ -288,10 +364,45 @@ export function executeImportTransaction(
   storage: StorageLike,
   plan: ImportPlanSuccess,
   options: { confirmed?: boolean } = {}
-): { success: boolean; error?: string; rollbackAttempted?: boolean; rollbackSucceeded?: boolean } {
+): ImportExecutionResult {
   // Explicit confirmation required for replace mode
   if (plan.mode === 'replace' && options.confirmed !== true) {
     return { success: false, error: 'Konfirmasi eksplisit diperlukan sebelum mengganti seluruh data.' }
+  }
+
+  const currentRaw = storage.getItem(STORAGE_KEY)
+  const currentObj = currentRaw ? JSON.parse(currentRaw) : {}
+  const currentTxs = Array.isArray(currentObj.transactions) ? currentObj.transactions : []
+
+  let finalTxs: any[] = []
+  let addedCount = 0
+  let duplicateCount = 0
+  let internalDuplicateCount = 0
+
+  if (plan.mode === 'replace') {
+    // Official backup replace mode: keep all transactions without merge dedup
+    finalTxs = plan.transactions
+    addedCount = finalTxs.length
+  } else {
+    // Merge mode: apply deduplication against existing and internal set
+    const dedup = deduplicateTransactions(plan.transactions, currentTxs)
+    duplicateCount = dedup.duplicateCount
+    internalDuplicateCount = dedup.internalDuplicateCount
+    addedCount = dedup.unique.length
+
+    // If all transactions are duplicates, do not rewrite storage
+    if (dedup.unique.length === 0) {
+      return {
+        success: true,
+        noNewTransactions: true,
+        addedCount: 0,
+        duplicateCount,
+        internalDuplicateCount,
+        message: 'Tidak ada transaksi baru yang ditambahkan (seluruh transaksi sudah ada atau duplikat).',
+      }
+    }
+
+    finalTxs = [...dedup.unique, ...currentTxs]
   }
 
   // Create checkpoint of all affected keys
@@ -299,14 +410,6 @@ export function executeImportTransaction(
   if (!checkpointResult.success) {
     return { success: false, error: checkpointResult.error }
   }
-
-  const currentRaw = storage.getItem(STORAGE_KEY)
-  const currentObj = currentRaw ? JSON.parse(currentRaw) : {}
-  const currentTxs = Array.isArray(currentObj.transactions) ? currentObj.transactions : []
-
-  const finalTxs = plan.mode === 'replace'
-    ? plan.transactions
-    : [...plan.transactions, ...currentTxs]
 
   const newStatePayload = JSON.stringify({
     ...currentObj,
@@ -355,7 +458,13 @@ export function executeImportTransaction(
     }
   }
 
-  return { success: true }
+  return {
+    success: true,
+    noNewTransactions: false,
+    addedCount,
+    duplicateCount,
+    internalDuplicateCount,
+  }
 }
 
 /**

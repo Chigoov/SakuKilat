@@ -2,7 +2,8 @@
  * SakuKilat — Transaction Deduplication Helper
  *
  * Stable signature-based dedup for import merge operations.
- * Compares by date (ISO date only), type, amount, description (normalized), category, subcategory, paymentMethod.
+ * Compares by date (timezone-independent ISO date), type, amount,
+ * normalized description, category, subcategory, and paymentMethod.
  */
 
 export interface DeduplicateResult {
@@ -12,8 +13,29 @@ export interface DeduplicateResult {
 }
 
 /**
- * Create a stable fingerprint for a transaction.
- * Uses ISO date (date-only, no time), type, amount, normalized description, category, subcategory, payment.
+ * Normalizes a Date object or string into a timezone-independent YYYY-MM-DD date key.
+ */
+export function normalizeDateForSignature(date: Date | string): string {
+  if (typeof date === 'string') {
+    const trimmed = date.trim()
+    const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/)
+    if (isoMatch) return isoMatch[1]
+    const d = new Date(trimmed)
+    if (Number.isFinite(d.getTime())) {
+      return d.toISOString().slice(0, 10)
+    }
+    return 'invalid'
+  }
+  if (date instanceof Date && Number.isFinite(date.getTime())) {
+    return date.toISOString().slice(0, 10)
+  }
+  return 'invalid'
+}
+
+/**
+ * Create a stable, timezone-independent fingerprint for a transaction.
+ * Uses YYYY-MM-DD date, normalized type, rounded amount, normalized description,
+ * category, subcategory, and paymentMethod.
  */
 export function transactionSignature(tx: {
   date: Date | string
@@ -24,15 +46,14 @@ export function transactionSignature(tx: {
   subcategory?: string
   paymentMethod?: string
 }): string {
-  const d = tx.date instanceof Date ? tx.date : new Date(tx.date)
-  const dateOnly = Number.isFinite(d.getTime())
-    ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    : 'invalid'
+  const dateOnly = normalizeDateForSignature(tx.date)
+  const normalizedAmount = Math.round(Number(tx.amount) || 0)
+  const normalizedDesc = (tx.description || '').toLowerCase().trim().replace(/\s+/g, ' ')
   return [
     dateOnly,
     (tx.type || '').toLowerCase().trim(),
-    String(tx.amount),
-    (tx.description || '').toLowerCase().trim(),
+    String(normalizedAmount),
+    normalizedDesc,
     (tx.category || '').toLowerCase().trim(),
     (tx.subcategory || '').toLowerCase().trim(),
     (tx.paymentMethod || '').toLowerCase().trim(),
@@ -47,7 +68,6 @@ export function deduplicateTransactions(
   incoming: any[],
   existing: any[]
 ): DeduplicateResult {
-  // Build fingerprint set from existing transactions
   const existingSignatures = new Set<string>()
   for (const tx of existing) {
     existingSignatures.add(transactionSignature(tx))
@@ -60,14 +80,14 @@ export function deduplicateTransactions(
 
   for (const tx of incoming) {
     const sig = transactionSignature(tx)
-    
-    // Check against existing
+
+    // Check against existing transactions in storage
     if (existingSignatures.has(sig)) {
       duplicateCount++
       continue
     }
 
-    // Check against already-seen incoming (internal dupes)
+    // Check against already-seen incoming in the same file (internal dupes)
     if (seenIncoming.has(sig)) {
       internalDuplicateCount++
       continue

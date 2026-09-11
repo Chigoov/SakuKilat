@@ -666,13 +666,22 @@ export function DataPortability() {
         return
       }
 
+      if (result.noNewTransactions) {
+        setPendingPlan(null)
+        setIsExecuting(false)
+        showToast('Tidak ada transaksi baru yang ditambahkan (seluruh transaksi sudah ada atau duplikat).', 'info', undefined, 4000)
+        return
+      }
+
       bumpCount(IMPORT_COUNT_KEY)
       pulseAction('import')
       setPendingPlan(null)
+      const added = result.addedCount ?? plan.newTransactionCount
+      const dupCount = (result.duplicateCount ?? 0) + (result.internalDuplicateCount ?? 0)
       showToast(
         plan.mode === 'replace'
-          ? `${plan.newTransactionCount} transaksi dipulihkan. Memuat ulang...`
-          : `${plan.newTransactionCount} transaksi baru digabungkan. Memuat ulang...`,
+          ? `${added} transaksi dipulihkan. Memuat ulang...`
+          : `${added} transaksi baru berhasil digabungkan.${dupCount > 0 ? ` (${dupCount} duplikat dilewati)` : ''} Memuat ulang...`,
         'success',
         undefined,
         4000
@@ -698,6 +707,11 @@ export function DataPortability() {
 
     if (plan.mode === 'replace') {
       setPendingPlan(plan)
+      return
+    }
+
+    if (plan.mode === 'merge' && plan.newTransactionCount === 0) {
+      showToast('Tidak ada transaksi baru yang ditemukan (seluruh transaksi dalam berkas sudah ada / duplikat).', 'info', undefined, 4000)
       return
     }
 
