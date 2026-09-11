@@ -44,7 +44,6 @@ export const RupiahInput = forwardRef<HTMLInputElement, RupiahInputProps>(functi
     }
     const str = String(value).trim()
     if (!str) return ''
-    // Check if it's already a clean formatted or digit string
     return formatRupiahLive(str)
   }, [value])
 
@@ -61,7 +60,7 @@ export const RupiahInput = forwardRef<HTMLInputElement, RupiahInputProps>(functi
     const rawInput = e.target.value
     const currentCursor = e.target.selectionStart ?? rawInput.length
 
-    // Support natural shortcut like 50k or 1,5jt if typed
+    // Support paste/input containing shortcut suffix
     const hasShortcut = /(k|rb|ribu|jt|juta)$/i.test(rawInput.trim().toLowerCase())
     let numeric = 0
     let formatted = ''
@@ -88,11 +87,12 @@ export const RupiahInput = forwardRef<HTMLInputElement, RupiahInputProps>(functi
     const pastedText = e.clipboardData.getData('text')
     if (!pastedText) return
 
+    const parsed = parseAmountInput(pastedText)
     let numeric = 0
     let formatted = ''
 
-    if (/(k|rb|ribu|jt|juta)$/i.test(pastedText.trim().toLowerCase())) {
-      numeric = parseAmountInput(pastedText)
+    if (parsed > 0) {
+      numeric = parsed
       formatted = formatRupiahLive(numeric)
     } else {
       const digits = stripToDigits(pastedText)
@@ -116,7 +116,7 @@ export const RupiahInput = forwardRef<HTMLInputElement, RupiahInputProps>(functi
       {!hidePrefix && (
         <span
           className={cn(
-            'text-[var(--sk-text-dim)] font-semibold select-none pointer-events-none pl-3 pr-1 text-sm shrink-0',
+            'text-[var(--sk-text-dim)] font-semibold select-none pointer-events-none pl-3 pr-1 text-sm shrink-0 whitespace-nowrap',
             prefixClassName
           )}
           aria-hidden="true"

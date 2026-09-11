@@ -1,5 +1,5 @@
 /**
- * Unit Tests for Live Rupiah Input Helpers (lib/amount.ts)
+ * Unit & Component Simulation Tests for Live Rupiah Input (lib/amount.ts & components/rupiah-input.tsx)
  */
 
 import assert from 'node:assert/strict'
@@ -10,7 +10,7 @@ import {
   parseAmountInput,
 } from '../lib/amount.ts'
 
-console.log('=== Testing Live Rupiah Helpers ===\n')
+console.log('=== Testing Live Rupiah Helpers and Input Flows ===\n')
 
 // 1. stripToDigits tests
 {
@@ -46,15 +46,11 @@ console.log('=== Testing Live Rupiah Helpers ===\n')
 
 // 3. calculateCursorPosition tests
 {
-  // User types '3' after '1.' in '1.250' -> was at pos 2 (after '1.')
-  // oldFormatted: '1.250', oldCursor: 2 (after '1.') -> 1 digit before cursor
-  // newFormatted: '1.325.000' -> cursor should be after '1' (pos 1 or after dot pos 2)
+  // User types '3' after '1.' in '1.250'
   const pos1 = calculateCursorPosition('1.250', '12.500', 1)
   assert.equal(pos1, 1, 'cursor at first digit')
 
   // Backspacing in the middle:
-  // oldFormatted: '1.250.000', cursor was at index 3 (after '1.2') -> 2 digits before cursor ('1', '2')
-  // newFormatted: '125.000' -> after 2 digits ('1', '2') is index 2
   const pos2 = calculateCursorPosition('1.250.000', '125.000', 3)
   assert.equal(pos2, 2, 'cursor matches digits count after backspacing')
 
@@ -76,6 +72,103 @@ console.log('=== Testing Live Rupiah Helpers ===\n')
   assert.equal(parseAmountInput('250rb'), 250000, '250rb')
   assert.equal(parseAmountInput('1.250.000'), 1250000, '1.250.000')
   console.log('✓ Group 4: parseAmountInput tests passed')
+}
+
+// 5. Component Controlled Flow Simulation Tests
+{
+  // Simulation helper mimicking RupiahInput handleChange
+  function simulateTypeSequence(inputs) {
+    let currentValue = ''
+    let currentNumeric = 0
+
+    for (const rawInput of inputs) {
+      const digits = stripToDigits(rawInput)
+      const formatted = formatRupiahLive(digits)
+      currentNumeric = digits ? parseInt(digits, 10) : 0
+      currentValue = formatted
+    }
+    return { display: currentValue, numeric: currentNumeric }
+  }
+
+  // Simulation helper mimicking RupiahInput handlePaste
+  function simulatePaste(pastedText) {
+    const parsed = parseAmountInput(pastedText)
+    if (parsed > 0) {
+      return { numeric: parsed, display: formatRupiahLive(parsed) }
+    }
+    const digits = stripToDigits(pastedText)
+    return { numeric: digits ? parseInt(digits, 10) : 0, display: formatRupiahLive(digits) }
+  }
+
+  // 5a. Typing digit by digit: 1 -> 2 -> 3 -> 4 -> 5
+  const step1 = simulateTypeSequence(['1'])
+  assert.equal(step1.display, '1')
+  assert.equal(step1.numeric, 1)
+
+  const step2 = simulateTypeSequence(['1', '12'])
+  assert.equal(step2.display, '12')
+  assert.equal(step2.numeric, 12)
+
+  const step3 = simulateTypeSequence(['1', '12', '123'])
+  assert.equal(step3.display, '123')
+  assert.equal(step3.numeric, 123)
+
+  const step4 = simulateTypeSequence(['1', '12', '123', '1234'])
+  assert.equal(step4.display, '1.234')
+  assert.equal(step4.numeric, 1234)
+
+  const step5 = simulateTypeSequence(['1', '12', '123', '1234', '1.2345'])
+  assert.equal(step5.display, '12.345')
+  assert.equal(step5.numeric, 12345)
+
+  // 5b. Backspace at end
+  const backAtEnd = simulateTypeSequence(['12.345', '12.34'])
+  assert.equal(backAtEnd.display, '1.234')
+  assert.equal(backAtEnd.numeric, 1234)
+
+  // 5c. Backspace in middle: deleting '3' in '12.345'
+  const backInMiddle = simulateTypeSequence(['12.345', '12.45'])
+  assert.equal(backInMiddle.display, '1.245')
+  assert.equal(backInMiddle.numeric, 1245)
+
+  // 5d. Inserting digit in middle: inserting '9' after '2' in '1.245'
+  const insertInMiddle = simulateTypeSequence(['1.245', '1.2945'])
+  assert.equal(insertInMiddle.display, '12.945')
+  assert.equal(insertInMiddle.numeric, 12945)
+
+  // 5e. Paste formatted amounts
+  const pasteFormatted1 = simulatePaste('Rp 1.250.000')
+  assert.equal(pasteFormatted1.numeric, 1250000)
+  assert.equal(pasteFormatted1.display, '1.250.000')
+
+  const pasteFormatted2 = simulatePaste('500.000')
+  assert.equal(pasteFormatted2.numeric, 500000)
+  assert.equal(pasteFormatted2.display, '500.000')
+
+  // 5f. Paste shortcuts
+  const pasteShortcut1 = simulatePaste('50rb')
+  assert.equal(pasteShortcut1.numeric, 50000)
+  assert.equal(pasteShortcut1.display, '50.000')
+
+  const pasteShortcut2 = simulatePaste('1,5jt')
+  assert.equal(pasteShortcut2.numeric, 1500000)
+  assert.equal(pasteShortcut2.display, '1.500.000')
+
+  const pasteShortcut3 = simulatePaste('100k')
+  assert.equal(pasteShortcut3.numeric, 100000)
+  assert.equal(pasteShortcut3.display, '100.000')
+
+  // 5g. Zero and empty values
+  const emptySim = simulateTypeSequence([''])
+  assert.equal(emptySim.display, '')
+  assert.equal(emptySim.numeric, 0)
+
+  // 5h. Large numbers (never truncated)
+  const largeSim = simulateTypeSequence(['100000000'])
+  assert.equal(largeSim.display, '100.000.000')
+  assert.equal(largeSim.numeric, 100000000)
+
+  console.log('✓ Group 5: Controlled input component flow simulation tests passed')
 }
 
 console.log('\nAll amount/rupiah tests PASSED!')
