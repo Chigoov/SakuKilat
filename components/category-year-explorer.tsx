@@ -27,7 +27,7 @@ import {
   getCategoryHex,
   getDefaultSubcategories,
 } from '@/components/category-badge'
-import { formatIDR, formatIDRCompact, getBuiltinCategoryType } from '@/lib/parser'
+import { formatIDR, getBuiltinCategoryType } from '@/lib/parser'
 import {
   categoryYearlyBreakdown,
   categoryYearlySummary,
@@ -373,11 +373,11 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
 
           {/* Summary Metric Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col">
+            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col justify-between min-w-0">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--sk-text-dim)]">
                 Total {selectedYear}
               </span>
-              <span className="text-base font-extrabold text-[var(--sk-text)] tabular-nums mt-0.5 truncate">
+              <span className="text-sm sm:text-base font-extrabold text-[var(--sk-text)] tabular-nums mt-0.5 leading-tight whitespace-nowrap overflow-visible">
                 {formatIDR(summary.total)}
               </span>
               <span className="text-[10px] text-[var(--sk-text-dim)] mt-0.5">
@@ -385,23 +385,23 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
               </span>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col">
+            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col justify-between min-w-0">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--sk-text-dim)]">
                 Rata-rata Bulanan
               </span>
-              <span className="text-base font-extrabold text-[var(--sk-text)] tabular-nums mt-0.5 truncate">
-                {formatIDRCompact(summary.monthlyAverage)}
+              <span className="text-sm sm:text-base font-extrabold text-[var(--sk-text)] tabular-nums mt-0.5 leading-tight whitespace-nowrap overflow-visible">
+                {formatIDR(summary.monthlyAverage)}
               </span>
               <span className="text-[10px] text-[var(--sk-text-dim)] mt-0.5">
                 / 12 bulan
               </span>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col">
+            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col justify-between min-w-0">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--sk-text-dim)]">
                 Porsi Kategori
               </span>
-              <span className="text-base font-extrabold text-[var(--sk-cyan)] tabular-nums mt-0.5">
+              <span className="text-sm sm:text-base font-extrabold text-[var(--sk-cyan)] tabular-nums mt-0.5 leading-tight">
                 {summary.percentageOfTotal}%
               </span>
               <span className="text-[10px] text-[var(--sk-text-dim)] mt-0.5 truncate">
@@ -409,19 +409,19 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
               </span>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col">
+            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col justify-between min-w-0">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--sk-text-dim)]">
                 Bulan Tertinggi
               </span>
-              <span className="text-sm font-extrabold text-[var(--sk-text)] tabular-nums mt-0.5 truncate">
+              <span className="text-xs sm:text-sm font-extrabold text-[var(--sk-text)] tabular-nums mt-0.5 truncate">
                 {summary.highestMonth ? summary.highestMonth.monthLabel : '-'}
               </span>
-              <span className="text-[10px] text-[var(--sk-text-dim)] mt-0.5 truncate">
-                {summary.highestMonth ? formatIDRCompact(summary.highestMonth.total) : 'Belum ada'}
+              <span className="text-[10px] text-[var(--sk-text-dim)] mt-0.5 whitespace-nowrap overflow-visible font-semibold text-[var(--sk-text)]">
+                {summary.highestMonth ? formatIDR(summary.highestMonth.total) : 'Belum ada'}
               </span>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col col-span-2 sm:col-span-1">
+            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col justify-between col-span-2 sm:col-span-1 min-w-0">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--sk-text-dim)]">
                 vs Tahun Lalu ({selectedYear - 1})
               </span>
@@ -429,7 +429,7 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
                 {summary.changePercentage !== null ? (
                   <span
                     className={cn(
-                      'text-sm font-extrabold tabular-nums',
+                      'text-xs sm:text-sm font-extrabold tabular-nums',
                       summary.changePercentage > 0
                         ? selectedType === 'expense'
                           ? 'text-[var(--sk-red)]'
@@ -450,9 +450,9 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
                   </span>
                 )}
               </div>
-              <span className="text-[10px] text-[var(--sk-text-dim)] mt-0.5 truncate">
+              <span className="text-[10px] text-[var(--sk-text-dim)] mt-0.5 whitespace-nowrap overflow-visible font-semibold text-[var(--sk-text)]">
                 {summary.previousYearTotal > 0
-                  ? `Lalu: ${formatIDRCompact(summary.previousYearTotal)}`
+                  ? `Lalu: ${formatIDR(summary.previousYearTotal)}`
                   : 'Tahun pertama dicatat'}
               </span>
             </div>
@@ -486,8 +486,9 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
                     tickLine={false}
                   />
                   <YAxis
-                    tick={{ fill: 'var(--sk-text-dim)', fontSize: 9 }}
-                    tickFormatter={val => formatIDRCompact(val)}
+                    width={70}
+                    tick={{ fill: 'var(--sk-text-dim)', fontSize: 8 }}
+                    tickFormatter={val => formatIDR(val)}
                     axisLine={false}
                     tickLine={false}
                   />
@@ -500,7 +501,7 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
                           <div className="font-bold text-[var(--sk-text)]">
                             {data.monthLabel} {selectedYear}
                           </div>
-                          <div className="font-extrabold text-[var(--sk-cyan)] tabular-nums mt-0.5">
+                          <div className="font-extrabold text-[var(--sk-cyan)] tabular-nums mt-0.5 whitespace-nowrap">
                             {formatIDR(data.total)}
                           </div>
                           <div className="text-[10px] text-[var(--sk-text-dim)]">
@@ -537,11 +538,11 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
               <div className="space-y-2">
                 {subcategories.map(sub => (
                   <div key={sub.name} className="space-y-1">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-semibold text-[var(--sk-text)] truncate max-w-[55%]">
+                    <div className="flex justify-between items-center text-xs gap-2">
+                      <span className="font-semibold text-[var(--sk-text)] truncate flex-1 min-w-0">
                         {sub.name}
                       </span>
-                      <div className="flex items-center gap-1.5 tabular-nums text-right">
+                      <div className="flex items-center gap-1.5 tabular-nums text-right shrink-0 whitespace-nowrap">
                         <span className="font-bold text-[var(--sk-text)]">
                           {formatIDR(sub.total)}
                         </span>
@@ -568,11 +569,11 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
 
           {/* Month Drilldown & Transaction List */}
           <div className="p-3.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-bold text-[var(--sk-text)]">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-bold text-[var(--sk-text)] truncate">
                 Transaksi {MONTH_LABELS[activeMonth - 1]} {selectedYear}
               </div>
-              <span className="text-[11px] font-bold text-[var(--sk-cyan)] tabular-nums">
+              <span className="text-[11px] font-bold text-[var(--sk-cyan)] tabular-nums shrink-0 whitespace-nowrap">
                 {formatIDR(activeMonthData.total)} ({activeMonthData.count}x)
               </span>
             </div>
