@@ -1,17 +1,17 @@
 /**
  * SakuKilat — Back Navigation Stack
  *
- * Lightweight navigation layer stack for managing sublayer back behavior.
- * Works with browser popstate and Capacitor hardware back button.
+ * Lightweight LIFO navigation stack managing sublayer back navigation.
+ * Standardized across Web and Mobile WebView via HTML5 History popstate.
  *
- * Usage:
- *   pushBackLayer({ id: 'edit-modal', type: 'modal', onClose: () => setOpen(false) })
- *   popBackLayer()  // or let back button / gesture handle it
+ * When a modal, sheet, or sublayer opens:
+ *   pushBackLayer({ id: 'modal-id', type: 'modal', onClose: () => setOpen(false) })
  *
- * Integration points:
- *   - Browser: popstate event
- *   - Android: Capacitor App.addListener('backButton')
- *   - Custom: sakukilat:back-layer-push / sakukilat:back-layer-pop events
+ * When back is pressed (browser back, mobile back gesture, or hardware back):
+ *   Browser triggers popstate -> topmost layer is popped and its onClose() is invoked.
+ *
+ * When closed programmatically (e.g. clicking "X" or backdrop):
+ *   removeBackLayer('modal-id') safely synchronizes history without double-invoking onClose.
  */
 
 export interface BackLayer {
@@ -27,7 +27,7 @@ let isProgrammaticBack = false
 
 /**
  * Push a new layer onto the back stack.
- * Adds a history entry so browser back / Android back will close it.
+ * Adds a history entry so browser / WebView back will close it.
  */
 export function pushBackLayer(layer: BackLayer): void {
   // Prevent duplicate push of same ID
@@ -64,7 +64,7 @@ export function popBackLayer(): boolean {
 }
 
 /**
- * Remove a specific layer by ID (used when layer closes itself, not via back).
+ * Remove a specific layer by ID (used when layer closes itself, not via back button).
  * Does NOT call onClose (the caller already closed it).
  * Also cleans up history entry if this layer was at the top.
  */
@@ -110,7 +110,7 @@ export function clearBackStack(): void {
 
 /**
  * Initialize the back-stack popstate listener. Call once at app mount.
- * Handles both browser back and Capacitor hardware back.
+ * Returns cleanup function.
  */
 export function initBackStack(): () => void {
   if (typeof window === 'undefined' || initialized) return () => {}
@@ -129,7 +129,6 @@ export function initBackStack(): () => void {
 
   window.addEventListener('popstate', handlePopState)
 
-  // Custom event support for programmatic push/pop
   const handlePush = (event: Event) => {
     const detail = (event as CustomEvent<BackLayer>).detail
     if (detail) pushBackLayer(detail)
@@ -142,54 +141,11 @@ export function initBackStack(): () => void {
   window.addEventListener('sakukilat:back-layer-push', handlePush as EventListener)
   window.addEventListener('sakukilat:back-layer-pop', handlePop)
 
-  // Capacitor hardware back button (access via global Capacitor runtime if present)
-  let capacitorCleanup: (() => void) | null = null
-  try {
-    const win = window as unknown as {
-      Capacitor?: {
-        Plugins?: {
-          App?: {
-            addListener: (
-              event: string,
-              cb: () => void
-            ) => Promise<{ remove: () => void }>
-          }
-        }
-      }
-    }
-    const App = win.Capacitor?.Plugins?.App
-    if (App?.addListener) {
-      const listenerPromise = App.addListener('backButton', () => {
-        if (stack.length > 0) {
-          const layer = stack.pop()
-          if (layer) {
-            layer.onClose()
-            if (typeof history !== 'undefined') {
-              try {
-                if (history.state?.sakukilatLayer === layer.id) {
-                  isProgrammaticBack = true
-                  history.back()
-                }
-              } catch {
-                // Ignore
-              }
-            }
-          }
-        }
-      })
-      capacitorCleanup = () => {
-        void listenerPromise.then(l => l.remove())
-      }
-    }
-  } catch {
-    // Not running in Capacitor — ignore
-  }
-
   return () => {
     initialized = false
     window.removeEventListener('popstate', handlePopState)
     window.removeEventListener('sakukilat:back-layer-push', handlePush as EventListener)
     window.removeEventListener('sakukilat:back-layer-pop', handlePop)
-    capacitorCleanup?.()
+    clearBackStack()
   }
 }
