@@ -135,4 +135,3 @@ export function calculateCursorPosition(
   }
   return newFormatted.length
 }
-

@@ -115,10 +115,10 @@ test('Unknown sakukilat keys from future versions are NOT deleted during load', 
   const validData = JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, transactions: [] })
   const unknownFutureKey = 'sakukilat:v3:new-feature-data'
   const storage = makeStorage(validData, { [unknownFutureKey]: 'future-value' })
-  
+
   // loadPersistedState currently calls cleanupStaleStorageKeys which may delete this
   loadPersistedState(storage)
-  
+
   const preserved = storage.getItem(unknownFutureKey)
   assertEqual(preserved, 'future-value', 'Unknown future key must be preserved (not cleaned up)')
 })
@@ -127,9 +127,9 @@ test('Unknown sakukilat keys are preserved when primary state is incompatible', 
   const futureData = JSON.stringify({ schemaVersion: 999, transactions: [] })
   const unknownKey = 'sakukilat:v3:settings'
   const storage = makeStorage(futureData, { [unknownKey]: 'settings-data' })
-  
+
   loadPersistedState(storage)
-  
+
   assertEqual(storage.getItem(unknownKey), 'settings-data', 'Unknown key must survive incompatible load')
   assertEqual(storage.getItem(STORAGE_KEY), futureData, 'Primary data must also survive')
 })

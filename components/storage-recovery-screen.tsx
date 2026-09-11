@@ -196,4 +196,3 @@ export function StorageRecoveryScreen({ loadResult }: StorageRecoveryScreenProps
     </div>
   )
 }
-
