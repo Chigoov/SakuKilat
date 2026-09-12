@@ -52,6 +52,21 @@ const testSuites = [
     type: 'regression',
   },
   {
+    name: 'Universal Transaction Filter Logic',
+    script: 'scripts/test-filter-logic.mjs',
+    type: 'regression',
+  },
+  {
+    name: 'Cashflow Summary, Insights & Yearly Comparison',
+    script: 'scripts/test-cashflow-insights.mjs',
+    type: 'regression',
+  },
+  {
+    name: 'Rollback Safety & App Key Compatibility',
+    script: 'scripts/test-rollback-safety.mjs',
+    type: 'regression',
+  },
+  {
     name: 'SK-001: Scanner Data Personal & Finansial',
     script: 'scripts/scan-personal-data.mjs',
     type: 'security-scan',
