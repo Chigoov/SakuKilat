@@ -22,6 +22,8 @@ import {
   getCategoryConfig,
   getDefaultSubcategories,
   getPaymentLabel,
+  dedupeSubcategories,
+  normalizeCategoryKey,
 } from '@/components/category-badge'
 import { formatAmountFieldInput, parseAmountInput } from '@/lib/amount'
 import { formatIDR } from '@/lib/parser'
@@ -181,7 +183,25 @@ export const EditTransactionModal = memo(function EditTransactionModal({
         }
       })
 
-    return [...builtin, ...custom]
+    const combined = [...builtin, ...custom]
+    const dedupeMap = new Map<string, typeof combined[0]>()
+    for (const cat of combined) {
+      const normKey = normalizeCategoryKey(cat.label) || normalizeCategoryKey(cat.id)
+      const existing = dedupeMap.get(normKey)
+      if (!existing) {
+        dedupeMap.set(normKey, { ...cat, subcategories: dedupeSubcategories(cat.subcategories ?? []) })
+      } else {
+        existing.subcategories = dedupeSubcategories([
+          ...existing.subcategories,
+          ...(cat.subcategories ?? []),
+        ])
+        if (cat.id === 'lainnya') {
+          existing.id = 'lainnya'
+          existing.label = cat.label
+        }
+      }
+    }
+    return Array.from(dedupeMap.values())
   }, [customCategories, isExpense])
 
   const selectedCategory = useMemo(
@@ -232,22 +252,23 @@ export const EditTransactionModal = memo(function EditTransactionModal({
     if (!trimmed || !selectedCategory) return
 
     const existingSubs = selectedCategory.subcategories ?? []
-    if (!existingSubs.includes(trimmed)) {
-      const existingCustom = customCategories.find(c => c.id === selectedCategory.id)
-      if (existingCustom) {
-        updateCustomCategory(selectedCategory.id, {
-          label: existingCustom.label,
-          keywords: existingCustom.keywords,
-          subcategories: [...existingSubs, trimmed],
-        })
-      } else {
-        addCustomCategory(
-          selectedCategory.label,
-          [],
-          [...existingSubs, trimmed],
-          isExpense ? 'expense' : 'income'
-        )
-      }
+    const updatedSubs = dedupeSubcategories([...existingSubs, trimmed])
+    const existingCustom = customCategories.find(c =>
+      c.id === selectedCategory.id || normalizeCategoryKey(c.label) === normalizeCategoryKey(selectedCategory.label)
+    )
+    if (existingCustom) {
+      updateCustomCategory(existingCustom.id, {
+        label: existingCustom.label,
+        keywords: existingCustom.keywords,
+        subcategories: updatedSubs,
+      })
+    } else {
+      updateCustomCategory(selectedCategory.id, {
+        label: selectedCategory.label,
+        keywords: [],
+        subcategories: updatedSubs,
+        type: isExpense ? 'expense' : 'income',
+      })
     }
 
     setSubcategory(trimmed)

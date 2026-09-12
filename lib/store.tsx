@@ -252,10 +252,14 @@ const KNOWN_STORAGE_KEYS = new Set([
   'sakukilat:v2:celebrated-goals',
   'sakukilat:v2:recurring',
   'sakukilat:v2:celebrated-streak',
+  'sakukilat:v2:onboarding-completed',
 ])
 // Prefix key yang BUKAN garbage & wajib dipertahankan saat pembersihan
 // localStorage (counter & progress achievement, flag fitur, dll).
 const PRESERVED_KEY_PREFIXES = [
+  'sakukilat:v2:onboarding-completed',
+  'sakukilat:v2:onboarding-completed-v',
+  'sakukilat:onboarding:',
   'sakukilat:v2:backup-count',
   'sakukilat:v2:import-count',
   'sakukilat:v2:zen-used',
@@ -428,6 +432,8 @@ function migratePersistedState(state: PersistedState): PersistedState {
     Object.assign(next, promoteGenericIncomeSubcategories(next))
   }
 
+  Object.assign(next, deduplicatePersistedCategories(next))
+
   return { ...next, schemaVersion: CURRENT_SCHEMA_VERSION }
 }
 
@@ -436,6 +442,39 @@ export {
   CURRENT_SCHEMA_VERSION,
   type StorageStatus,
   type LoadResult,
+}
+
+function deduplicatePersistedCategories(state: PersistedState): PersistedState {
+  if (!Array.isArray(state.customCategories)) return state
+  const dedupeMap = new Map<string, CustomCategory>()
+  let changed = false
+
+  for (const cat of state.customCategories) {
+    const norm = compactKey(cat.label) || compactKey(cat.id)
+    const isLainnya = norm === 'lainnya' || norm === 'lainlain'
+    const key = isLainnya ? 'lainnya' : `${cat.type ?? 'expense'}-${norm}`
+
+    const existing = dedupeMap.get(key)
+    if (!existing) {
+      dedupeMap.set(key, { ...cat, id: isLainnya ? 'lainnya' : cat.id })
+    } else {
+      changed = true
+      existing.subcategories = Array.from(new Set([
+        ...(existing.subcategories ?? []),
+        ...(cat.subcategories ?? []),
+      ].map(s => s.trim()).filter(Boolean)))
+      existing.keywords = Array.from(new Set([
+        ...(existing.keywords ?? []),
+        ...(cat.keywords ?? []),
+      ].map(k => k.toLowerCase().trim()).filter(Boolean)))
+    }
+  }
+
+  if (!changed) return state
+  return {
+    ...state,
+    customCategories: Array.from(dedupeMap.values()),
+  }
 }
 
 function loadPersistedStateForStore(): LoadResult {

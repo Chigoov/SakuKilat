@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Home, BarChart2, Wallet, User, X, Fingerprint, KeyRound } from 'lucide-react'
-import { initBackStack } from '@/lib/back-stack'
+import { initBackStack, handleBackAction } from '@/lib/back-stack'
 import pkg from '@/package.json'
 import { cn } from '@/lib/utils'
 import {
@@ -154,7 +154,7 @@ function AppUnlockScreen({
 
 function AppShell() {
   const { user, authReady } = useAuthStore()
-  const { toast, dismissToast } = useFeedbackStore()
+  const { toast, dismissToast, showToast } = useFeedbackStore()
   const { addTransaction } = useTransactionActions()
   const { isSubmitting } = useTransactionStatus()
   const { parserExtras } = useCustomizationStore()
@@ -225,7 +225,20 @@ function AppShell() {
       switchTab(detail.tab)
     }
     window.addEventListener('sakukilat:navigate', onNavigate as EventListener)
-    return () => window.removeEventListener('sakukilat:navigate', onNavigate as EventListener)
+    const onHardwareBack = () => {
+      handleBackAction({
+        activeTab,
+        onNavigateTab: (tab) => switchTab(tab as Tab),
+        onShowExitPrompt: () => {
+          showToast('Tekan sekali lagi untuk keluar', 'success')
+        },
+      })
+    }
+    window.addEventListener('sakukilat:hardware-back', onHardwareBack)
+    return () => {
+      window.removeEventListener('sakukilat:navigate', onNavigate as EventListener)
+      window.removeEventListener('sakukilat:hardware-back', onHardwareBack)
+    }
   }, [activeTab])
 
   useEffect(() => {
@@ -271,9 +284,9 @@ function AppShell() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[var(--sk-bg)] flex flex-col safe-top">
+    <div className="h-[100dvh] overflow-hidden bg-[var(--sk-bg)] flex flex-col safe-top">
       <main className={cn(
-        'flex-1 overflow-y-auto md:mb-0',
+        'min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain md:mb-0',
         activeTab === 'beranda' ? 'pb-[182px] md:pb-[118px]' : 'pb-[80px] md:pb-[24px]'
       )}>
         {activeTab === 'beranda' && <TabBeranda />}

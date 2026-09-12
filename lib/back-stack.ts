@@ -20,10 +20,73 @@ export interface BackLayer {
   onClose: () => void
 }
 
+export type BackActionResult = 'layer-closed' | 'tab-navigated' | 'exit-prompt' | 'app-exited'
+
+export interface BackActionContext {
+  activeTab?: string
+  onNavigateTab?: (tab: string) => void
+  onExitApp?: () => void
+  onShowExitPrompt?: () => void
+  /** Optional custom timestamp provider for unit tests (defaults to Date.now()) */
+  now?: () => number
+}
+
 // Private stack state (module-level singleton)
 const stack: BackLayer[] = []
 let initialized = false
 let isProgrammaticBack = false
+let lastBackPressTime = 0
+export const DOUBLE_BACK_WINDOW_MS = 2000
+
+export function resetBackPressTimer(): void {
+  lastBackPressTime = 0
+}
+
+export function exitNativeApp(): void {
+  if (typeof window !== 'undefined') {
+    const bridge = (window as unknown as { SakuKilatAndroid?: { exitApp?: () => void } }).SakuKilatAndroid
+    if (bridge?.exitApp) {
+      bridge.exitApp()
+    }
+  }
+}
+
+/**
+ * Pure back-action evaluation engine.
+ * Determines the exact action to execute based on open layers, current tab, and exit timing.
+ */
+export function handleBackAction(ctx: BackActionContext = {}): BackActionResult {
+  // 1. If any modal / sheet / sublayer is open, pop and close the topmost layer
+  if (stack.length > 0) {
+    popBackLayer()
+    resetBackPressTimer()
+    return 'layer-closed'
+  }
+
+  const activeTab = ctx.activeTab ?? 'beranda'
+
+  // 2. If no layer is open and active tab is not 'beranda', return to 'beranda'
+  if (activeTab !== 'beranda') {
+    ctx.onNavigateTab?.('beranda')
+    resetBackPressTimer()
+    return 'tab-navigated'
+  }
+
+  // 3. If on 'beranda', require double-tap within 2000ms before exit
+  const getNow = ctx.now ?? (() => Date.now())
+  const currentTime = getNow()
+  if (currentTime - lastBackPressTime <= DOUBLE_BACK_WINDOW_MS && lastBackPressTime > 0) {
+    resetBackPressTimer()
+    const doExit = ctx.onExitApp ?? exitNativeApp
+    doExit()
+    return 'app-exited'
+  }
+
+  lastBackPressTime = currentTime
+  ctx.onShowExitPrompt?.()
+  return 'exit-prompt'
+}
+
 
 /**
  * Push a new layer onto the back stack.
@@ -106,6 +169,7 @@ export function backStackDepth(): number {
  */
 export function clearBackStack(): void {
   stack.length = 0
+  resetBackPressTimer()
 }
 
 /**

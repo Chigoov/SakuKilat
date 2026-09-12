@@ -46,6 +46,7 @@ export const KNOWN_STORAGE_KEYS = new Set<string>([
   'sakukilat:v2:notification-settings',
   'sakukilat:v2:celebrated-goals',
   'sakukilat:v2:celebrated-streak',
+  'sakukilat:v2:onboarding-completed',
   ...STORAGE_KEY_FALLBACKS,
   ...GOAL_STORAGE_KEY_FALLBACKS,
   ...RECURRING_STORAGE_KEY_FALLBACKS,
@@ -53,8 +54,17 @@ export const KNOWN_STORAGE_KEYS = new Set<string>([
   'sakukilat:app-lock',
 ])
 
-export const ONBOARDING_STORAGE_KEY_PREFIX = 'sakukilat:onboarding:'
+export const ONBOARDING_STORAGE_KEY_PREFIX = 'sakukilat:v2:onboarding-completed-v'
+export const ONBOARDING_STORAGE_KEY_PREFIXES = [
+  'sakukilat:v2:onboarding-completed-v',
+  'sakukilat:v2:onboarding-completed',
+  'sakukilat:onboarding:',
+] as const
+
 export const PRESERVED_KEY_PREFIXES = [
+  'sakukilat:v2:onboarding-completed',
+  'sakukilat:v2:onboarding-completed-v',
+  'sakukilat:onboarding:',
   'sakukilat:v2:local-state:quarantine:',
   'sakukilat:v2:import-checkpoint',
   'sakukilat:v2:goals:checkpoint',
@@ -188,7 +198,12 @@ export function cleanupStaleStorageKeys(storage: StorageLike): void {
     for (let i = length - 1; i >= 0; i -= 1) {
       const key = storage.key ? storage.key(i) : (storage.keys ? storage.keys()[i] : null)
       if (!key || !key.startsWith('sakukilat:')) continue
-      if (KNOWN_STORAGE_KEYS.has(key) || key.startsWith(ONBOARDING_STORAGE_KEY_PREFIX)) continue
+      if (
+        KNOWN_STORAGE_KEYS.has(key) ||
+        key.startsWith(ONBOARDING_STORAGE_KEY_PREFIX) ||
+        key.startsWith('sakukilat:onboarding:') ||
+        key.startsWith('sakukilat:v2:onboarding-completed')
+      ) continue
       if (PRESERVED_KEY_PREFIXES.some(prefix => key.startsWith(prefix))) continue
       if (key.includes(':quarantine:')) continue
       storage.removeItem(key)

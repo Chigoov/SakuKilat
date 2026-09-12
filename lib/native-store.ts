@@ -25,7 +25,7 @@
 import { Capacitor } from '@capacitor/core'
 import { Preferences } from '@capacitor/preferences'
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
-import { APP_STORAGE_PREFIX, appScopedKey } from '@/lib/app-variant'
+import { APP_STORAGE_PREFIX, appScopedKey } from './app-variant.ts'
 
 const NATIVE_INDEX_KEY = `${APP_STORAGE_PREFIX}:native-keys`
 const BACKUP_DIR = APP_STORAGE_PREFIX.replace(/[:]/g, '-')
@@ -40,7 +40,22 @@ const CANONICAL_TRACKED_KEYS = [
   ...CANONICAL_PRIMARY_KEYS,
   'sakukilat:v2:celebrated-goals',
   'sakukilat:v2:app-lock',
+  'sakukilat:v2:onboarding-completed',
+  'sakukilat:v2:onboarding-completed-v9',
+  'sakukilat:v2:onboarding-completed-v9:local',
+  'sakukilat:v2:onboarding-completed-v9:local-device%40sakukilat.local',
 ] as const
+
+export function isTrackedKey(key: string): boolean {
+  if ((TRACKED_KEYS as readonly string[]).includes(key)) return true
+  if (
+    key.startsWith('sakukilat:v2:onboarding-completed') ||
+    key.startsWith('sakukilat:onboarding:')
+  ) {
+    return true
+  }
+  return false
+}
 
 const PRIMARY_KEYS = [
   ...CANONICAL_PRIMARY_KEYS,
@@ -79,6 +94,18 @@ function localEntries() {
     const value = window.localStorage.getItem(key)
     if (value != null) entries[key] = value
   }
+  try {
+    const len = window.localStorage.length
+    for (let i = 0; i < len; i++) {
+      const k = window.localStorage.key(i)
+      if (k && isTrackedKey(k)) {
+        const val = window.localStorage.getItem(k)
+        if (val != null) entries[k] = val
+      }
+    }
+  } catch {
+    /* ignore */
+  }
   // Ensure canonical keys and scoped keys mirror each other
   const keyPairs: [string, string][] = [
     ['sakukilat:v2:local-state', appScopedKey('local-state')],
@@ -99,9 +126,8 @@ function primaryDataPresent(entries: Record<string, string>): boolean {
 }
 
 function applyEntries(entries: Record<string, string>) {
-  for (const key of TRACKED_KEYS) {
-    const value = entries[key]
-    if (value != null) {
+  for (const [key, value] of Object.entries(entries)) {
+    if (value != null && isTrackedKey(key)) {
       window.localStorage.setItem(key, value)
       if (key === appScopedKey('local-state')) {
         window.localStorage.setItem('sakukilat:v2:local-state', value)
@@ -141,7 +167,7 @@ export async function hydrateFromNative(): Promise<void> {
   try {
     const { value: indexRaw } = await Preferences.get({ key: NATIVE_INDEX_KEY })
     const nativeKeys = ((indexRaw ? JSON.parse(indexRaw) : []) as string[])
-      .filter((key): key is typeof TRACKED_KEYS[number] => TRACKED_KEYS.includes(key as typeof TRACKED_KEYS[number]))
+      .filter((key): key is string => isTrackedKey(key))
     const local = localEntries()
     const localHasPrimaryData = primaryDataPresent(local)
     const localHasTrackedData = Object.keys(local).length > 0
@@ -171,7 +197,7 @@ export async function syncAllToNative(): Promise<void> {
     const entries = localEntries()
     const keys = Object.keys(entries)
     await Promise.all(
-      TRACKED_KEYS.map((key) => {
+      keys.map((key) => {
         const value = entries[key]
         return value == null ? Preferences.remove({ key }) : Preferences.set({ key, value })
       }),
@@ -184,7 +210,7 @@ export async function syncAllToNative(): Promise<void> {
 
 /** Cermin satu kunci (fire-and-forget). Dipanggil dari persistState store.tsx. */
 export function mirrorToNative(key: string, value: string): void {
-  if (!isNative() || !TRACKED_KEYS.includes(key as typeof TRACKED_KEYS[number])) return
+  if (!isNative() || !isTrackedKey(key)) return
   void (async () => {
     try {
       await Preferences.set({ key, value })
@@ -199,7 +225,7 @@ export function mirrorToNative(key: string, value: string): void {
 }
 
 export function removeFromNative(key: string): void {
-  if (!isNative() || !TRACKED_KEYS.includes(key as typeof TRACKED_KEYS[number])) return
+  if (!isNative() || !isTrackedKey(key)) return
   void (async () => {
     try {
       await Preferences.remove({ key })

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SakuKilat — Laporan Teknis Perbaikan Bug Test APK & UI Compact</title>
+<style>
+  :root {
+    --primary: #1e3a8a;
+    --primary-light: #3b82f6;
+    --success: #059669;
+    --success-bg: #d1fae5;
+    --border: #e2e8f0;
+    --text-dark: #0f172a;
+    --code-bg: #0f172a;
+    --code-text: #e2e8f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f8fafc;
+    color: var(--text-dark);
+    margin: 0;
+    padding: 32px 16px;
+    line-height: 1.65;
+    font-size: 15px;
+  }
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 48px;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--border);
+  }
+  h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--primary);
+    border-bottom: 3px solid var(--primary-light);
+    padding-bottom: 12px;
+    margin-top: 0;
+  }
+  h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 32px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #334155;
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  p, li { color: #334155; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 13.5px;
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  th { background-color: #f8fafc; font-weight: 600; color: #1e293b; }
+  tr:nth-child(even) { background-color: #fafafa; }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 16px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  code {
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .badge-success { background: var(--success-bg); color: var(--success); }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
+    pre { white-space: pre-wrap; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>LAPORAN TEKNIS: PERBAIKAN BUG HASIL TEST APK &amp; COMPACT UI CATAT MANUAL</h1>
+<p><strong>Aplikasi</strong>: SakuKilat Android<br />
+<strong>Package ID</strong>: <code>com.sakukilat.app.v2</code><br />
+<strong>Version</strong>: <code>1.0.7</code> (VersionCode: <code>13</code>)<br />
+<strong>Keystore SHA-256</strong>: <code>13dccbbd787224435ad6ac5330fd96c5de30a5f703ee87689b46bf21991a90a4</code><br />
+<strong>Branch</strong>: <code>feat/navigation-entry-category-responsive</code><br />
+<strong>Tanggal</strong>: 12 September 2026<br />
+<strong>Status Eksekusi</strong>: Selesai &amp; Terverifikasi (Build Sukses &amp; Lolos Semua Uji Otomatis)</p>
+<hr />
+<h2>1. Ringkasan Eksekutif</h2>
+<p>Menindaklanjuti hasil pengujian APK pada perangkat Android fisik, ditemukan 4 kendala utama:
+1. <strong>Pilihan Kategori/Subkategori</strong>: Menampilkan "Lainnya" berulang kali di dropdown/pilihan.
+2. <strong>Tab Rekapan Kepotong</strong>: Terjadi overflow horizontal pada layar sempit HP (360px–430px).
+3. <strong>Tombol / Gesture Back Android</strong>: Menutup aplikasi secara tiba-tiba tanpa konfirmasi atau tanpa menutup modal/sheet aktif.
+4. <strong>UI Catat Manual</strong>: Kurang compact dan memerlukan scroll panjang untuk mencapai tombol simpan.</p>
+<p>Seluruh kendala di atas telah diselesaikan dengan mematuhi protokol ketat <code>docs/DEV-PROTOCOL.md</code>:
+- Nol data loss dan kompatibilitas penuh terhadap data lama/riwayat transaksi.
+- Nol dependensi baru pada <code>package.json</code>.
+- Identitas aplikasi (<code>com.sakukilat.app.v2</code>) dan kunci penandatanganan rilis resmi tetap utuh 100%.
+- Format nominal Rupiah tetap lengkap (<code>formatIDR</code> dengan non-breaking space <code>\u00a0</code>).
+- Subkategori tetap mengalir ke bawah (<em>flex-wrap</em>).</p>
+<hr />
+<h2>2. Rincian Teknis Perbaikan 4 Bug</h2>
+<h3>2.1. Navigasi Tombol Back Android &amp; Double-Tap Exit (Bug #3)</h3>
+<ul>
+<li><strong>Problem</strong>: Pengguna yang menekan tombol atau gesture back Android langsung terlempar keluar dari aplikasi, meskipun sedang membuka modal/sheet atau berada di tab sekunder.</li>
+<li><strong>Implementasi</strong>:</li>
+<li><strong>Bridge Native AndroidX</strong>:<ul>
+<li>Pada <code>android/app/src/main/java/com/sakukilat/app/MainActivity.java</code>, ditambahkan <code>OnBackPressedCallback</code> via <code>getOnBackPressedDispatcher()</code> yang mengirimkan custom event <code>sakukilat:hardware-back</code> ke WebView.</li>
+<li>Ditambahkan antarmuka JavaScript <code>SakuKilatAndroid.exitApp()</code> via <code>addJavascriptInterface</code> agar penutupan aplikasi hanya dapat dipicu secara sah oleh logika frontend.</li>
+</ul>
+</li>
+<li><strong>Pengendali Navigasi LIFO &amp; Double-Tap</strong>:<ul>
+<li>Pada <code>lib/back-stack.ts</code>, ditambahkan fungsi <code>handleBackAction()</code>, <code>resetBackPressTimer()</code>, dan konstanta <code>DOUBLE_BACK_WINDOW_MS = 2000</code>.</li>
+<li><strong>Tingkat 1</strong>: Jika terdapat modal/sheet/sublayer aktif, back akan menutup layer teratas (LIFO).</li>
+<li><strong>Tingkat 2</strong>: Jika seluruh layer tertutup dan tab aktif bukan "Beranda" (misal: Rekapan, Saku, Profil), back memindahkan tab aktif kembali ke "Beranda".</li>
+<li><strong>Tingkat 3</strong>: Jika sudah di "Beranda", back pertama menampilkan notifikasi toast <em>"Tekan sekali lagi untuk keluar"</em> tanpa keluar; jika tombol back ditekan kembali dalam rentang waktu kurang dari 2 detik (2000 ms), aplikasi memanggil <code>exitNativeApp()</code>.</li>
+</ul>
+</li>
+<li><strong>Listener Global</strong>:<ul>
+<li>Pada <code>app/page.tsx</code>, didaftarkan listener <code>sakukilat:hardware-back</code> yang terhubung ke <code>handleBackAction</code> dan feedback toast aplikasi.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>2.2. Deduplikasi Kategori &amp; Subkategori "Lainnya" (Bug #1)</h3>
+<ul>
+<li><strong>Problem</strong>: Kategori "Lainnya" muncul berulang kali di dropdown pilihan transaksi dan filter rekapan. Penambahan subkategori custom ke kategori bawaan memicu pembuatan kategori duplikat (<code>income-lainnya</code>/<code>expense-lainnya</code>).</li>
+<li><strong>Implementasi</strong>:</li>
+<li><strong>Utilitas Normalisasi Murni</strong>:<ul>
+<li>Dibuat <code>lib/category-utils.ts</code> berisi <code>dedupeSubcategories()</code> (menghapus duplikat case-insensitive &amp; whitespace) dan <code>normalizeCategoryKey()</code> (slug normalisasi tanpa spasi/simbol).</li>
+<li>Diekspor ulang di <code>components/category-badge.tsx</code> untuk kompatibilitas modul.</li>
+</ul>
+</li>
+<li><strong>Hidrasi &amp; Migrasi Penyimpanan</strong>:<ul>
+<li>Pada <code>lib/store.tsx</code>, ditambahkan <code>deduplicatePersistedCategories()</code> saat membaca storage. Kategori dengan normalized slug yang sama digabungkan secara cerdas: subkategori dari duplikat digabung tanpa duplikasi, dan ID kanonikal dipertahankan tanpa menghapus data transaksi.</li>
+</ul>
+</li>
+<li><strong>Kompatibilitas Mesin Analitik</strong>:<ul>
+<li>Pada <code>lib/stats.ts</code>, fungsi <code>filterTransactions()</code> diperbarui agar tetap mencocokkan transaksi bertipe legacy (<code>lainnya</code>, <code>income-lainnya</code>, <code>expense-lainnya</code>) saat pengguna memfilter kategori "Lainnya".</li>
+</ul>
+</li>
+<li><strong>Komponen Antarmuka</strong>:<ul>
+<li>Pada <code>components/manual-entry-form.tsx</code>, <code>components/edit-transaction-modal.tsx</code>, <code>components/tab-rekapan.tsx</code>, dan <code>components/category-manager.tsx</code>, daftar opsi kategori dideduplikasi, dan penambahan subkategori ke kategori bawaan langsung memperbarui subkategori lokal tanpa menduplikasi objek kategori.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>2.3. Perbaikan Responsivitas Tab Rekapan (Bug #2)</h3>
+<ul>
+<li><strong>Problem</strong>: Header grup tanggal transaksi menggunakan pemisah garis yang memiliki <code>min-w-[400px]</code> implisit, menyebabkan layout meluap ke kanan dan sisi kiri terpotong pada perangkat layar 360px–430px. Tab filter jenis transaksi juga terlalu lebar.</li>
+<li><strong>Implementasi</strong>:</li>
+<li><strong>Header Grup Tanggal Adaptif</strong>:<ul>
+<li>Pada <code>components/transaction-list.tsx</code>, layout diubah menjadi <code>flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-2.5</code>.</li>
+<li>Teks tanggal diberikan <code>min-w-0 flex-1</code>, dan nominal total harian diberikan <code>shrink-0</code>.</li>
+<li>Angka nominal Rupiah harian tetap tampil utuh tanpa truncate (<code>formatIDR</code> dengan non-breaking space <code>\u00a0</code>).</li>
+</ul>
+</li>
+<li><strong>Tab Filter Fleksibel</strong>:<ul>
+<li>Pada <code>components/filter-tabs.tsx</code>, padding disesuaikan secara responsif (<code>px-2 py-1 sm:px-3 text-xs</code>) dengan <code>min-w-0</code> sehingga tab "Semua", "Keluar", dan "Masuk" muat penuh tanpa scroll horizontal pada layar HP sempit.</li>
+</ul>
+</li>
+<li><strong>Proteksi Viewport</strong>:<ul>
+<li>Ditambahkan kelas <code>overflow-x-hidden w-full max-w-full</code> pada container utama <code>tab-rekapan.tsx</code> dan elemen <code>&lt;main&gt;</code> di <code>app/page.tsx</code>.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3>2.4. Form Catat Manual Ringkas &amp; Ergonomis (Item #4)</h3>
+<ul>
+<li><strong>Problem</strong>: Form input transaksi manual memiliki layout yang memanjang ke bawah, sehingga tombol "Simpan Transaksi" berada di luar viewport awal layar HP.</li>
+<li><strong>Implementasi</strong>:</li>
+<li>Mengadopsi arsitektur <strong>Cepat + Detail Tambahan (Accordion)</strong> pada <code>components/manual-entry-form.tsx</code>.</li>
+<li><strong>Bagian Utama (Default Terlihat Langsung)</strong>:<ul>
+<li>Tipe Transaksi (Pengeluaran, Pemasukan, Transfer) dalam kontrol tersegmentasi ramping.</li>
+<li>Input Hero Nominal yang kontras, dilengkapi chip penambah nominal instan yang ringkas (<code>+10rb</code>, <code>+20rb</code>, <code>+50rb</code>, <code>+100rb</code>, <code>+500rb</code>, dan tombol <code>Hapus</code>).</li>
+<li>Dropdown Pilihan Dompet/Saku dan Kategori dengan tinggi kontrol yang efisien.</li>
+<li>Kolom Keterangan transaksi.</li>
+<li>Tombol Simpan Transaksi utama yang langsung terlihat dan dapat dijangkau ibu jari tanpa perlu scroll panjang.</li>
+</ul>
+</li>
+<li><strong>Bagian Detail Tambahan (Accordion Terbuka Otomatis/Opsional)</strong>:<ul>
+<li>Pilihan Subkategori (tetap mengalir ke bawah / <em>flex-wrap</em>, tidak pernah disembunyikan dalam scroll horizontal kaku).</li>
+<li>Pemilih Tanggal &amp; Waktu (Hari Ini, Kemarin, Pilih Tanggal/Jam manual).</li>
+<li>Kolom Catatan tambahan.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2>3. Hasil Pengujian Otomatis &amp; Verifikasi Kualitas</h2>
+<p>Seluruh tahapan verifikasi kualitas berhasil lulus 100% tanpa error:</p>
+<table>
+<thead>
+<tr>
+<th>No</th>
+<th>Perintah Verifikasi</th>
+<th>Status</th>
+<th>Durasi / Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>node scripts/test-back-stack-flow.mjs</code></td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>6/6 skenario navigasi back stack &amp; double-tap lolos</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>node scripts/test-category-deduplication.mjs</code></td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>4/4 pengujian deduplikasi &amp; normalisasi lolos</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>pnpm test</code> (Suite Terpadu)</td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>12 regression test suites + 1 security scanner passed</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>pnpm exec tsc --noEmit</code></td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>0 error TypeScript pada seluruh codebase</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>pnpm build</code></td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>Next.js 16.2.6 (Turbopack) build statis sukses (7.8s)</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>pnpm build:mobile</code></td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>Export bundle mobile Capacitor sukses (3.5s)</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>git diff --check</code></td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>Bersih, 0 whitespace error / conflict marker</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>4. Hasil Kompilasi &amp; Audit APK Tester Lokal</h2>
+<p>Build APK tester Android dijalankan menggunakan skrip resmi:</p>
+<pre><code class="language-powershell">powershell -ExecutionPolicy Bypass -File scripts/update-apk.ps1
+</code></pre>
+<h3>4.1. Log Hasil Gradle</h3>
+<ul>
+<li><strong>Task Status</strong>: <code>BUILD SUCCESSFUL in 1m 53s</code> (261 actionable tasks executed).</li>
+<li><strong>Output Artifact</strong>: <code>SakuKilat.apk</code> (ukuran 6.15 MB).</li>
+</ul>
+<h3>4.2. Audit Keamanan &amp; Kredensial APK</h3>
+<ol>
+<li><strong>Verifikasi Sertifikat Digital (<code>apksigner verify --verbose --print-certs SakuKilat.apk</code>)</strong>:</li>
+<li><code>Verifies</code>: <strong>True</strong></li>
+<li><code>Verified using v2 scheme (APK Signature Scheme v2)</code>: <strong>True</strong></li>
+<li><code>Signer #1 certificate DN</code>: <code>CN=SakuKilat, OU=Mobile, O=SakuKilat, L=Jakarta, ST=DKI Jakarta, C=ID</code></li>
+<li><code>Signer #1 SHA-256 Digest</code>: <code>13dccbbd787224435ad6ac5330fd96c5de30a5f703ee87689b46bf21991a90a4</code> <em>(Identik 100% dengan sertifikat rilis resmi)</em>.</li>
+<li><strong>Audit Manifest Aplikasi (<code>aapt dump badging SakuKilat.apk</code>)</strong>:</li>
+<li><code>package: name</code>: <code>com.sakukilat.app.v2</code> <em>(Kanonikal tunggal)</em></li>
+<li><code>versionCode</code>: <code>13</code> <em>(Tidak dinaikkan, sesuai instruksi)</em></li>
+<li><code>versionName</code>: <code>1.0.7</code> <em>(Tidak dinaikkan, sesuai instruksi)</em></li>
+</ol>
+<hr />
+<h2>5. Status Git &amp; Rekomendasi Staging Commit</h2>
+<h3>5.1. Daftar File Terpengaruh (<code>git status --short</code>)</h3>
+<pre><code class="language-text"> M android/app/src/main/java/com/sakukilat/app/MainActivity.java
+ M app/page.tsx
+ M components/category-badge.tsx
+ M components/category-manager.tsx
+ M components/edit-transaction-modal.tsx
+ M components/filter-tabs.tsx
+ M components/manual-entry-form.tsx
+ M components/tab-rekapan.tsx
+ M components/transaction-list.tsx
+ M lib/back-stack.ts
+ M lib/stats.ts
+ M lib/store.tsx
+ M next.config.mjs
+ M scripts/run-all-tests.mjs
+?? lib/category-utils.ts
+?? scripts/test-back-stack-flow.mjs
+?? scripts/test-category-deduplication.mjs
+</code></pre>
+<h3>5.2. Rekomendasi Staging Terpisah</h3>
+<p>Untuk menjaga riwayat git yang terstruktur dan mudah di-audit, disarankan membagi menjadi 2 commit lokal:</p>
+<h4>Commit 1: Core Bug Fixes &amp; UX Optimization</h4>
+<ul>
+<li><strong>File Staging</strong>:</li>
+<li><code>android/app/src/main/java/com/sakukilat/app/MainActivity.java</code></li>
+<li><code>app/page.tsx</code></li>
+<li><code>lib/back-stack.ts</code></li>
+<li><code>lib/category-utils.ts</code></li>
+<li><code>components/category-badge.tsx</code></li>
+<li><code>components/category-manager.tsx</code></li>
+<li><code>components/edit-transaction-modal.tsx</code></li>
+<li><code>components/filter-tabs.tsx</code></li>
+<li><code>components/manual-entry-form.tsx</code></li>
+<li><code>components/tab-rekapan.tsx</code></li>
+<li><code>components/transaction-list.tsx</code></li>
+<li><code>lib/stats.ts</code></li>
+<li><code>lib/store.tsx</code></li>
+<li><code>next.config.mjs</code></li>
+<li>
+<p><strong>Pesan Commit</strong>:
+  ```text
+  fix(mobile): perbaiki navigasi back stack, deduplikasi kategori, rekapan responsive, dan compact form</p>
+</li>
+<li>
+<p>Tambahkan Android hardware back listener dengan LIFO stack, fallback Beranda, dan double-tap exit</p>
+</li>
+<li>Deduplikasi kategori dan subkategori dengan normalisasi slug tanpa kehilangan data lama</li>
+<li>Perbaiki header tanggal Tab Rekapan agar tidak overflow di layar kecil (360px) dengan format nominal utuh</li>
+<li>Sederhanakan UI Catat Manual dengan model Cepat + Detail Tambahan accordion
+  ```</li>
+</ul>
+<h4>Commit 2: Automated Regression Tests</h4>
+<ul>
+<li><strong>File Staging</strong>:</li>
+<li><code>scripts/test-back-stack-flow.mjs</code></li>
+<li><code>scripts/test-category-deduplication.mjs</code></li>
+<li><code>scripts/run-all-tests.mjs</code></li>
+<li><strong>Pesan Commit</strong>:
+  <code>text
+  test(mobile): tambahkan test suite navigasi back stack dan deduplikasi kategori</code></li>
+</ul>
+<hr />
+<h2>6. Kesimpulan &amp; Langkah Selanjutnya</h2>
+<ol>
+<li>Seluruh 4 bug hasil pengujian APK fisik telah diperbaiki secara tuntas.</li>
+<li>Tidak ada perubahan pada konfigurasi identitas Android (<code>com.sakukilat.app.v2</code>), versi aplikasi, atau sertifikat signing.</li>
+<li>File APK tester <code>SakuKilat.apk</code> (6.15 MB) telah selesai dikompilasi ulang dan siap di-install di perangkat Android tester untuk pengujian validasi langsung.</li>
+<li>Perubahan saat ini masih berstatus <strong>staged/unstaged lokal</strong> tanpa eksekusi <code>git commit</code>, <code>git push</code>, atau release build sebelum mendapatkan instruksi eksplisit dari pengguna.</li>
+</ol>
+</div>
+</body>
+</html>

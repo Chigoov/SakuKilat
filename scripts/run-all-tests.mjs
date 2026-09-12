@@ -67,6 +67,21 @@ const testSuites = [
     type: 'regression',
   },
   {
+    name: 'Android Hardware Back Flow & Double-Tap Exit',
+    script: 'scripts/test-back-stack-flow.mjs',
+    type: 'regression',
+  },
+  {
+    name: 'Category & Subcategory Deduplication',
+    script: 'scripts/test-category-deduplication.mjs',
+    type: 'regression',
+  },
+  {
+    name: 'Onboarding Tour Persistence & Storage Cleanup',
+    script: 'scripts/test-onboarding-persistence.mjs',
+    type: 'regression',
+  },
+  {
     name: 'SK-001: Scanner Data Personal & Finansial',
     script: 'scripts/scan-personal-data.mjs',
     type: 'security-scan',

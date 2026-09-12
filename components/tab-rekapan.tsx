@@ -19,7 +19,7 @@ import { ChevronLeft, ChevronRight, Minus, RotateCcw, Search, SlidersHorizontal,
 import { BottomSheet } from '@/components/bottom-sheet'
 import { FilterTabs, type FilterTab } from '@/components/filter-tabs'
 import { TransactionList } from '@/components/transaction-list'
-import { getCategoryConfig, getCategoryHex, CATEGORY_CONFIG } from '@/components/category-badge'
+import { getCategoryConfig, getCategoryHex, CATEGORY_CONFIG, normalizeCategoryKey } from '@/components/category-badge'
 import { formatIDR, formatIDRCompact, formatIDRShort } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import { useTransactionActions, useTransactionData, useTransactionStatus } from '@/lib/store'
@@ -268,17 +268,28 @@ export const TabRekapan = memo(function TabRekapan() {
   )
 
   const allCategoryOptions = useMemo(() => {
-    const set = new Set<string>()
+    const catMap = new Map<string, { id: string; label: string }>()
     for (const t of transactions) {
-      if (t.category && t.category !== 'transfer') set.add(t.category)
+      if (t.category && t.category !== 'transfer') {
+        const cfg = getCategoryConfig(t.category)
+        const normKey = normalizeCategoryKey(cfg.label) || normalizeCategoryKey(t.category)
+        if (!catMap.has(normKey)) {
+          catMap.set(normKey, { id: t.category, label: cfg.label })
+        }
+      }
     }
     Object.keys(CATEGORY_CONFIG).forEach((k) => {
-      if (k !== 'transfer') set.add(k)
+      if (k !== 'transfer') {
+        const cfg = getCategoryConfig(k)
+        const normKey = normalizeCategoryKey(cfg.label) || normalizeCategoryKey(k)
+        if (!catMap.has(normKey)) {
+          catMap.set(normKey, { id: k, label: cfg.label })
+        } else if (k === 'lainnya') {
+          catMap.set(normKey, { id: 'lainnya', label: cfg.label })
+        }
+      }
     })
-    return Array.from(set).map((catId) => ({
-      id: catId,
-      label: getCategoryConfig(catId).label,
-    })).sort((a, b) => a.label.localeCompare(b.label, 'id'))
+    return Array.from(catMap.values()).sort((a, b) => a.label.localeCompare(b.label, 'id'))
   }, [transactions])
 
   const activeAdvancedFilterCount = useMemo(() => {
@@ -465,8 +476,8 @@ export const TabRekapan = memo(function TabRekapan() {
   const todayKeyValue = dayKey(new Date())
 
   return (
-    <div className="flex min-h-full flex-col md:ml-[72px]">
-      <div className="mx-auto w-full max-w-[560px] px-4 pb-[176px] pt-4 md:max-w-[980px] md:px-8 md:pt-6">
+    <div className="flex min-h-full flex-col overflow-x-hidden md:ml-[72px]">
+      <div className="mx-auto w-full max-w-[560px] overflow-x-hidden px-4 pb-[176px] pt-4 md:max-w-[980px] md:px-8 md:pt-6">
         <header className="mb-4">
           <h2 className="text-[24px] font-bold tracking-tight text-[var(--sk-text)] md:text-[30px]">Rekapan</h2>
         </header>

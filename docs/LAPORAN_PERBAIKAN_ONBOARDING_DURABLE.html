@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SakuKilat — Laporan Persistensi Onboarding Tour</title>
+<style>
+  :root {
+    --primary: #1e3a8a;
+    --primary-light: #3b82f6;
+    --success: #059669;
+    --success-bg: #d1fae5;
+    --border: #e2e8f0;
+    --text-dark: #0f172a;
+    --code-bg: #0f172a;
+    --code-text: #e2e8f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f8fafc;
+    color: var(--text-dark);
+    margin: 0;
+    padding: 32px 16px;
+    line-height: 1.65;
+    font-size: 15px;
+  }
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 48px;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--border);
+  }
+  h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--primary);
+    border-bottom: 3px solid var(--primary-light);
+    padding-bottom: 12px;
+    margin-top: 0;
+  }
+  h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 32px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #334155;
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  p, li { color: #334155; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 13.5px;
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  th { background-color: #f8fafc; font-weight: 600; color: #1e293b; }
+  tr:nth-child(even) { background-color: #fafafa; }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 16px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  code {
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .badge-success { background: var(--success-bg); color: var(--success); }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
+    pre { white-space: pre-wrap; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>LAPORAN TEKNIS: PERBAIKAN PERSISTENSI ONBOARDING TOUR (TAHAN RESTART &amp; UPDATE APK)</h1>
+<p><strong>Aplikasi</strong>: SakuKilat Android<br />
+<strong>Package ID</strong>: <code>com.sakukilat.app.v2</code><br />
+<strong>Version</strong>: <code>1.0.7</code> (VersionCode: <code>13</code>)<br />
+<strong>Keystore SHA-256</strong>: <code>13dccbbd787224435ad6ac5330fd96c5de30a5f703ee87689b46bf21991a90a4</code><br />
+<strong>Branch</strong>: <code>feat/navigation-entry-category-responsive</code><br />
+<strong>Tanggal</strong>: 12 September 2026<br />
+<strong>Status Eksekusi</strong>: Selesai, Terverifikasi 100%, dan APK Tester Siap Diuji</p>
+<hr />
+<h2>1. Analisis Akar Masalah (Root Cause)</h2>
+<p>Pada pengujian APK tester fisik, data transaksi, dompet, dan profil pengguna tidak hilang, namun tour panduan onboarding selalu muncul dari awal setiap kali aplikasi ditutup dan dibuka ulang.</p>
+<p>Melalui investigasi kode sumber, ditemukan <strong>tiga akar masalah utama</strong>:</p>
+<ol>
+<li><strong>Penghapusan oleh Fungsi Pembersih Storage (<code>cleanupStaleStorageKeys</code> di <code>lib/storage.ts</code>)</strong>:</li>
+<li><code>lib/store.tsx</code> memanggil <code>cleanupStaleStorageKeys(window.localStorage)</code> setiap kali aplikasi melakukan boot/mount dengan status storage <code>valid</code> atau <code>missing</code>.</li>
+<li>Di <code>lib/storage.ts</code>, konstanta <code>ONBOARDING_STORAGE_KEY_PREFIX</code> sebelumnya bernilai <code>'sakukilat:onboarding:'</code> (format lama), sedangkan komponen <code>OnboardingTour</code> menulis kunci berawalan <code>'sakukilat:v2:onboarding-completed-v'</code>.</li>
+<li>Prefix <code>'sakukilat:v2:onboarding-completed-v'</code> dan <code>'sakukilat:v2:onboarding-completed'</code> <strong>belum didaftarkan</strong> dalam <code>PRESERVED_KEY_PREFIXES</code> di <code>lib/storage.ts</code> maupun di <code>lib/store.tsx</code>.</li>
+<li>
+<p>Akibatnya: Setiap kali aplikasi dibuka, <code>cleanupStaleStorageKeys</code> menganggap kunci onboarding tersebut sebagai data usang/sampah yang tidak dikenal dan <strong>menghapusnya secara otomatis (<code>storage.removeItem(key)</code>)</strong>.</p>
+</li>
+<li>
+<p><strong>Ketiadaan Sinkronisasi Native Durable Storage (<code>@capacitor/preferences</code> di <code>lib/native-store.ts</code>)</strong>:</p>
+</li>
+<li>WebView Android memperlakukan <code>localStorage</code> seperti cache yang rentan hilang saat proses restart aplikasi atau pembersihan cache background oleh sistem operasi.</li>
+<li>SakuKilat memiliki lapisan native durable storage berbasis SharedPreferences Android via <code>@capacitor/preferences</code>. Namun, array <code>TRACKED_KEYS</code> di <code>lib/native-store.ts</code> <strong>tidak memuat kunci onboarding</strong>.</li>
+<li>Fungsi <code>writeCompleted</code> pada <code>components/onboarding-tour.tsx</code> hanya menulis ke <code>window.localStorage</code> tanpa memanggil <code>mirrorToNative()</code>, sehingga SharedPreferences native tidak pernah menyimpan flag selesai panduan.</li>
+<li>
+<p>Saat boot aplikasi, <code>hydrateFromNative()</code> menyaring kunci hanya berdasarkan <code>TRACKED_KEYS</code>, sehingga flag onboarding tidak pernah dipulihkan ke <code>localStorage</code>.</p>
+</li>
+<li>
+<p><strong>Inkonsistensi Kunci Pengguna &amp; Ketiadaan Multi-Key Fallback</strong>:</p>
+</li>
+<li>Kunci onboarding awal dibentuk dengan menyematkan email user: <code>sakukilat:v2:onboarding-completed-v9:${encodeURIComponent(user.email)}</code>.</li>
+<li>Pada saat inisialisasi awal sebelum auth ready, <code>user.email</code> bernilai <code>null</code> / <code>'local'</code>, sehingga terjadi diskrepansi antara kunci yang ditulis dan yang dibaca saat boot.</li>
+</ol>
+<hr />
+<h2>2. Rincian File yang Diubah &amp; Solusi Implementasi</h2>
+<h3>2.1. <a href="file:///c:/Users/HYPE%20AMD/Projects/SakuKilat/lib/storage.ts"><code>lib/storage.ts</code></a></h3>
+<ul>
+<li>Menambahkan <code>'sakukilat:v2:onboarding-completed'</code> ke dalam <code>KNOWN_STORAGE_KEYS</code>.</li>
+<li>Memperbarui <code>ONBOARDING_STORAGE_KEY_PREFIX = 'sakukilat:v2:onboarding-completed-v'</code> dan menyediakan array <code>ONBOARDING_STORAGE_KEY_PREFIXES</code>.</li>
+<li>Menambahkan <code>'sakukilat:v2:onboarding-completed'</code>, <code>'sakukilat:v2:onboarding-completed-v'</code>, dan <code>'sakukilat:onboarding:'</code> ke dalam <code>PRESERVED_KEY_PREFIXES</code>.</li>
+<li>Memperbarui filter pengecualian pada <code>cleanupStaleStorageKeys()</code> sehingga kunci onboarding kebal dari pembersihan otomatis.</li>
+</ul>
+<h3>2.2. <a href="file:///c:/Users/HYPE%20AMD/Projects/SakuKilat/lib/store.tsx"><code>lib/store.tsx</code></a></h3>
+<ul>
+<li>Menambahkan <code>'sakukilat:v2:onboarding-completed'</code> ke dalam <code>KNOWN_STORAGE_KEYS</code>.</li>
+<li>Menambahkan <code>'sakukilat:v2:onboarding-completed'</code>, <code>'sakukilat:v2:onboarding-completed-v'</code>, dan <code>'sakukilat:onboarding:'</code> ke dalam <code>PRESERVED_KEY_PREFIXES</code> agar sinkron dengan <code>lib/storage.ts</code>.</li>
+</ul>
+<h3>2.3. <a href="file:///c:/Users/HYPE%20AMD/Projects/SakuKilat/lib/native-store.ts"><code>lib/native-store.ts</code></a></h3>
+<ul>
+<li>Menambahkan kunci kanonikal onboarding ke dalam <code>CANONICAL_TRACKED_KEYS</code>.</li>
+<li>Membuat fungsi pembantu <code>isTrackedKey(key: string): boolean</code> yang mengenali seluruh varian prefix kunci onboarding.</li>
+<li>Memperbarui <code>localEntries()</code>, <code>applyEntries()</code>, <code>hydrateFromNative()</code>, <code>syncAllToNative()</code>, <code>mirrorToNative()</code>, dan <code>removeFromNative()</code> agar seluruh flag onboarding secara otomatis dicerminkan ke <code>@capacitor/preferences</code> (Android SharedPreferences) dan dipulihkan saat startup.</li>
+</ul>
+<h3>2.4. <a href="file:///c:/Users/HYPE%20AMD/Projects/SakuKilat/lib/onboarding-storage.ts"><code>lib/onboarding-storage.ts</code></a> <em>(File Baru)</em></h3>
+<ul>
+<li>Modul murni TypeScript untuk pengelolaan status onboarding:</li>
+<li><code>readCompleted(userId)</code>: Memeriksa multi-key fallback (<code>targetKey</code>, <code>localKey</code>, <code>canonicalKey</code>, dan pemindaian prefix). Jika salah satu flag bernilai <code>'1'</code>, mengembalikan <code>true</code>.</li>
+<li><code>writeCompleted(userId)</code>: Menulis ke <code>targetKey</code>, <code>localKey</code>, dan <code>canonicalKey</code> secara bersamaan, serta memanggil <code>mirrorToNative()</code> untuk memastikan penyimpanan native durable.</li>
+</ul>
+<h3>2.5. <a href="file:///c:/Users/HYPE%20AMD/Projects/SakuKilat/components/onboarding-tour.tsx"><code>components/onboarding-tour.tsx</code></a></h3>
+<ul>
+<li>Mengimpor dan mengekspor ulang utilitas dari <code>lib/onboarding-storage.ts</code>.</li>
+<li>Komponen tetap mempertahankan fungsionalitas UI yang ada, namun kini membaca dan menulis status penyelesaian dengan lapisan penyimpanan tahan restart.</li>
+</ul>
+<hr />
+<h2>3. Test Regresi yang Ditambahkan</h2>
+<p>Dibuat suite pengujian otomatis baru pada <a href="file:///c:/Users/HYPE%20AMD/Projects/SakuKilat/scripts/test-onboarding-persistence.mjs"><code>scripts/test-onboarding-persistence.mjs</code></a> dan didaftarkan ke runner pengujian utama <a href="file:///c:/Users/HYPE%20AMD/Projects/SakuKilat/scripts/run-all-tests.mjs"><code>scripts/run-all-tests.mjs</code></a>.</p>
+<p>Cakupan pengujian:
+1. <strong>Test 1</strong>: <code>readCompleted</code> mengembalikan <code>false</code> pada instalasi baru / storage kosong.
+2. <strong>Test 2</strong>: <code>writeCompleted</code> menulis multi-key flags (<code>targetKey</code>, <code>localKey</code>, <code>canonicalKey</code>) dan terbaca <code>true</code> oleh <code>readCompleted</code>.
+3. <strong>Test 3</strong>: <code>cleanupStaleStorageKeys</code> <strong>TIDAK</strong> menghapus kunci onboarding baru maupun legacy (<code>v8</code>/<code>onboarding:</code>), namun tetap membersihkan kunci sampah yang tidak dikenal.
+4. <strong>Test 4</strong>: <code>isTrackedKey</code> di <code>lib/native-store.ts</code> mengenali kunci onboarding untuk sinkronisasi native <code>@capacitor/preferences</code>.
+5. <strong>Test 5</strong>: Simulasi siklus hidup restart aplikasi (selesai tour -&gt; reboot aplikasi -&gt; pembersihan storage berjalan -&gt; tour dicek kembali) membuktikan onboarding tetap selesai dan tidak muncul kembali.</p>
+<p>Hasil eksekusi: <strong>5/5 PASS (LULUS 100%)</strong>.</p>
+<hr />
+<h2>4. Hasil Verifikasi &amp; Uji Kualitas Lengkap</h2>
+<table>
+<thead>
+<tr>
+<th>No</th>
+<th>Perintah Verifikasi</th>
+<th>Status</th>
+<th>Hasil Faktual</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>node scripts/test-onboarding-persistence.mjs</code></td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>5/5 skenario persistensi onboarding lolos</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>pnpm test</code></td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>13 regression test suites + 1 security scan lolos (0 failed)</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>pnpm exec tsc --noEmit</code></td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>0 error TypeScript pada seluruh proyek</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>pnpm build</code></td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>Static web production build Next.js 16.2.6 sukses</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>pnpm build:mobile</code></td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>Static export mobile Capacitor sukses</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>git diff --check</code></td>
+<td><strong>LULUS (Code 0)</strong></td>
+<td>Bersih, 0 whitespace error / conflict marker</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>5. Hasil Build &amp; Audit APK Tester Android</h2>
+<p>Kompilasi ulang dieksekusi menggunakan skrip resmi:</p>
+<pre><code class="language-powershell">powershell -ExecutionPolicy Bypass -File scripts/update-apk.ps1
+</code></pre>
+<h3>5.1. Log &amp; Ukuran APK</h3>
+<ul>
+<li><strong>Status Gradle</strong>: <code>BUILD SUCCESSFUL in 29s</code> (261 actionable tasks).</li>
+<li><strong>Ukuran File</strong>: <code>6.16 MB</code> (wajar dan sehat).</li>
+<li><strong>Lokasi File</strong>:</li>
+<li><code>c:\Users\HYPE AMD\Projects\SakuKilat\SakuKilat.apk</code> (Repo Root)</li>
+<li><code>C:\Users\HYPE AMD\Downloads\SakuKilat.apk</code> (Downloads Cepat)</li>
+</ul>
+<h3>5.2. Audit Keamanan &amp; Identitas APK</h3>
+<ol>
+<li><strong>Sertifikat Digital (<code>apksigner verify --verbose --print-certs SakuKilat.apk</code>)</strong>:</li>
+<li><code>Verifies</code>: <strong>True</strong> (APK Signature Scheme v2)</li>
+<li><code>Signer DN</code>: <code>CN=SakuKilat, OU=Mobile, O=SakuKilat, L=Jakarta, ST=DKI Jakarta, C=ID</code></li>
+<li><code>Signer SHA-256 Digest</code>: <code>13dccbbd787224435ad6ac5330fd96c5de30a5f703ee87689b46bf21991a90a4</code> <em>(100% identik dengan sertifikat rilis resmi)</em>.</li>
+<li><strong>Manifest Aplikasi (<code>aapt dump badging SakuKilat.apk</code>)</strong>:</li>
+<li><code>package: name</code>: <code>com.sakukilat.app.v2</code> <em>(Kanonikal tunggal)</em></li>
+<li><code>versionCode</code>: <code>13</code> <em>(Tidak dinaikkan, sesuai instruksi)</em></li>
+<li><code>versionName</code>: <code>1.0.7</code> <em>(Tidak dinaikkan, sesuai instruksi)</em></li>
+</ol>
+<hr />
+<h2>6. Instruksi Singkat Pengujian di HP</h2>
+<p>Untuk memvalidasi perbaikan di perangkat Android fisik Anda:</p>
+<ol>
+<li><strong>Install APK Baru</strong>:</li>
+<li>Ambil file <a href="file:///C:/Users/HYPE%20AMD/Downloads/SakuKilat.apk"><code>SakuKilat.apk</code></a> dari folder <code>Downloads</code> laptop Anda, lalu kirim/install ke HP (pilih <em>Update / Pasang</em>).</li>
+<li><strong>Selesaikan Onboarding Sekali</strong>:</li>
+<li>Buka aplikasi SakuKilat.</li>
+<li>Klik lewati atau selesaikan tour panduan (8 slide) hingga masuk ke layar utama Beranda.</li>
+<li><strong>Uji Tutup Aplikasi Paksa (Kill &amp; Restart)</strong>:</li>
+<li>Buka menu <em>Recent Apps</em> pada HP Anda.</li>
+<li>Swipe/tutup aplikasi SakuKilat secara total (Force Close).</li>
+<li>Buka kembali aplikasi SakuKilat dari app drawer HP.</li>
+<li><strong>Hasil yang Diharapkan</strong>:</li>
+<li>Aplikasi langsung masuk ke Beranda tanpa menampilkan tour panduan lagi.</li>
+<li>Seluruh data transaksi, saldo dompet, dan kategori tetap utuh seperti sedia kala.</li>
+<li>Jika suatu saat ingin melihat panduan kembali, dapat dibuka kapan saja melalui menu <strong>Profil -&gt; Buku Panduan</strong>.</li>
+</ol>
+</div>
+</body>
+</html>

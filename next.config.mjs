@@ -9,7 +9,7 @@ const nextConfig = {
   // Kunci eksplisit: jangan pernah membiarkan build lolos dengan type error.
   typescript: { ignoreBuildErrors: false },
   devIndicators: false,
-  allowedDevOrigins: ['127.0.0.1', '192.168.1.10', '*.local'],
+  allowedDevOrigins: ['127.0.0.1', '192.168.1.10', '192.168.18.18', '*.local'],
   images: {
     unoptimized: true,
     remotePatterns: [

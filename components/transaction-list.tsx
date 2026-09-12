@@ -108,28 +108,31 @@ export function TransactionList({
       {grouped.map(group => (
         <section key={group.dateKey} aria-label={`Transaksi ${group.label}`}>
           {/* Date heading */}
-          <div className="flex items-center gap-3 mb-2.5">
-            <span className="text-xs font-semibold text-[var(--sk-text-muted)] uppercase tracking-wider whitespace-nowrap">
-              {group.label}
-            </span>
-            <div className="flex-1 h-px bg-[var(--sk-border)]" />
-            {showDailyTotal && (group.expenseTotal > 0 || group.incomeTotal > 0) && (
-              <span className="flex items-center gap-2 tabular-nums whitespace-nowrap">
-                {group.expenseTotal > 0 && (
-                  <span className="text-xs font-semibold text-[var(--sk-red)]">
-                    -{formatIDR(group.expenseTotal)}
-                  </span>
-                )}
-                {group.incomeTotal > 0 && (
-                  <span className="text-xs font-semibold text-[var(--sk-green)]">
-                    +{formatIDR(group.incomeTotal)}
-                  </span>
-                )}
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-semibold text-[var(--sk-text-muted)] uppercase tracking-wider">
+                {group.label}
               </span>
-            )}
-            <span className="text-xs text-[var(--sk-text-dim)] tabular-nums whitespace-nowrap">
-              {group.transactions.length} transaksi
-            </span>
+            </div>
+            <div className="flex items-center gap-2 tabular-nums text-xs">
+              {showDailyTotal && (group.expenseTotal > 0 || group.incomeTotal > 0) && (
+                <span className="flex items-center gap-1.5 font-semibold">
+                  {group.expenseTotal > 0 && (
+                    <span className="text-[var(--sk-red)]">
+                      -{formatIDR(group.expenseTotal)}
+                    </span>
+                  )}
+                  {group.incomeTotal > 0 && (
+                    <span className="text-[var(--sk-green)]">
+                      +{formatIDR(group.incomeTotal)}
+                    </span>
+                  )}
+                </span>
+              )}
+              <span className="text-[var(--sk-text-dim)]">
+                {group.transactions.length} transaksi
+              </span>
+            </div>
           </div>
 
           {/* Transaction items */}

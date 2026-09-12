@@ -761,7 +761,11 @@ export function filterTransactions(
     if (filter.startDate && t.date < filter.startDate) return false
     if (filter.endDate && t.date >= filter.endDate) return false
     if (filter.type && t.type !== filter.type) return false
-    if (filter.category && t.category !== filter.category) return false
+    if (filter.category) {
+      const filterIsLainnya = filter.category === 'lainnya' || filter.category === 'income-lainnya' || filter.category === 'expense-lainnya'
+      const txIsLainnya = t.category === 'lainnya' || t.category === 'income-lainnya' || t.category === 'expense-lainnya'
+      if (filterIsLainnya ? !txIsLainnya : t.category !== filter.category) return false
+    }
     if (filter.amountMin != null && t.amount < filter.amountMin) return false
     if (filter.amountMax != null && t.amount > filter.amountMax) return false
     if (keywordLower) {

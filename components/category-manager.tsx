@@ -9,6 +9,7 @@ import {
   suggestCategoryIconKey,
 } from '@/components/category-badge'
 import { getBuiltinCategoryType, formatIDR, type TransactionType } from '@/lib/parser'
+import { dedupeSubcategories, normalizeCategoryKey } from '@/components/category-badge'
 import { cn } from '@/lib/utils'
 import { BottomSheet } from '@/components/bottom-sheet'
 import { RupiahInput } from '@/components/rupiah-input'
@@ -113,7 +114,23 @@ export function CategoryManager() {
         }
       })
 
-    return [...builtins, ...customs]
+    const combined = [...builtins, ...customs]
+    const dedupeMap = new Map<string, CategoryTile>()
+    for (const cat of combined) {
+      const normKey = `${cat.type}-${normalizeCategoryKey(cat.label) || normalizeCategoryKey(cat.id)}`
+      const existing = dedupeMap.get(normKey)
+      if (!existing) {
+        dedupeMap.set(normKey, { ...cat })
+      } else {
+        existing.subcategories = dedupeSubcategories([...existing.subcategories, ...cat.subcategories])
+        existing.keywords = Array.from(new Set([...existing.keywords, ...cat.keywords]))
+        if (cat.isBuiltin) {
+          existing.id = cat.id
+          existing.isBuiltin = true
+        }
+      }
+    }
+    return Array.from(dedupeMap.values())
   }, [customById, customCategories, hiddenCategoryIds])
 
   const selected = useMemo(

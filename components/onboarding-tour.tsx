@@ -3,11 +3,25 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight, BarChart2, Bell, BookOpen, Check, PenLine, Repeat, Sparkles, Trophy, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  ONBOARDING_VERSION,
+  ONBOARDING_KEY_PREFIX,
+  ONBOARDING_CANONICAL_KEY,
+  storageKey,
+  readCompleted,
+  writeCompleted,
+} from '@/lib/onboarding-storage'
+
+export {
+  ONBOARDING_VERSION,
+  ONBOARDING_KEY_PREFIX,
+  ONBOARDING_CANONICAL_KEY,
+  storageKey,
+  readCompleted,
+  writeCompleted,
+}
 
 type TourTab = 'beranda' | 'saku' | 'rekapan' | 'profil'
-
-const ONBOARDING_VERSION = 9
-const ONBOARDING_KEY_PREFIX = `sakukilat:v2:onboarding-completed-v${ONBOARDING_VERSION}`
 
 interface Slide {
   icon: React.ComponentType<{ className?: string }>
@@ -103,27 +117,7 @@ const SLIDES: Slide[] = [
   },
 ]
 
-function storageKey(userId?: string | null): string {
-  return `${ONBOARDING_KEY_PREFIX}:${encodeURIComponent(userId || 'local')}`
-}
 
-function readCompleted(userId?: string | null): boolean {
-  if (typeof window === 'undefined') return true
-  try {
-    return window.localStorage.getItem(storageKey(userId)) === '1'
-  } catch {
-    return true
-  }
-}
-
-function writeCompleted(userId?: string | null): void {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(storageKey(userId), '1')
-  } catch {
-    /* localStorage can be blocked in private mode */
-  }
-}
 
 export const OnboardingTour = memo(function OnboardingTour({
   userId,

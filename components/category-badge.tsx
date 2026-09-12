@@ -71,6 +71,8 @@ export function getDefaultSubcategories(categoryId: string): string[] {
   return DEFAULT_SUBCATEGORIES[categoryId] ?? []
 }
 
+export { dedupeSubcategories, normalizeCategoryKey } from '@/lib/category-utils'
+
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   gopay:     'GoPay',
   ovo:       'OVO',
