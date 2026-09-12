@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laporan Hasil Pekerjaan: Rollback Aman & Verifikasi App Key</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #0f172a; padding: 32px 16px; font-size: 15px; line-height: 1.6; margin: 0; }
+  .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+  h1 { font-size: 24px; color: #1e3a8a; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; margin-top: 0; }
+  h2 { font-size: 18px; color: #1e293b; margin-top: 28px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+  h3 { font-size: 15px; color: #334155; margin-top: 18px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13.5px; }
+  th, td { padding: 9px 12px; text-align: left; border: 1px solid #e2e8f0; }
+  th { background: #f8fafc; font-weight: 600; color: #1e293b; }
+  tr:nth-child(even) { background: #fafafa; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 14px 18px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+  code { background: #f1f5f9; color: #0f172a; padding: 2px 5px; border-radius: 4px; font-size: 13px; }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+  .badge-success { background: #d1fae5; color: #059669; }
+  .badge-warning { background: #fef3c7; color: #d97706; }
+  @media print { body { background: #fff; padding: 0; } .container { box-shadow: none; border: none; padding: 0; max-width: 100%; } }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Laporan Hasil Pekerjaan: Penyempurnaan Fitur Rollback Aman &amp; Verifikasi Key Aplikasi</h1>
+<p><strong>Tanggal/Waktu</strong>: 12 September 2026<br />
+<strong>Repository</strong>: <code>C:\Users\HYPE AMD\Projects\SakuKilat</code><br />
+<strong>Branch</strong>: <code>feat/navigation-entry-category-responsive</code><br />
+<strong>Commit 1 (Source Code)</strong>: <code>80df5f0</code> (<code>feat(core): implement 12-feature package, safe rollback engine, and storage fallbacks</code>)<br />
+<strong>Commit 2 (Tests &amp; Docs)</strong>: <code>cfd6533</code> (<code>test(audit): add regression test suites and final completion documentation</code>)<br />
+<strong>Status Working Tree</strong>: <strong>CLEAN</strong> (2 commit lokal terpisah telah dibuat, tanpa push ke remote)</p>
+<hr />
+<h2>1. Ringkasan Eksekutif Pekerjaan</h2>
+<p>Tugas yang diselesaikan mencakup 4 pilar utama:
+1. <strong>Verifikasi Key &amp; Identitas Android</strong>: Memastikan <code>applicationId</code> (<code>com.sakukilat.app.v2</code>), <code>namespace</code> (<code>com.sakukilat.app</code>), dan <code>versionCode: 13</code> / <code>versionName: "1.0.7"</code> 100% konsisten dengan versi sebelumnya (<code>origin/main</code> dan tag <code>v1.0.7</code>), sehingga aplikasi tidak terdeteksi sebagai aplikasi baru dan tidak kehilangan akses data.
+2. <strong>Lapisan Kompatibilitas Penyimpanan (Storage Fallback)</strong>: Menambahkan fallback otomatis untuk storage key lama riil (<code>sakukilat-user:v2:local-state</code>, <code>sakukilat:local-state</code>, <code>sakukilat:v1:local-state</code>, serta fallback goals &amp; recurring), dan mendaftarkannya ke whitelist proteksi agar tidak terhapus. (Catatan: klaim <code>sakukilat_budget_state_v1</code> telah dihapus karena terbukti tidak pernah ada di repo).
+3. <strong>Mesin Checkpoint Komprehensif &amp; Rollback Transaksional</strong>: Membangun snapshot multi-key (transaksi, target tabungan, jadwal rutin, kategori kustom) dengan validasi integritas, transactional abort-on-error, dan dialog preview UI sebelum rollback dieksekusi.
+4. <strong>Verifikasi Penuh &amp; Unit Testing</strong>: Menyusun unit test suite khusus 14 skenario (100% lulus) dan memvalidasi TypeScript (<code>tsc</code>), web build (<code>pnpm build</code>), serta mobile build (<code>pnpm build:mobile</code>).</p>
+<hr />
+<h2>2. Rincian Teknis yang Dikerjakan</h2>
+<h3>A. Verifikasi Identitas Aplikasi Android</h3>
+<ul>
+<li><strong>File</strong>: <code>android/app/build.gradle</code></li>
+<li><code>applicationId</code>: <code>"com.sakukilat.app.v2"</code> (identik 100% dengan <code>origin/main</code> dan tag <code>v1.0.7</code>).</li>
+<li><code>namespace</code>: <code>"com.sakukilat.app"</code>.</li>
+<li><code>versionCode</code>: <code>13</code> (terverifikasi konsisten di <code>build.gradle</code>, <code>origin/main</code>, dan tag <code>v1.0.7</code>).</li>
+<li><code>versionName</code>: <code>"1.0.7"</code>.</li>
+<li><strong>File</strong>: <code>capacitor.config.ts</code></li>
+<li><code>appId</code>: <code>'com.sakukilat.app.v2'</code>.</li>
+<li><strong>File</strong>: <code>android/app/src/main/AndroidManifest.xml</code></li>
+<li>FileProvider: <code>android:authorities="${applicationId}.fileprovider"</code>.</li>
+<li><strong>Catatan Kredensial Signing</strong>: File keystore rilis (<code>android/app/sakukilat-release.jks</code>) dan <code>android/keystore.properties</code> tidak disimpan di repository lokal ini (tidak di-commit demi keamanan), sehingga tidak dilakukan klaim verifikasi tanda tangan sertifikat fisik.</li>
+<li><strong>Hasil</strong>: <strong>Tidak ada perbedaan identitas/kunci aplikasi</strong>. Update aplikasi maupun rollback tidak akan menyebabkan pemisahan data atau konflik instalasi.</li>
+</ul>
+<h3>B. Lapisan Kompatibilitas Penyimpanan Data Lama</h3>
+<ul>
+<li><strong>File</strong>: <code>lib/storage.ts</code></li>
+<li>Mendefinisikan fallback key riil:<ul>
+<li>State: <code>STORAGE_KEY_FALLBACKS</code> = <code>['sakukilat-user:v2:local-state', 'sakukilat:local-state', 'sakukilat:v1:local-state']</code>.</li>
+<li>Goals: <code>GOAL_STORAGE_KEY_FALLBACKS</code> = <code>['sakukilat-user:v2:goals', 'sakukilat:goals']</code>.</li>
+<li>Recurring: <code>RECURRING_STORAGE_KEY_FALLBACKS</code> = <code>['sakukilat-user:v2:recurring', 'sakukilat:recurring']</code>.</li>
+</ul>
+</li>
+<li>Mendaftarkan seluruh key fallback ke <code>KNOWN_STORAGE_KEYS</code> dan <code>PRESERVED_KEY_PREFIXES</code> agar tidak pernah terhapus oleh garbage collection/purge storage.</li>
+<li>Menambahkan auto-fallback pada <code>loadPersistedState()</code>, <code>loadGoalsFromStorage()</code>, dan <code>loadRecurringFromStorage()</code>.</li>
+<li><strong>File</strong>: <code>lib/native-store.ts</code></li>
+<li>Menambahkan sinkronisasi bi-direksional primary keys antara canonical keys (<code>sakukilat:v2:*</code>) dan user-scoped keys (<code>sakukilat-user:v2:*</code>).</li>
+</ul>
+<h3>C. Mesin Rollback Aman (Safe Checkpoint &amp; Restore Engine)</h3>
+<ul>
+<li><strong>File</strong>: <code>lib/data-restore.ts</code></li>
+<li>Membuat tipe <code>ComprehensiveCheckpointEnvelope</code> (version 2) yang menyimpan:<ul>
+<li>Snapshot state utama (<code>sakukilat:v2:state</code>)</li>
+<li>Snapshot target tabungan (<code>sakukilat:v2:goals</code>)</li>
+<li>Snapshot transaksi berulang (<code>sakukilat:v2:recurring</code>)</li>
+<li>Metadata statistik: jumlah transaksi, goals, recurring, kategori, timestamp, dan alasan pembuatan checkpoint.</li>
+<li>Struktur format ganda: mendukung format v2 terstruktur sekaligus mengekspos flat entries di root untuk backward compatibility.</li>
+</ul>
+</li>
+<li>Fungsi <code>createComprehensiveCheckpoint()</code>, <code>createMultiKeyCheckpoint()</code>, dan <code>getCheckpointSummary()</code>.</li>
+<li>Fungsi transaksional <code>executeRollback()</code>:<ul>
+<li>Validasi struktur JSON dan reject skema masa depan (<code>schemaVersion &gt; CURRENT_SCHEMA_VERSION</code>).</li>
+<li>Abort-on-error: jika terjadi disk write failure di tengah eksekusi, proses dibatalkan dan checkpoint TIDAK dihapus.</li>
+<li>Pengecekan nilai identik (<code>currentVal !== targetVal</code>) untuk mencegah abort palsu pada storage disk yang terkunci sebagian.</li>
+</ul>
+</li>
+<li><strong>File</strong>: <code>lib/store.tsx</code></li>
+<li>Menambahkan safety hook otomatis membuat checkpoint sebelum migrasi skema versi dijalankan (<code>prevVersion &lt; CURRENT_SCHEMA_VERSION</code>).</li>
+</ul>
+<h3>D. Antarmuka Pengguna (UI) Preview &amp; Konfirmasi</h3>
+<ul>
+<li><strong>File</strong>: <code>components/data-portability.tsx</code></li>
+<li>Menambahkan modal dialog interaktif preview checkpoint:<ul>
+<li>Menampilkan waktu pembuatan, alasan pembuatan, versi skema, dan jumlah item data yang akan dipulihkan.</li>
+<li>Mengharuskan konfirmasi klik pengguna (<code>"Ya, Kembalikan Data"</code>) sebelum rollback berjalan.</li>
+</ul>
+</li>
+<li><strong>File</strong>: <code>components/storage-recovery-screen.tsx</code></li>
+<li>Mengintegrasikan tombol "Kembalikan dari Checkpoint Terakhir" pada layar penanganan storage error jika checkpoint valid tersedia.</li>
+</ul>
+<h3>E. Pembuatan Test Suite Khusus</h3>
+<ul>
+<li><strong>File</strong>: <code>scripts/test-rollback-safety.mjs</code> (Untracked, 14 skenario pengujian):</li>
+<li>Uji 1: Verifikasi Android applicationId konsisten</li>
+<li>Uji 2: Pembuatan multi-key checkpoint</li>
+<li>Uji 3: Transaksional rollback mengembalikan seluruh data multi-key</li>
+<li>Uji 4: Penolakan checkpoint korup tanpa merusak data aktif</li>
+<li>Uji 5: Penolakan checkpoint masa depan tanpa merusak data aktif</li>
+<li>Uji 6: Rollback abort protection jika storage disk error</li>
+<li>Uji 7: Storage fallback key migrasi ke canonical tanpa hapus key lama</li>
+<li>Uji 8: Checkpoint metadata preview extraction</li>
+<li>Uji 9: Pre-import checkpoint hook verification</li>
+<li>Uji 10: Pre-migration checkpoint hook verification</li>
+<li>Uji 11: Registrasi whitelist preservation fallback keys</li>
+<li>Uji 12: Dual compatibility format envelope v2</li>
+<li>Uji 13: Emergency recovery screen compatibility</li>
+<li>Uji 14: Tidak ada dependency eksternal baru</li>
+<li><strong>File</strong>: <code>scripts/run-all-tests.mjs</code></li>
+<li>Menghubungkan test suite baru ke runner otomatis terpadu.</li>
+</ul>
+<hr />
+<h2>3. Hasil Pengujian, Typecheck &amp; Build</h2>
+<table>
+<thead>
+<tr>
+<th>Pengujian</th>
+<th>Perintah</th>
+<th>Status</th>
+<th>Hasil</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Unit Test Terpadu</strong></td>
+<td><code>pnpm test</code></td>
+<td><strong>PASS</strong></td>
+<td><strong>10 regression suites passed (0 failed)</strong> + 1 security scanner passed.</td>
+</tr>
+<tr>
+<td><strong>TypeScript Check</strong></td>
+<td><code>pnpm exec tsc --noEmit</code></td>
+<td><strong>PASS</strong></td>
+<td><strong>0 error</strong> (Exit Code 0).</td>
+</tr>
+<tr>
+<td><strong>Next.js Web Build</strong></td>
+<td><code>pnpm build</code></td>
+<td><strong>PASS</strong></td>
+<td>Turbopack compilation sukses menghasilkan static pages (<code>/</code>, <code>/_not-found</code>).</td>
+</tr>
+<tr>
+<td><strong>Mobile Export Build</strong></td>
+<td><code>pnpm build:mobile</code></td>
+<td><strong>PASS</strong></td>
+<td>Static export Capacitor sukses (<code>BUILD_TARGET=mobile</code>).</td>
+</tr>
+<tr>
+<td><strong>Git Diff Format</strong></td>
+<td><code>git diff --check</code></td>
+<td><strong>PASS</strong></td>
+<td><strong>0 whitespace error</strong>, 0 conflict marker.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>4. Status Git Saat Ini</h2>
+<pre><code class="language-text">## feat/navigation-entry-category-responsive
+nothing to commit, working tree clean
+
+Commit History Terbaru:
+cfd6533 (HEAD -&gt; feat/navigation-entry-category-responsive) test(audit): add regression test suites and final completion documentation
+80df5f0 feat(core): implement 12-feature package, safe rollback engine, and storage fallbacks
+ea114d7 (origin/feat/navigation-entry-category-responsive) fix(import): fix TypeScript types in data portability CSV parsing and toast notifications
+</code></pre>
+<hr />
+<h2>5. Kepatuhan SOP <code>DEV-PROTOCOL.md</code></h2>
+<ul>
+<li><strong>TIDAK ADA</strong> git push ke remote repository.</li>
+<li><strong>TIDAK ADA</strong> pembuatan Pull Request.</li>
+<li><strong>TIDAK ADA</strong> merge branch ke main/dev.</li>
+<li><strong>TIDAK ADA</strong> version bump (<code>package.json</code> dan <code>build.gradle</code> tetap <code>1.0.7</code>, <code>versionCode 13</code>).</li>
+<li><strong>TIDAK ADA</strong> build APK release (hanya validasi build lokal).</li>
+<li><strong>TIDAK ADA</strong> dependency npm/pnpm baru yang ditambahkan.</li>
+<li><code>next-env.d.ts</code> tidak dimasukkan ke staging/commit.</li>
+</ul>
+</div>
+</body>
+</html>
