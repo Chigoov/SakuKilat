@@ -7,9 +7,19 @@ import {
   useRecurringTransactions,
   cadenceLabel,
   type RecurringCadence,
+  type RecurringTemplate,
 } from '@/lib/recurring'
 import { parseEntry, formatIDR } from '@/lib/parser'
 import { cn } from '@/lib/utils'
+
+function getTemplateType(t: RecurringTemplate): 'expense' | 'income' {
+  if (t.type) return t.type
+  const entry = parseEntry(t.input)
+  if (entry && entry.kind === 'transaction') {
+    return entry.type
+  }
+  return 'expense'
+}
 
 const CADENCES: { id: RecurringCadence; label: string }[] = [
   { id: 'daily',   label: 'Hari' },
@@ -51,6 +61,7 @@ export function RecurringManager() {
       input: draft.trim(),
       label: preview.kind === 'transaction' ? preview.description : draft.trim(),
       cadence,
+      type: preview.kind === 'transaction' ? preview.type : undefined,
     })
     setDraft('')
     setAdding(false)
@@ -100,9 +111,24 @@ export function RecurringManager() {
             >
               <div className="flex items-center gap-2 min-w-0">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[var(--sk-text)] truncate">
-                    {t.label}
-                  </p>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <p className="text-sm font-medium text-[var(--sk-text)] truncate">
+                      {t.label}
+                    </p>
+                    {(() => {
+                      const tType = getTemplateType(t)
+                      return (
+                        <span className={cn(
+                          'shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded',
+                          tType === 'income'
+                            ? 'bg-[var(--sk-green-dim)] text-[var(--sk-green)]'
+                            : 'bg-[var(--sk-red-dim)] text-[var(--sk-red)]'
+                        )}>
+                          {tType === 'income' ? 'Masuk' : 'Keluar'}
+                        </span>
+                      )
+                    })()}
+                  </div>
                   <p className="text-[11px] text-[var(--sk-text-dim)] mt-0.5 flex items-center gap-1.5">
                     <CalendarClock className="w-3 h-3 inline" />
                     {cadenceLabel(t.cadence)}
@@ -161,6 +187,14 @@ export function RecurringManager() {
 
           {preview && preview.kind === 'transaction' && (
             <div className="flex items-center gap-2 flex-wrap text-[11px]">
+              <span className={cn(
+                'px-1.5 py-0.5 rounded text-[10px] font-semibold',
+                preview.type === 'expense'
+                  ? 'bg-[var(--sk-red-dim)] text-[var(--sk-red)]'
+                  : 'bg-[var(--sk-green-dim)] text-[var(--sk-green)]'
+              )}>
+                {preview.type === 'expense' ? 'Pengeluaran' : 'Pemasukan'}
+              </span>
               <span className="px-1.5 py-0.5 rounded-md bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)]">
                 {preview.description}
               </span>

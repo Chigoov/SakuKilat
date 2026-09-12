@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AlertTriangle, Copy, Download, RefreshCw, CheckCircle2, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, Copy, Download, RefreshCw, CheckCircle2, ShieldAlert, Undo2 } from 'lucide-react'
 import { resetCorruptState, type LoadResult } from '@/lib/storage'
+import { executeRollback, canRollback, getCheckpointSummary } from '@/lib/data-restore'
 import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
 
 interface StorageRecoveryScreenProps {
@@ -12,6 +13,18 @@ interface StorageRecoveryScreenProps {
 export function StorageRecoveryScreen({ loadResult }: StorageRecoveryScreenProps) {
   const [copied, setCopied] = useState(false)
   const [showConfirmReset, setShowConfirmReset] = useState(false)
+  const [hasCheckpoint, setHasCheckpoint] = useState(false)
+  const [checkpointInfo, setCheckpointInfo] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const summary = getCheckpointSummary(window.localStorage)
+      if (summary?.exists && summary?.isValid) {
+        setHasCheckpoint(true)
+        setCheckpointInfo(`${summary.transactionCount} transaksi (${summary.reasonLabel})`)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (showConfirmReset) {
@@ -21,6 +34,16 @@ export function StorageRecoveryScreen({ loadResult }: StorageRecoveryScreenProps
     }
     return () => removeBackLayer('recovery-confirm-reset')
   }, [showConfirmReset])
+
+  const handleRollbackRestore = () => {
+    if (typeof window === 'undefined') return
+    const res = executeRollback(window.localStorage)
+    if (res.success) {
+      window.location.reload()
+    } else {
+      alert(res.error || 'Gagal memulihkan checkpoint.')
+    }
+  }
 
   const isCorrupt = loadResult.status === 'corrupt'
   const isIncompatible = loadResult.status === 'incompatible'
@@ -153,6 +176,18 @@ export function StorageRecoveryScreen({ loadResult }: StorageRecoveryScreenProps
               </button>
             </>
           ) : null}
+
+          {/* Emergency Rollback Option from Checkpoint */}
+          {isCorrupt && hasCheckpoint && (
+            <button
+              type="button"
+              onClick={handleRollbackRestore}
+              className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-sm font-semibold transition shadow-lg"
+            >
+              <Undo2 className="w-4 h-4 text-amber-400" />
+              <span>Pulihkan dari Checkpoint {checkpointInfo ? `(${checkpointInfo})` : ''}</span>
+            </button>
+          )}
 
           {/* Reset button: ONLY for corrupt status, NEVER for incompatible */}
           {isCorrupt && (

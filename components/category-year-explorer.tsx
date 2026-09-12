@@ -32,6 +32,7 @@ import {
   categoryYearlyBreakdown,
   categoryYearlySummary,
   subcategoryYearlyBreakdown,
+  topTransactionInCategory,
   MONTH_LABELS,
   type MonthCategoryData,
 } from '@/lib/stats-category-yearly'
@@ -172,6 +173,15 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
 
   const subcategories = useMemo(() => {
     return subcategoryYearlyBreakdown(
+      transactions,
+      selectedYear,
+      selectedType,
+      selectedCategory
+    )
+  }, [transactions, selectedYear, selectedType, selectedCategory])
+
+  const topTx = useMemo(() => {
+    return topTransactionInCategory(
       transactions,
       selectedYear,
       selectedType,
@@ -421,7 +431,7 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
               </span>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col justify-between col-span-2 sm:col-span-1 min-w-0">
+            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col justify-between min-w-0">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--sk-text-dim)]">
                 vs Tahun Lalu ({selectedYear - 1})
               </span>
@@ -454,6 +464,18 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
                 {summary.previousYearTotal > 0
                   ? `Lalu: ${formatIDR(summary.previousYearTotal)}`
                   : 'Tahun pertama dicatat'}
+              </span>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col justify-between min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--sk-text-dim)]">
+                Transaksi Terbesar
+              </span>
+              <span className="text-xs sm:text-sm font-extrabold text-[var(--sk-text)] tabular-nums mt-0.5 whitespace-nowrap overflow-visible">
+                {topTx ? formatIDR(topTx.amount) : '-'}
+              </span>
+              <span className="text-[10px] text-[var(--sk-text-dim)] mt-0.5 truncate" title={topTx?.description || undefined}>
+                {topTx ? (topTx.description || activeCategoryObj?.label) : 'Belum ada'}
               </span>
             </div>
           </div>

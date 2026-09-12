@@ -7,12 +7,34 @@ export const CURRENT_SCHEMA_VERSION = 8
 export const STORAGE_KEY = 'sakukilat:v2:local-state'
 export const CHECKPOINT_KEY = 'sakukilat:v2:import-checkpoint'
 export const GOAL_STORAGE_KEY = 'sakukilat:v2:goals'
+export const RECURRING_STORAGE_KEY = 'sakukilat:v2:recurring'
 export const QUARANTINE_KEY_PREFIX = `${STORAGE_KEY}:quarantine:`
+
+/**
+ * Legacy & variant fallback storage keys to preserve backward compatibility
+ * across app upgrades, variant testing, or earlier releases.
+ */
+export const STORAGE_KEY_FALLBACKS = [
+  'sakukilat-user:v2:local-state',
+  'sakukilat:local-state',
+  'sakukilat:v1:local-state',
+] as const
+
+export const GOAL_STORAGE_KEY_FALLBACKS = [
+  'sakukilat-user:v2:goals',
+  'sakukilat:goals',
+] as const
+
+export const RECURRING_STORAGE_KEY_FALLBACKS = [
+  'sakukilat-user:v2:recurring',
+  'sakukilat:recurring',
+] as const
 
 export const KNOWN_STORAGE_KEYS = new Set<string>([
   STORAGE_KEY,
   CHECKPOINT_KEY,
   GOAL_STORAGE_KEY,
+  RECURRING_STORAGE_KEY,
   'sakukilat:v2:goals:checkpoint',
   'sakukilat:v2:budget-set',
   'sakukilat:v2:ach-budget-up',
@@ -23,8 +45,12 @@ export const KNOWN_STORAGE_KEYS = new Set<string>([
   'sakukilat:v2:lock-biometric-enabled',
   'sakukilat:v2:notification-settings',
   'sakukilat:v2:celebrated-goals',
-  'sakukilat:v2:recurring',
   'sakukilat:v2:celebrated-streak',
+  ...STORAGE_KEY_FALLBACKS,
+  ...GOAL_STORAGE_KEY_FALLBACKS,
+  ...RECURRING_STORAGE_KEY_FALLBACKS,
+  'sakukilat-user:v2:app-lock',
+  'sakukilat:app-lock',
 ])
 
 export const ONBOARDING_STORAGE_KEY_PREFIX = 'sakukilat:onboarding:'
@@ -33,6 +59,7 @@ export const PRESERVED_KEY_PREFIXES = [
   'sakukilat:v2:import-checkpoint',
   'sakukilat:v2:goals:checkpoint',
   'sakukilat:v2:goals',
+  'sakukilat:v2:recurring',
   'sakukilat:v2:backup-count',
   'sakukilat:v2:import-count',
   'sakukilat:v2:zen-used',
@@ -52,6 +79,10 @@ export const PRESERVED_KEY_PREFIXES = [
   'sakukilat:v2:last-rollover',
   'sakukilat:v2:app-lock',
   'sakukilat:v2:demo',
+  'sakukilat-user:v2:',
+  'sakukilat-owner:',
+  'sakukilat:local-state',
+  'sakukilat:v1:',
 ]
 
 export type StorageStatus = 'valid' | 'missing' | 'corrupt' | 'incompatible'
@@ -179,7 +210,20 @@ export function loadPersistedState(customStorage?: StorageLike): LoadResult {
   // Callers must invoke it explicitly only after status is confirmed as 'valid' or 'missing',
   // to avoid deleting unknown keys that belong to a newer schema version.
 
-  const raw = storage.getItem(STORAGE_KEY)
+  let raw = storage.getItem(STORAGE_KEY)
+  let loadedFromFallback = false
+
+  if (raw === null || raw === undefined) {
+    for (const fallbackKey of STORAGE_KEY_FALLBACKS) {
+      const fallbackVal = storage.getItem(fallbackKey)
+      if (fallbackVal !== null && fallbackVal !== undefined && fallbackVal !== '') {
+        raw = fallbackVal
+        loadedFromFallback = true
+        break
+      }
+    }
+  }
+
   if (raw === null || raw === undefined) {
     return { status: 'missing', state: {} }
   }
@@ -234,7 +278,47 @@ export function loadPersistedState(customStorage?: StorageLike): LoadResult {
     }
   }
 
+  if (loadedFromFallback) {
+    try {
+      storage.setItem(STORAGE_KEY, raw)
+    } catch {
+      // Best effort migration
+    }
+  }
+
   return { status: 'valid', state: record }
+}
+
+/**
+ * Loads goals payload from storage, seamlessly checking fallback keys if primary is missing.
+ */
+export function loadGoalsFromStorage(storage: StorageLike): string | null {
+  const primary = storage.getItem(GOAL_STORAGE_KEY)
+  if (primary !== null && primary !== undefined) return primary
+  for (const fallback of GOAL_STORAGE_KEY_FALLBACKS) {
+    const val = storage.getItem(fallback)
+    if (val !== null && val !== undefined) {
+      try { storage.setItem(GOAL_STORAGE_KEY, val) } catch {}
+      return val
+    }
+  }
+  return null
+}
+
+/**
+ * Loads recurring templates payload from storage, seamlessly checking fallback keys if primary is missing.
+ */
+export function loadRecurringFromStorage(storage: StorageLike): string | null {
+  const primary = storage.getItem(RECURRING_STORAGE_KEY)
+  if (primary !== null && primary !== undefined) return primary
+  for (const fallback of RECURRING_STORAGE_KEY_FALLBACKS) {
+    const val = storage.getItem(fallback)
+    if (val !== null && val !== undefined) {
+      try { storage.setItem(RECURRING_STORAGE_KEY, val) } catch {}
+      return val
+    }
+  }
+  return null
 }
 
 /**

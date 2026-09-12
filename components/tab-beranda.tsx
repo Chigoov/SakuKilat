@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Flame, Lightbulb, TrendingDown, TrendingUp, Trophy, ChevronRight } from 'lucide-react'
+import { AlertTriangle, Flame, Lightbulb, Target, TrendingDown, TrendingUp, Trophy, ChevronRight, Zap } from 'lucide-react'
 import { BudgetCard } from '@/components/budget-card'
 import { CategoryBudgetCard } from '@/components/category-budget-card'
 import { BottomSheet } from '@/components/bottom-sheet'
@@ -22,7 +22,9 @@ import {
   useWalletStore,
 } from '@/lib/store'
 import {
+  cashflowSummary,
   categoryBreakdown,
+  generateInsights,
   monthlyBudgetStatus,
   monthlyTotals,
   periodInsight,
@@ -119,6 +121,8 @@ export const TabBeranda = memo(function TabBeranda() {
   const budgetStatus = useMemo(() => monthlyBudgetStatus(transactions, monthlyBudget, now), [monthlyBudget, transactions])
   const weeklyInsight = useMemo(() => periodInsight(transactions, 'minggu', now), [transactions])
   const monthlyInsight = useMemo(() => periodInsight(transactions, 'bulan', now), [transactions])
+  const cashflow = useMemo(() => cashflowSummary(transactions, now), [transactions])
+  const insights = useMemo(() => generateInsights(transactions, now), [transactions])
   const activeInsight = analysisScope === 'minggu' ? weeklyInsight : monthlyInsight
   const expenseSlices = useMemo(
     () => categoryBreakdown(transactions, now, 'expense').slice(0, 5),
@@ -316,6 +320,150 @@ export const TabBeranda = memo(function TabBeranda() {
 
         <BudgetCard />
         <CategoryBudgetCard />
+
+        {/* ── Widget Cashflow Pintar ─────────────────────────────────── */}
+        {cashflow.income > 0 && (
+          <section className="mt-5 rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-[var(--sk-cyan-dim)]">
+                <Zap className="h-4 w-4 text-[var(--sk-cyan)]" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[var(--sk-text)]">Cashflow Pintar</p>
+                <p className="text-[11px] text-[var(--sk-text-dim)]">{cashflow.periodLabel}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-[16px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--sk-text-dim)]">Burn Rate</p>
+                <p className={cn('mt-1 text-[14px] font-bold tabular-nums',
+                  cashflow.burnRate !== null && cashflow.burnRate > 1 ? 'text-[var(--sk-red)]' : 'text-[var(--sk-text)]'
+                )}>
+                  {cashflow.burnRate !== null ? `${Math.round(cashflow.burnRate * 100)}%` : '-'}
+                </p>
+              </div>
+              <div className="rounded-[16px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--sk-text-dim)]">Rasio Tabungan</p>
+                <p className={cn('mt-1 text-[14px] font-bold tabular-nums',
+                  cashflow.savingsRatio !== null && cashflow.savingsRatio >= 0.2 ? 'text-[var(--sk-green)]' : 'text-[var(--sk-text)]'
+                )}>
+                  {cashflow.savingsRatio !== null ? `${Math.round(cashflow.savingsRatio * 100)}%` : '-'}
+                </p>
+              </div>
+              <div className="rounded-[16px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--sk-text-dim)]">Rata-rata/Hari</p>
+                <p className="mt-1 text-[12px] font-bold tabular-nums text-[var(--sk-text)]">
+                  {formatIDR(Math.round(cashflow.avgDailyExpense))}
+                </p>
+              </div>
+              <div className="rounded-[16px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-3">
+                <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--sk-text-dim)]">Proyeksi Akhir</p>
+                <p className={cn('mt-1 text-[12px] font-bold tabular-nums',
+                  cashflow.projectedMonthNet < 0 ? 'text-[var(--sk-red)]' : 'text-[var(--sk-green)]'
+                )}>
+                  {cashflow.projectedMonthNet < 0 ? '-' : ''}{formatIDR(Math.abs(cashflow.projectedMonthNet))}
+                </p>
+              </div>
+            </div>
+
+            {cashflow.warnings.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                {cashflow.warnings.map((warning, i) => (
+                  <div key={i} className="flex items-start gap-2 rounded-2xl bg-[rgba(239,68,68,0.08)] px-3 py-2">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[var(--sk-red)]" />
+                    <p className="text-[12px] font-medium text-[var(--sk-red)]">{warning}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Widget Insight Otomatis ────────────────────────────────── */}
+        {insights.length > 0 && (
+          <section className="mt-5 rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-[rgba(250,204,21,0.16)]">
+                <Lightbulb className="h-4 w-4 text-[#facc15]" />
+              </div>
+              <p className="text-sm font-semibold text-[var(--sk-text)]">Insight Bulan Ini</p>
+            </div>
+            <div className="space-y-2">
+              {insights.map((insight, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    'flex items-start gap-2.5 rounded-2xl px-3 py-2.5',
+                    insight.type === 'positive' ? 'bg-[rgba(16,185,129,0.08)]'
+                      : insight.type === 'negative' ? 'bg-[rgba(239,68,68,0.08)]'
+                      : 'bg-[var(--sk-surface-2)]'
+                  )}
+                >
+                  <span className="mt-0.5 flex-shrink-0 text-[16px]">{insight.emoji}</span>
+                  <p className={cn(
+                    'text-[13px] font-medium',
+                    insight.type === 'positive' ? 'text-[var(--sk-green)]'
+                      : insight.type === 'negative' ? 'text-[var(--sk-red)]'
+                      : 'text-[var(--sk-text-muted)]'
+                  )}>{insight.text}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Widget Goal Progress Mini ──────────────────────────────── */}
+        {goals.length > 0 && (
+          <section className="mt-5 rounded-[26px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-[rgba(168,85,247,0.16)]">
+                  <Target className="h-4 w-4 text-[#a855f7]" />
+                </div>
+                <p className="text-sm font-semibold text-[var(--sk-text)]">Target Tabungan</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('sakukilat:navigate', { detail: { tab: 'profil' } }))}
+                className="text-[12px] text-[var(--sk-text-dim)]"
+              >
+                Lihat semua
+              </button>
+            </div>
+            <div className="space-y-3">
+              {goals.slice(0, 3).map((goal) => {
+                const pct = goal.target > 0 ? Math.min(100, Math.round((goal.saved / goal.target) * 100)) : 0
+                const done = goal.saved >= goal.target
+                return (
+                  <div key={goal.id}>
+                    <div className="mb-1 flex items-baseline justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[var(--sk-text)]">{goal.label}</span>
+                      <span className={cn(
+                        'flex-shrink-0 text-[12px] font-semibold tabular-nums',
+                        done ? 'text-[var(--sk-green)]' : 'text-[var(--sk-text-muted)]'
+                      )}>
+                        {formatIDR(goal.saved)} / {formatIDR(goal.target)}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--sk-surface-2)]">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-[width]',
+                          done ? 'bg-[var(--sk-green)]' : 'bg-[#a855f7]'
+                        )}
+                        style={{ width: `${Math.max(pct, goal.saved > 0 ? 4 : 0)}%` }}
+                      />
+                    </div>
+                    <p className="mt-0.5 text-[11px] tabular-nums text-[var(--sk-text-dim)]">
+                      {done ? '✅ Tercapai!' : `${pct}% — sisa ${formatIDR(goal.target - goal.saved)}`}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         <section className="mt-5">
           <div className="flex items-center justify-between gap-3">

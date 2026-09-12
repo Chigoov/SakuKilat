@@ -28,6 +28,8 @@ export interface RecurringTemplate {
   lastFiredAt: number | null
   active: boolean
   createdAt: number
+  /** Optional type hint — auto-detected from parser preview when creating. */
+  type?: 'expense' | 'income'
 }
 
 const STORAGE_KEY = 'sakukilat:v2:recurring'
@@ -99,7 +101,7 @@ function genId(): string {
 export interface UseRecurringResult {
   templates: RecurringTemplate[]
   /** Add a new recurring template. The first fire happens immediately on next open of the app. */
-  addTemplate: (input: { input: string; label: string; cadence: RecurringCadence; firstRunAt?: number }) => void
+  addTemplate: (input: { input: string; label: string; cadence: RecurringCadence; firstRunAt?: number; type?: 'expense' | 'income' }) => void
   removeTemplate: (id: string) => void
   toggleActive: (id: string) => void
   /** Manually fire a single template now (does not affect schedule). */
@@ -178,7 +180,7 @@ export function useRecurringTransactions(
     })()
   }, [hydrated, templates, addTransaction])
 
-  const addTemplate = useCallback<UseRecurringResult['addTemplate']>(({ input, label, cadence, firstRunAt }) => {
+  const addTemplate = useCallback<UseRecurringResult['addTemplate']>(({ input, label, cadence, firstRunAt, type }) => {
     const now = Date.now()
     const tpl: RecurringTemplate = {
       id: genId(),
@@ -190,6 +192,7 @@ export function useRecurringTransactions(
       lastFiredAt: null,
       active: true,
       createdAt: now,
+      type,
     }
     setTemplates(prev => [tpl, ...prev])
   }, [])

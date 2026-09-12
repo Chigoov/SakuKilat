@@ -15,18 +15,20 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { ChevronLeft, ChevronRight, Minus, Search, TrendingDown, TrendingUp, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Minus, RotateCcw, Search, SlidersHorizontal, TrendingDown, TrendingUp, X } from 'lucide-react'
 import { BottomSheet } from '@/components/bottom-sheet'
 import { FilterTabs, type FilterTab } from '@/components/filter-tabs'
 import { TransactionList } from '@/components/transaction-list'
-import { getCategoryConfig, getCategoryHex } from '@/components/category-badge'
+import { getCategoryConfig, getCategoryHex, CATEGORY_CONFIG } from '@/components/category-badge'
 import { formatIDR, formatIDRCompact, formatIDRShort } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import { useTransactionActions, useTransactionData, useTransactionStatus } from '@/lib/store'
 import {
   categoryMonthlyComparison,
+  categoryYearlyComparison,
   dailyAggregates,
   dayKey,
+  filterTransactions,
   rangeCategoryBreakdown,
   rangeTotals,
   subcategoryBreakdownForRange,
@@ -233,6 +235,11 @@ export const TabRekapan = memo(function TabRekapan() {
   const [showCategoryExplorer, setShowCategoryExplorer] = useState(false)
   const [explorerCategory, setExplorerCategory] = useState<string>('makanan')
   const [explorerType, setExplorerType] = useState<'expense' | 'income'>('expense')
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('semua')
+  const [minAmount, setMinAmount] = useState<string>('')
+  const [maxAmount, setMaxAmount] = useState<string>('')
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState<boolean>(false)
+  const [comparisonPeriod, setComparisonPeriod] = useState<'month' | 'year'>('month')
 
   useEffect(() => {
     if (detailSheet) {
@@ -256,27 +263,55 @@ export const TabRekapan = memo(function TabRekapan() {
     [rangeMode, selectedMonth, periodStart, periodEnd]
   )
   const rangeTransactions = useMemo(
-    () => transactionsForRange(transactions, bounds.start, bounds.end),
+    () => transactionsForRange(transactions, bounds.start, bounds.end, { includeMoneyMoves: true }),
     [bounds.end, bounds.start, transactions]
   )
-  const searchedTransactions = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    if (!query) return rangeTransactions
-    const digits = query.replace(/[^0-9]/g, '')
-    return rangeTransactions.filter((transaction) => {
-      const haystack = [
-        transaction.description,
-        getCategoryConfig(transaction.category).label,
-        transaction.subcategory ?? '',
-        transaction.paymentMethod ?? '',
-      ]
-        .join(' ')
-        .toLowerCase()
-      if (haystack.includes(query)) return true
-      if (digits && String(transaction.amount).includes(digits)) return true
-      return false
+
+  const allCategoryOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const t of transactions) {
+      if (t.category && t.category !== 'transfer') set.add(t.category)
+    }
+    Object.keys(CATEGORY_CONFIG).forEach((k) => {
+      if (k !== 'transfer') set.add(k)
     })
-  }, [search, rangeTransactions])
+    return Array.from(set).map((catId) => ({
+      id: catId,
+      label: getCategoryConfig(catId).label,
+    })).sort((a, b) => a.label.localeCompare(b.label, 'id'))
+  }, [transactions])
+
+  const activeAdvancedFilterCount = useMemo(() => {
+    let count = 0
+    if (selectedCategoryFilter !== 'semua') count++
+    if (minAmount.trim()) count++
+    if (maxAmount.trim()) count++
+    return count
+  }, [selectedCategoryFilter, minAmount, maxAmount])
+
+  const minNum = useMemo(() => {
+    if (!minAmount.trim()) return undefined
+    const parsed = Number(minAmount.replace(/[^0-9]/g, ''))
+    return isNaN(parsed) ? undefined : parsed
+  }, [minAmount])
+
+  const maxNum = useMemo(() => {
+    if (!maxAmount.trim()) return undefined
+    const parsed = Number(maxAmount.replace(/[^0-9]/g, ''))
+    return isNaN(parsed) ? undefined : parsed
+  }, [maxAmount])
+
+  const catFilter = selectedCategoryFilter !== 'semua' ? selectedCategoryFilter : undefined
+
+  const searchedTransactions = useMemo(() => {
+    return filterTransactions(rangeTransactions, {
+      category: catFilter,
+      amountMin: minNum,
+      amountMax: maxNum,
+      keyword: search.trim() || undefined,
+      includeMoneyMoves: true,
+    })
+  }, [rangeTransactions, catFilter, minNum, maxNum, search])
   const filteredHistory = useMemo(() => {
     if (filter === 'pengeluaran') return searchedTransactions.filter((transaction) => transaction.type === 'expense')
     if (filter === 'pemasukan') return searchedTransactions.filter((transaction) => transaction.type === 'income')
@@ -358,6 +393,10 @@ export const TabRekapan = memo(function TabRekapan() {
   const categoryComparison = useMemo(
     () => categoryMonthlyComparison(transactions, selectedMonth, allocationType, 3),
     [allocationType, selectedMonth, transactions]
+  )
+  const yearlyCategoryComparison = useMemo(
+    () => categoryYearlyComparison(transactions, selectedYear, allocationType),
+    [allocationType, selectedYear, transactions]
   )
   const monthDayMap = useMemo(() => dailyAggregates(monthTransactions), [monthTransactions])
   const yearlyRows = useMemo(() => monthlyBreakdownForYear(transactions, selectedYear), [selectedYear, transactions])
@@ -545,25 +584,112 @@ export const TabRekapan = memo(function TabRekapan() {
               </button>
             </div>
 
-            <div className="mt-5 flex items-center gap-2 rounded-[18px] border border-[var(--sk-border)] bg-[var(--sk-surface)] px-3.5 py-2.5">
-              <Search className="h-4 w-4 shrink-0 text-[var(--sk-text-dim)]" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Cari keterangan, kategori, nominal…"
-                className="min-w-0 flex-1 bg-transparent text-sm text-[var(--sk-text)] outline-none placeholder:text-[var(--sk-text-dim)]"
-              />
-              {search ? (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  aria-label="Hapus pencarian"
-                  className="shrink-0 text-[var(--sk-text-dim)]"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : null}
+            <div className="mt-5 flex items-center gap-2">
+              <div className="flex flex-1 items-center gap-2 rounded-[18px] border border-[var(--sk-border)] bg-[var(--sk-surface)] px-3.5 py-2.5">
+                <Search className="h-4 w-4 shrink-0 text-[var(--sk-text-dim)]" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Cari keterangan, kategori, nominal…"
+                  className="min-w-0 flex-1 bg-transparent text-sm text-[var(--sk-text)] outline-none placeholder:text-[var(--sk-text-dim)]"
+                />
+                {search ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    aria-label="Hapus pencarian"
+                    className="shrink-0 text-[var(--sk-text-dim)]"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilter((prev) => !prev)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-[18px] border px-3.5 py-2.5 text-sm font-semibold transition-colors shrink-0',
+                  showAdvancedFilter || activeAdvancedFilterCount > 0
+                    ? 'border-[var(--sk-cyan)] bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)]'
+                    : 'border-[var(--sk-border)] bg-[var(--sk-surface)] text-[var(--sk-text-muted)] hover:text-[var(--sk-text)]'
+                )}
+                aria-label="Filter Lanjutan"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                <span className="hidden sm:inline">Filter</span>
+                {activeAdvancedFilterCount > 0 && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--sk-cyan)] text-[11px] font-bold text-[#090D16]">
+                    {activeAdvancedFilterCount}
+                  </span>
+                )}
+              </button>
             </div>
+
+            {showAdvancedFilter && (
+              <div className="mt-3 rounded-[20px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--sk-text-dim)]">
+                    Filter Lanjutan
+                  </span>
+                  {activeAdvancedFilterCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategoryFilter('semua')
+                        setMinAmount('')
+                        setMaxAmount('')
+                      }}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-[var(--sk-cyan)] hover:underline"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Reset Filter
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-[var(--sk-text-dim)]">Kategori</label>
+                  <select
+                    value={selectedCategoryFilter}
+                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                    className="w-full rounded-[14px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-3 py-2 text-xs font-semibold text-[var(--sk-text)] outline-none"
+                  >
+                    <option value="semua">Semua Kategori</option>
+                    {allCategoryOptions.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-[var(--sk-text-dim)]">Nominal Min (Rp)</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={minAmount}
+                      onChange={(e) => setMinAmount(e.target.value)}
+                      className="w-full rounded-[14px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-3 py-2 text-xs font-semibold text-[var(--sk-text)] outline-none tabular-nums"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-[var(--sk-text-dim)]">Nominal Max (Rp)</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="Tanpa batas"
+                      value={maxAmount}
+                      onChange={(e) => setMaxAmount(e.target.value)}
+                      className="w-full rounded-[14px] border border-[var(--sk-border)] bg-[var(--sk-surface-2)] px-3 py-2 text-xs font-semibold text-[var(--sk-text)] outline-none tabular-nums"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="my-5 border-t border-[var(--sk-border)] pt-5">
               <FilterTabs active={filter} onChange={setFilter} counts={historyCounts} />
@@ -984,63 +1110,147 @@ export const TabRekapan = memo(function TabRekapan() {
             </div>
 
             <div className="rounded-[28px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
-              <div>
-                <p className="text-[15px] font-semibold text-[var(--sk-text)]">Dibanding bulan lalu</p>
-                <p className="mt-1 text-sm text-[var(--sk-text-dim)]">
-                  {allocationType === 'expense' ? 'Pengeluaran' : 'Pemasukan'} per kategori vs {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(addMonths(selectedMonth, -1))}
-                </p>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[15px] font-semibold text-[var(--sk-text)]">
+                    Perbandingan {comparisonPeriod === 'month' ? 'Bulan Ini' : 'Tahun Ini'}
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--sk-text-dim)]">
+                    {comparisonPeriod === 'month'
+                      ? `${allocationType === 'expense' ? 'Pengeluaran' : 'Pemasukan'} per kategori vs ${new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(addMonths(selectedMonth, -1))}`
+                      : `${allocationType === 'expense' ? 'Pengeluaran' : 'Pemasukan'} per kategori ${selectedYear} vs ${selectedYear - 1}`}
+                  </p>
+                </div>
+                <div className="flex rounded-xl border border-[var(--sk-border)] bg-[var(--sk-surface-2)] p-0.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setComparisonPeriod('month')}
+                    className={cn(
+                      'rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors',
+                      comparisonPeriod === 'month'
+                        ? 'bg-[var(--sk-surface)] text-[var(--sk-text)] shadow-sm'
+                        : 'text-[var(--sk-text-dim)] hover:text-[var(--sk-text)]'
+                    )}
+                  >
+                    Bulan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setComparisonPeriod('year')}
+                    className={cn(
+                      'rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors',
+                      comparisonPeriod === 'year'
+                        ? 'bg-[var(--sk-surface)] text-[var(--sk-text)] shadow-sm'
+                        : 'text-[var(--sk-text-dim)] hover:text-[var(--sk-text)]'
+                    )}
+                  >
+                    Tahun
+                  </button>
+                </div>
               </div>
 
               <div className="my-4 h-px bg-[var(--sk-border)]" />
 
-              {categoryComparison.length === 0 ? (
-                <p className="text-sm text-[var(--sk-text-dim)]">
-                  Belum ada data untuk dibandingkan dengan bulan sebelumnya.
-                </p>
+              {comparisonPeriod === 'month' ? (
+                categoryComparison.length === 0 ? (
+                  <p className="text-sm text-[var(--sk-text-dim)]">
+                    Belum ada data untuk dibandingkan dengan bulan sebelumnya.
+                  </p>
+                ) : (
+                  <div className="space-y-3.5">
+                    {categoryComparison.slice(0, 6).map((row) => {
+                      const deltaPct = row.deltaVsPrev === null ? null : Math.round(row.deltaVsPrev * 100)
+                      const good = allocationType === 'expense'
+                        ? (deltaPct !== null && deltaPct < 0)
+                        : (deltaPct !== null && deltaPct > 0)
+                      const badgeColor = deltaPct === null
+                        ? 'text-[var(--sk-cyan)]'
+                        : deltaPct === 0
+                          ? 'text-[var(--sk-text-dim)]'
+                          : good
+                            ? 'text-[var(--sk-green)]'
+                            : 'text-[var(--sk-red)]'
+                      const badgeText = deltaPct === null
+                        ? 'Baru'
+                        : deltaPct > 0
+                          ? `Naik ${deltaPct}%`
+                          : deltaPct < 0
+                            ? `Turun ${Math.abs(deltaPct)}%`
+                            : 'Sama'
+                      return (
+                        <div key={row.category}>
+                          <div className="flex items-center gap-3">
+                            <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: getCategoryHex(row.category) }} />
+                            <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--sk-text-muted)]">
+                              {getCategoryConfig(row.category).label}
+                            </span>
+                            <span className="shrink-0 text-xs font-semibold text-[var(--sk-text)] tabular-nums">
+                              {formatIDR(row.current)}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between gap-2 pl-6 text-xs">
+                            <span className="text-[var(--sk-text-dim)] tabular-nums">
+                              Bln lalu {formatIDR(row.previous)}
+                            </span>
+                            <span className={cn('shrink-0 font-semibold', badgeColor)}>
+                              {badgeText}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
               ) : (
-                <div className="space-y-3.5">
-                  {categoryComparison.slice(0, 6).map((row) => {
-                    const deltaPct = row.deltaVsPrev === null ? null : Math.round(row.deltaVsPrev * 100)
-                    const good = allocationType === 'expense'
-                      ? (deltaPct !== null && deltaPct < 0)
-                      : (deltaPct !== null && deltaPct > 0)
-                    const badgeColor = deltaPct === null
-                      ? 'text-[var(--sk-cyan)]'
-                      : deltaPct === 0
-                        ? 'text-[var(--sk-text-dim)]'
-                        : good
-                          ? 'text-[var(--sk-green)]'
-                          : 'text-[var(--sk-red)]'
-                    const badgeText = deltaPct === null
-                      ? 'Baru'
-                      : deltaPct > 0
-                        ? `Naik ${deltaPct}%`
-                        : deltaPct < 0
-                          ? `Turun ${Math.abs(deltaPct)}%`
-                          : 'Sama'
-                    return (
-                      <div key={row.category}>
-                        <div className="flex items-center gap-3">
-                          <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: getCategoryHex(row.category) }} />
-                          <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--sk-text-muted)]">
-                            {getCategoryConfig(row.category).label}
-                          </span>
-                          <span className="shrink-0 text-xs font-semibold text-[var(--sk-text)] tabular-nums">
-                            {formatIDRCompact(row.current)}
-                          </span>
+                yearlyCategoryComparison.length === 0 ? (
+                  <p className="text-sm text-[var(--sk-text-dim)]">
+                    Belum ada data untuk dibandingkan dengan tahun sebelumnya.
+                  </p>
+                ) : (
+                  <div className="space-y-3.5">
+                    {yearlyCategoryComparison.slice(0, 6).map((row) => {
+                      const deltaPct = row.changePct === null ? null : Math.round(row.changePct * 100)
+                      const good = allocationType === 'expense'
+                        ? (deltaPct !== null && deltaPct < 0)
+                        : (deltaPct !== null && deltaPct > 0)
+                      const badgeColor = deltaPct === null
+                        ? 'text-[var(--sk-cyan)]'
+                        : deltaPct === 0
+                          ? 'text-[var(--sk-text-dim)]'
+                          : good
+                            ? 'text-[var(--sk-green)]'
+                            : 'text-[var(--sk-red)]'
+                      const badgeText = deltaPct === null
+                        ? 'Baru'
+                        : deltaPct > 0
+                          ? `Naik ${deltaPct}%`
+                          : deltaPct < 0
+                            ? `Turun ${Math.abs(deltaPct)}%`
+                            : 'Sama'
+                      return (
+                        <div key={row.category}>
+                          <div className="flex items-center gap-3">
+                            <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: getCategoryHex(row.category) }} />
+                            <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--sk-text-muted)]">
+                              {getCategoryConfig(row.category).label}
+                            </span>
+                            <span className="shrink-0 text-xs font-semibold text-[var(--sk-text)] tabular-nums">
+                              {formatIDR(row.total)}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between gap-2 pl-6 text-xs">
+                            <span className="text-[var(--sk-text-dim)] tabular-nums">
+                              Thn lalu {formatIDR(row.prevYearTotal)}
+                            </span>
+                            <span className={cn('shrink-0 font-semibold', badgeColor)}>
+                              {badgeText}
+                            </span>
+                          </div>
                         </div>
-                        <div className="mt-1 flex items-center justify-between gap-2 pl-6 text-xs">
-                          <span className="text-[var(--sk-text-dim)] tabular-nums">
-                            Bln lalu {formatIDRCompact(row.previous)}
-                          </span>
-                          <span className={cn('shrink-0 font-semibold', badgeColor)}>
-                            {badgeText}
-                          </span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                      )
+                    })}
+                  </div>
+                )
               )}
             </div>
 

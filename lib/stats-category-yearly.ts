@@ -203,3 +203,29 @@ export function subcategoryYearlyBreakdown(
 
   return items.sort((a, b) => b.total - a.total)
 }
+
+/**
+ * Finds the single largest transaction for a category in a given year.
+ */
+export function topTransactionInCategory(
+  transactions: Transaction[],
+  year: number,
+  type: 'expense' | 'income',
+  categoryId: string,
+): Transaction | null {
+  let best: Transaction | null = null
+
+  for (const tx of transactions) {
+    if (isExcludedTx(tx)) continue
+    if (tx.type !== type || tx.category !== categoryId) continue
+
+    const date = parseTxDate(tx.date)
+    if (date.getFullYear() !== year) continue
+
+    if (!best || tx.amount > best.amount) {
+      best = tx
+    }
+  }
+
+  return best
+}

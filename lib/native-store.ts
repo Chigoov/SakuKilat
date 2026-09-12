@@ -30,16 +30,34 @@ import { APP_STORAGE_PREFIX, appScopedKey } from '@/lib/app-variant'
 const NATIVE_INDEX_KEY = `${APP_STORAGE_PREFIX}:native-keys`
 const BACKUP_DIR = APP_STORAGE_PREFIX.replace(/[:]/g, '-')
 const BACKUP_FILE = `${BACKUP_DIR}/backup-latest.json`
+const CANONICAL_PRIMARY_KEYS = [
+  'sakukilat:v2:local-state',
+  'sakukilat:v2:goals',
+  'sakukilat:v2:recurring',
+] as const
+
+const CANONICAL_TRACKED_KEYS = [
+  ...CANONICAL_PRIMARY_KEYS,
+  'sakukilat:v2:celebrated-goals',
+  'sakukilat:v2:app-lock',
+] as const
+
 const PRIMARY_KEYS = [
+  ...CANONICAL_PRIMARY_KEYS,
   appScopedKey('local-state'),
   appScopedKey('goals'),
   appScopedKey('recurring'),
 ] as const
+
 const TRACKED_KEYS = [
-  ...PRIMARY_KEYS,
+  ...CANONICAL_TRACKED_KEYS,
+  appScopedKey('local-state'),
+  appScopedKey('goals'),
+  appScopedKey('recurring'),
   appScopedKey('celebrated-goals'),
   appScopedKey('app-lock'),
 ] as const
+
 let fileBackupTimer: ReturnType<typeof setTimeout> | null = null
 
 interface BackupPayload {
@@ -61,6 +79,18 @@ function localEntries() {
     const value = window.localStorage.getItem(key)
     if (value != null) entries[key] = value
   }
+  // Ensure canonical keys and scoped keys mirror each other
+  const keyPairs: [string, string][] = [
+    ['sakukilat:v2:local-state', appScopedKey('local-state')],
+    ['sakukilat:v2:goals', appScopedKey('goals')],
+    ['sakukilat:v2:recurring', appScopedKey('recurring')],
+    ['sakukilat:v2:celebrated-goals', appScopedKey('celebrated-goals')],
+    ['sakukilat:v2:app-lock', appScopedKey('app-lock')],
+  ]
+  for (const [canonical, scoped] of keyPairs) {
+    if (!entries[canonical] && entries[scoped]) entries[canonical] = entries[scoped]
+    if (!entries[scoped] && entries[canonical]) entries[scoped] = entries[canonical]
+  }
   return entries
 }
 
@@ -71,8 +101,16 @@ function primaryDataPresent(entries: Record<string, string>): boolean {
 function applyEntries(entries: Record<string, string>) {
   for (const key of TRACKED_KEYS) {
     const value = entries[key]
-    if (value == null) window.localStorage.removeItem(key)
-    else window.localStorage.setItem(key, value)
+    if (value != null) {
+      window.localStorage.setItem(key, value)
+      if (key === appScopedKey('local-state')) {
+        window.localStorage.setItem('sakukilat:v2:local-state', value)
+      } else if (key === appScopedKey('goals')) {
+        window.localStorage.setItem('sakukilat:v2:goals', value)
+      } else if (key === appScopedKey('recurring')) {
+        window.localStorage.setItem('sakukilat:v2:recurring', value)
+      }
+    }
   }
 }
 

@@ -50,6 +50,7 @@ import {
   type StorageStatus,
   type LoadResult,
 } from '@/lib/storage'
+import { createComprehensiveCheckpoint } from '@/lib/data-restore'
 import { StorageRecoveryScreen } from '@/components/storage-recovery-screen'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -445,6 +446,18 @@ function loadPersistedStateForStore(): LoadResult {
     cleanupStaleStorageKeys(window.localStorage)
   }
   if (result.status === 'valid' && result.state) {
+    const prevVersion = typeof result.state.schemaVersion === 'number' ? result.state.schemaVersion : 1
+    if (prevVersion < CURRENT_SCHEMA_VERSION && typeof window !== 'undefined') {
+      try {
+        createComprehensiveCheckpoint(
+          window.localStorage,
+          'migration',
+          `Sebelum migrasi skema v${prevVersion} ke v${CURRENT_SCHEMA_VERSION}`
+        )
+      } catch {
+        // Non-blocking checkpoint creation
+      }
+    }
     return {
       ...result,
       state: migratePersistedState(result.state),

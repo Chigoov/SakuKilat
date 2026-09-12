@@ -333,27 +333,262 @@ export function planImport(rawText: string, storage: StorageLike, options: { isC
   }
 }
 
+export const CRITICAL_CHECKPOINT_KEYS = [
+  STORAGE_KEY,
+  GOAL_STORAGE_KEY,
+  'sakukilat:v2:recurring',
+  'sakukilat:v2:budget-set',
+] as const
+
+export type CheckpointReason = 'import' | 'restore' | 'migration' | 'bulk_operation' | 'manual'
+
+export interface CheckpointMetadata {
+  timestamp: string
+  reason: CheckpointReason
+  schemaVersion: number
+  transactionCount: number
+  goalCount: number
+  recurringCount: number
+  customCategoryCount: number
+  hasBudget: boolean
+  description?: string
+}
+
+export interface ComprehensiveCheckpointEnvelope {
+  envelopeVersion: 2
+  createdAt: string
+  reason: CheckpointReason
+  description?: string
+  metadata: CheckpointMetadata
+  entries: Record<string, string | null>
+}
+
+export interface CheckpointSummary {
+  exists: boolean
+  createdAt?: string
+  reason?: CheckpointReason
+  reasonLabel: string
+  description?: string
+  transactionCount: number
+  goalCount: number
+  recurringCount: number
+  customCategoryCount: number
+  schemaVersion: number
+  isValid: boolean
+  error?: string
+}
+
+export function formatReasonLabel(reason?: CheckpointReason): string {
+  switch (reason) {
+    case 'import':
+      return 'Sebelum Impor CSV / Data'
+    case 'restore':
+      return 'Sebelum Pemulihan Cadangan JSON'
+    case 'migration':
+      return 'Sebelum Migrasi Skema'
+    case 'bulk_operation':
+      return 'Sebelum Operasi Massal'
+    case 'manual':
+      return 'Cadangan Manual Pengguna'
+    default:
+      return 'Cadangan Checkpoint Sistem'
+  }
+}
+
 /**
- * Creates a multi-key checkpoint covering primary state and goals before modification.
+ * Creates a comprehensive checkpoint covering primary state, goals, recurring templates,
+ * and budget settings before any risky state modification.
  */
-export function createMultiKeyCheckpoint(storage: StorageLike, keys: string[]): { success: boolean; error?: string } {
+export function createComprehensiveCheckpoint(
+  storage: StorageLike,
+  reason: CheckpointReason = 'import',
+  description?: string
+): { success: boolean; error?: string } {
   try {
-    const snapshot: Record<string, string | null> = {}
-    for (const k of keys) {
-      snapshot[k] = storage.getItem(k)
+    const entries: Record<string, string | null> = {}
+    for (const key of CRITICAL_CHECKPOINT_KEYS) {
+      entries[key] = storage.getItem(key)
     }
-    const serialized = JSON.stringify(snapshot)
+
+    let schemaVersion = CURRENT_SCHEMA_VERSION
+    let transactionCount = 0
+    let customCategoryCount = 0
+    let hasBudget = false
+
+    const rawPrimary = entries[STORAGE_KEY]
+    if (rawPrimary) {
+      try {
+        const parsed = JSON.parse(rawPrimary)
+        if (typeof parsed.schemaVersion === 'number') schemaVersion = parsed.schemaVersion
+        if (Array.isArray(parsed.transactions)) transactionCount = parsed.transactions.length
+        if (Array.isArray(parsed.customCategories)) customCategoryCount = parsed.customCategories.length
+        if (typeof parsed.monthlyBudget === 'number' && parsed.monthlyBudget > 0) hasBudget = true
+      } catch {}
+    }
+
+    let goalCount = 0
+    const rawGoals = entries[GOAL_STORAGE_KEY]
+    if (rawGoals) {
+      try {
+        const parsedGoals = JSON.parse(rawGoals)
+        if (Array.isArray(parsedGoals)) goalCount = parsedGoals.length
+      } catch {}
+    }
+
+    let recurringCount = 0
+    const rawRecurring = entries['sakukilat:v2:recurring']
+    if (rawRecurring) {
+      try {
+        const parsedRec = JSON.parse(rawRecurring)
+        if (Array.isArray(parsedRec)) recurringCount = parsedRec.length
+      } catch {}
+    }
+
+    const metadata: CheckpointMetadata = {
+      timestamp: new Date().toISOString(),
+      reason,
+      schemaVersion,
+      transactionCount,
+      goalCount,
+      recurringCount,
+      customCategoryCount,
+      hasBudget,
+      description,
+    }
+
+    const envelope = {
+      ...entries,
+      envelopeVersion: 2,
+      createdAt: metadata.timestamp,
+      reason,
+      description,
+      metadata,
+      entries,
+    }
+
+    const serialized = JSON.stringify(envelope)
     storage.setItem(CHECKPOINT_KEY, serialized)
-    // Also save legacy primary checkpoint for compatibility
-    if (snapshot[STORAGE_KEY]) {
-      storage.setItem(`${CHECKPOINT_KEY}:primary`, snapshot[STORAGE_KEY]!)
+
+    // Save legacy keys for backward compatibility
+    if (entries[STORAGE_KEY]) {
+      storage.setItem(`${CHECKPOINT_KEY}:primary`, entries[STORAGE_KEY]!)
     }
-    if (snapshot[GOAL_STORAGE_KEY]) {
-      storage.setItem(GOAL_CHECKPOINT_KEY, snapshot[GOAL_STORAGE_KEY]!)
+    if (entries[GOAL_STORAGE_KEY]) {
+      storage.setItem(GOAL_CHECKPOINT_KEY, entries[GOAL_STORAGE_KEY]!)
     }
+
     return { success: true }
   } catch (error) {
-    return { success: false, error: 'Gagal membuat checkpoint sebelum impor (penyimpanan penuh).' }
+    return { success: false, error: 'Gagal membuat checkpoint sebelum operasi (penyimpanan penuh).' }
+  }
+}
+
+/**
+ * Creates a multi-key checkpoint covering primary state and goals before modification.
+ * Wraps createComprehensiveCheckpoint for full key coverage.
+ */
+export function createMultiKeyCheckpoint(storage: StorageLike, keys: string[]): { success: boolean; error?: string } {
+  const res = createComprehensiveCheckpoint(storage, 'import')
+  if (!res.success) return res
+
+  // Ensure any extra custom keys requested are also captured
+  try {
+    const raw = storage.getItem(CHECKPOINT_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && parsed.entries) {
+        let modified = false
+        for (const k of keys) {
+          if (!(k in parsed.entries)) {
+            parsed.entries[k] = storage.getItem(k)
+            modified = true
+          }
+        }
+        if (modified) {
+          storage.setItem(CHECKPOINT_KEY, JSON.stringify(parsed))
+        }
+      }
+    }
+  } catch {}
+
+  return { success: true }
+}
+
+/**
+ * Reads and validates the current checkpoint, extracting structured summary metadata for UI preview.
+ */
+export function getCheckpointSummary(storage: StorageLike): CheckpointSummary | null {
+  const chkRaw = storage.getItem(CHECKPOINT_KEY)
+  if (!chkRaw) return null
+
+  try {
+    const parsed = JSON.parse(chkRaw)
+    if (parsed && typeof parsed === 'object') {
+      // V2 Envelope
+      if (parsed.envelopeVersion === 2 && parsed.metadata) {
+        const meta = parsed.metadata as CheckpointMetadata
+        return {
+          exists: true,
+          createdAt: parsed.createdAt || meta.timestamp,
+          reason: meta.reason,
+          reasonLabel: formatReasonLabel(meta.reason),
+          description: parsed.description || meta.description,
+          transactionCount: meta.transactionCount ?? 0,
+          goalCount: meta.goalCount ?? 0,
+          recurringCount: meta.recurringCount ?? 0,
+          customCategoryCount: meta.customCategoryCount ?? 0,
+          schemaVersion: meta.schemaVersion ?? CURRENT_SCHEMA_VERSION,
+          isValid: true,
+        }
+      }
+
+      // Legacy v1 dictionary
+      let txCount = 0
+      let schemaVer = CURRENT_SCHEMA_VERSION
+      const rawPrimary = parsed[STORAGE_KEY] || parsed['sakukilat-user:v2:local-state']
+      if (typeof rawPrimary === 'string') {
+        try {
+          const s = JSON.parse(rawPrimary)
+          if (Array.isArray(s.transactions)) txCount = s.transactions.length
+          if (typeof s.schemaVersion === 'number') schemaVer = s.schemaVersion
+        } catch {}
+      }
+      return {
+        exists: true,
+        createdAt: parsed.timestamp || undefined,
+        reason: 'import',
+        reasonLabel: 'Sebelum Impor (Legacy)',
+        transactionCount: txCount,
+        goalCount: 0,
+        recurringCount: 0,
+        customCategoryCount: 0,
+        schemaVersion: schemaVer,
+        isValid: true,
+      }
+    }
+
+    return {
+      exists: true,
+      reasonLabel: 'Cadangan Checkpoint',
+      transactionCount: 0,
+      goalCount: 0,
+      recurringCount: 0,
+      customCategoryCount: 0,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      isValid: true,
+    }
+  } catch (error) {
+    return {
+      exists: true,
+      reasonLabel: 'Checkpoint Rusak',
+      transactionCount: 0,
+      goalCount: 0,
+      recurringCount: 0,
+      customCategoryCount: 0,
+      schemaVersion: 0,
+      isValid: false,
+      error: 'Data checkpoint tidak dapat dibaca (format JSON rusak).',
+    }
   }
 }
 
@@ -405,8 +640,12 @@ export function executeImportTransaction(
     finalTxs = [...dedup.unique, ...currentTxs]
   }
 
-  // Create checkpoint of all affected keys
-  const checkpointResult = createMultiKeyCheckpoint(storage, plan.affectedKeys)
+  // Create comprehensive checkpoint of all critical keys
+  const checkpointResult = createComprehensiveCheckpoint(
+    storage,
+    plan.mode === 'replace' ? 'restore' : 'import',
+    plan.mode === 'replace' ? 'Sebelum pemulihan cadangan JSON' : 'Sebelum impor transaksi CSV'
+  )
   if (!checkpointResult.success) {
     return { success: false, error: checkpointResult.error }
   }
@@ -469,37 +708,152 @@ export function executeImportTransaction(
 
 /**
  * Real production rollback function: restores all keys preserved in checkpoint.
+ * Ensures active data is NOT corrupted if restore fails, rejects corrupt/incompatible checkpoints,
+ * and preserves checkpoint on failure.
  */
-export function executeRollback(storage: StorageLike): { success: boolean; error?: string; restoredKeys: string[] } {
+export function executeRollback(storage: StorageLike): {
+  success: boolean
+  error?: string
+  restoredKeys: string[]
+  restoredSummary?: {
+    transactionCount: number
+    goalCount: number
+    recurringCount: number
+  }
+} {
   const chkRaw = storage.getItem(CHECKPOINT_KEY)
   if (!chkRaw) {
     return { success: false, error: 'Tidak ada checkpoint yang tersedia untuk pemulihan.', restoredKeys: [] }
   }
 
+  // 1. Strict parse check
+  let parsedCheckpoint: any
   try {
-    const checkpoint = JSON.parse(chkRaw)
-    const restoredKeys: string[] = []
+    parsedCheckpoint = JSON.parse(chkRaw)
+  } catch (error) {
+    // Corrupt JSON: reject without modifying storage, without deleting checkpoint
+    return {
+      success: false,
+      error: `Checkpoint rusak (bukan JSON valid): ${String(error)}. Data aktif tetap utuh.`,
+      restoredKeys: [],
+    }
+  }
 
-    // If multi-key dictionary format
-    if (checkpoint && typeof checkpoint === 'object' && !Array.isArray(checkpoint)) {
-      for (const [key, value] of Object.entries(checkpoint)) {
-        if (key === 'timestamp') continue
-        if (value === null) {
-          storage.removeItem(key)
-        } else {
-          storage.setItem(key, String(value))
-        }
-        restoredKeys.push(key)
-      }
+  // 2. Extract entries dictionary
+  let entriesToRestore: Record<string, string | null> = {}
+  if (parsedCheckpoint && typeof parsedCheckpoint === 'object') {
+    if (parsedCheckpoint.envelopeVersion === 2 && parsedCheckpoint.entries && typeof parsedCheckpoint.entries === 'object') {
+      entriesToRestore = parsedCheckpoint.entries
+    } else if (!Array.isArray(parsedCheckpoint)) {
+      entriesToRestore = parsedCheckpoint
     } else {
-      // Legacy single-string primary checkpoint
-      storage.setItem(STORAGE_KEY, chkRaw)
-      restoredKeys.push(STORAGE_KEY)
+      return { success: false, error: 'Format checkpoint tidak valid (array tidak didukung). Data aktif tetap utuh.', restoredKeys: [] }
+    }
+  } else {
+    // Single string legacy state
+    entriesToRestore = { [STORAGE_KEY]: chkRaw }
+  }
+
+  // 3. Strict validation on primary state
+  const primaryStateRaw = entriesToRestore[STORAGE_KEY] || entriesToRestore['sakukilat-user:v2:local-state']
+  let txCount = 0
+  let goalCount = 0
+  let recCount = 0
+
+  if (primaryStateRaw) {
+    try {
+      const stateObj = JSON.parse(primaryStateRaw)
+      if (typeof stateObj !== 'object' || stateObj === null || Array.isArray(stateObj)) {
+        return { success: false, error: 'Checkpoint rusak: struktur state utama tidak valid.', restoredKeys: [] }
+      }
+      if (typeof stateObj.schemaVersion === 'number' && stateObj.schemaVersion > CURRENT_SCHEMA_VERSION) {
+        return {
+          success: false,
+          error: `Checkpoint tidak kompatibel: skema versi ${stateObj.schemaVersion} lebih baru dari versi aplikasi (${CURRENT_SCHEMA_VERSION}).`,
+          restoredKeys: [],
+        }
+      }
+      if (stateObj.transactions !== undefined && !Array.isArray(stateObj.transactions)) {
+        return { success: false, error: 'Checkpoint rusak: daftar transaksi bukan array.', restoredKeys: [] }
+      }
+      if (Array.isArray(stateObj.transactions)) txCount = stateObj.transactions.length
+    } catch {
+      return { success: false, error: 'Checkpoint rusak: payload state utama tidak dapat diparse.', restoredKeys: [] }
+    }
+  }
+
+  if (entriesToRestore[GOAL_STORAGE_KEY]) {
+    try {
+      const g = JSON.parse(entriesToRestore[GOAL_STORAGE_KEY]!)
+      if (Array.isArray(g)) goalCount = g.length
+    } catch {}
+  }
+
+  if (entriesToRestore['sakukilat:v2:recurring']) {
+    try {
+      const r = JSON.parse(entriesToRestore['sakukilat:v2:recurring']!)
+      if (Array.isArray(r)) recCount = r.length
+    } catch {}
+  }
+
+  // 4. In-memory snapshot of active keys before write for rollback-of-rollback protection
+  const activeKeysSnapshot: Record<string, string | null> = {}
+  const keysToProcess = Object.keys(entriesToRestore).filter(
+    k => !['timestamp', 'reason', 'envelopeVersion', 'metadata', 'createdAt', 'description'].includes(k)
+  )
+
+  for (const k of keysToProcess) {
+    activeKeysSnapshot[k] = storage.getItem(k)
+  }
+
+  // 5. Atomic write with verification
+  const restoredKeys: string[] = []
+  try {
+    for (const key of keysToProcess) {
+      const val = entriesToRestore[key]
+      if (val === null) {
+        if (storage.getItem(key) !== null) {
+          storage.removeItem(key)
+        }
+      } else {
+        const currentVal = storage.getItem(key)
+        if (currentVal !== String(val)) {
+          storage.setItem(key, String(val))
+          if (storage.getItem(key) !== String(val)) {
+            throw new Error(`Verifikasi penyimpanan gagal untuk kunci ${key}`)
+          }
+        }
+      }
+      restoredKeys.push(key)
     }
 
-    return { success: true, restoredKeys }
-  } catch (error) {
-    return { success: false, error: `Gagal membaca checkpoint: ${String(error)}`, restoredKeys: [] }
+    return {
+      success: true,
+      restoredKeys,
+      restoredSummary: {
+        transactionCount: txCount,
+        goalCount,
+        recurringCount: recCount,
+      },
+    }
+  } catch (writeErr) {
+    // Revert storage back to activeKeysSnapshot
+    try {
+      for (const [k, prevVal] of Object.entries(activeKeysSnapshot)) {
+        if (prevVal === null) {
+          storage.removeItem(k)
+        } else {
+          storage.setItem(k, prevVal)
+        }
+      }
+    } catch {}
+
+    // Checkpoint is PRESERVED, never deleted on failure
+    return {
+      success: false,
+      error: `Gagal memulihkan checkpoint: ${String(writeErr)}. Data aktif tetap dipertahankan utuh.`,
+      restoredKeys: [],
+    }
   }
 }
 
@@ -507,5 +861,12 @@ export function executeRollback(storage: StorageLike): { success: boolean; error
  * Checks if a valid restore rollback checkpoint is available in storage.
  */
 export function canRollback(storage: StorageLike): boolean {
-  return Boolean(storage.getItem(CHECKPOINT_KEY))
+  const chk = storage.getItem(CHECKPOINT_KEY)
+  if (!chk) return false
+  try {
+    const parsed = JSON.parse(chk)
+    return Boolean(parsed)
+  } catch {
+    return false
+  }
 }

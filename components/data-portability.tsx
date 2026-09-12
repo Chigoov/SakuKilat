@@ -16,6 +16,8 @@ import {
   executeImportTransaction,
   executeRollback,
   canRollback,
+  getCheckpointSummary,
+  type CheckpointSummary,
   type ImportPlanSuccess,
 } from '@/lib/data-restore'
 import { parseDelimited as parseDelimitedShared } from '@/lib/csv-parser'
@@ -557,11 +559,14 @@ export function DataPortability() {
   const [pendingPlan, setPendingPlan] = useState<ImportPlanSuccess | null>(null)
   const [showRollbackConfirm, setShowRollbackConfirm] = useState(false)
   const [hasRollback, setHasRollback] = useState(false)
+  const [checkpointSummary, setCheckpointSummary] = useState<CheckpointSummary | null>(null)
   const [isExecuting, setIsExecuting] = useState(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setHasRollback(canRollback(window.localStorage))
+      const summary = getCheckpointSummary(window.localStorage)
+      setCheckpointSummary(summary)
+      setHasRollback(Boolean(summary?.exists && summary?.isValid))
     }
   }, [lastAction])
 
@@ -716,11 +721,22 @@ export function DataPortability() {
     performExecution(plan, true)
   }
 
+  const openRollbackModal = () => {
+    if (typeof window !== 'undefined') {
+      const summary = getCheckpointSummary(window.localStorage)
+      setCheckpointSummary(summary)
+    }
+    setShowRollbackConfirm(true)
+  }
+
   const handleRollback = () => {
     try {
       const result = executeRollback(window.localStorage)
       if (result.success) {
-        showToast(`Data dipulihkan dari cadangan (${result.restoredKeys.join(', ')}). Memuat ulang...`, 'success')
+        const countInfo = result.restoredSummary?.transactionCount !== undefined
+          ? ` (${result.restoredSummary.transactionCount} transaksi dipulihkan)`
+          : ''
+        showToast(`Data dipulihkan dari cadangan checkpoint${countInfo}. Memuat ulang...`, 'success')
         setTimeout(() => window.location.reload(), 700)
       } else {
         showToast(result.error || 'Gagal melakukan rollback.', 'error')
@@ -767,11 +783,11 @@ export function DataPortability() {
       {hasRollback && (
         <button
           type="button"
-          onClick={() => setShowRollbackConfirm(true)}
+          onClick={openRollbackModal}
           className="min-h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:text-amber-300 text-xs font-semibold flex items-center justify-center gap-2 mt-1"
         >
           <Undo2 className="w-4 h-4" />
-          Batalkan Impor Terakhir (Rollback)
+          <span>Batalkan Perubahan (Rollback Checkpoint)</span>
         </button>
       )}
 
@@ -844,22 +860,55 @@ export function DataPortability() {
         </div>
       )}
 
-      {/* Rollback Confirmation Modal */}
+      {/* Rollback Confirmation & Preview Modal */}
       {showRollbackConfirm && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[var(--sk-card,#141A29)] border border-cyan-500/30 rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-white">
-            <div className="flex items-center space-x-3 text-cyan-400">
-              <div className="p-2 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+          <div className="bg-[var(--sk-card,#141A29)] border border-amber-500/30 rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-white">
+            <div className="flex items-center space-x-3 text-amber-400">
+              <div className="p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
                 <Undo2 className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Batalkan Impor (Rollback)</h3>
-                <p className="text-[11px] text-cyan-400 font-medium">Pulihkan Checkpoint Sebelumnya</p>
+                <h3 className="text-base font-bold text-white">Pratinjau &amp; Konfirmasi Rollback</h3>
+                <p className="text-[11px] text-amber-400 font-medium">
+                  {checkpointSummary?.reasonLabel || 'Cadangan Checkpoint Tersimpan'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-800 text-xs space-y-2 text-slate-300">
+              {checkpointSummary?.createdAt && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Waktu Checkpoint:</span>
+                  <span className="font-mono text-[11px] text-slate-200">
+                    {new Date(checkpointSummary.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-400">Transaksi Cadangan:</span>
+                <span className="font-mono font-bold text-emerald-400">{checkpointSummary?.transactionCount ?? 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Target Tabungan:</span>
+                <span className="font-mono font-semibold text-cyan-400">{checkpointSummary?.goalCount ?? 0} target</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Template Berulang:</span>
+                <span className="font-mono text-slate-200">{checkpointSummary?.recurringCount ?? 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Kategori Khusus:</span>
+                <span className="font-mono text-slate-200">{checkpointSummary?.customCategoryCount ?? 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Versi Skema:</span>
+                <span className="font-mono text-slate-300">v{checkpointSummary?.schemaVersion ?? CURRENT_SCHEMA_VERSION}</span>
               </div>
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              Apakah Anda yakin ingin membatalkan impor terakhir dan mengembalikan semua data transaksi dan target ke kondisi persis sebelum impor dilakukan?
+              Tindakan ini akan mengembalikan data transaksi, dompet, target, dan konfigurasi persis seperti saat checkpoint ini dibuat. Data saat ini akan digantikan.
             </p>
 
             <div className="grid grid-cols-2 gap-2 pt-1">
@@ -873,7 +922,7 @@ export function DataPortability() {
               <button
                 type="button"
                 onClick={handleRollback}
-                className="py-2.5 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-lg"
+                className="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg"
               >
                 Ya, Pulihkan Data
               </button>

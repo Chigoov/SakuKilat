@@ -729,3 +729,292 @@ export function periodInsight(
     avgPerDay, txCount: cur.count, topCategory, busiestDay, deltaPct, takeaways,
   }
 }
+
+// -- Filter universal untuk riwayat transaksi -----------------------------------
+export interface TransactionFilter {
+  /** Tanggal mulai (inklusif). */
+  startDate?: Date
+  /** Tanggal akhir (eksklusif). */
+  endDate?: Date
+  /** 'expense' atau 'income'. */
+  type?: 'expense' | 'income'
+  /** Category id (exact match). */
+  category?: string
+  /** Nominal minimum. */
+  amountMin?: number
+  /** Nominal maksimum. */
+  amountMax?: number
+  /** Kata kunci pencarian — match ke description, subcategory, atau note. */
+  keyword?: string
+  /** Jika true, termasuk transfer/saving; default false. */
+  includeMoneyMoves?: boolean
+}
+
+export function filterTransactions(
+  transactions: Transaction[],
+  filter: TransactionFilter,
+): Transaction[] {
+  const keywordLower = filter.keyword?.trim().toLowerCase() || ''
+
+  return transactions.filter((t) => {
+    if (!filter.includeMoneyMoves && isMoneyMove(t)) return false
+    if (filter.startDate && t.date < filter.startDate) return false
+    if (filter.endDate && t.date >= filter.endDate) return false
+    if (filter.type && t.type !== filter.type) return false
+    if (filter.category && t.category !== filter.category) return false
+    if (filter.amountMin != null && t.amount < filter.amountMin) return false
+    if (filter.amountMax != null && t.amount > filter.amountMax) return false
+    if (keywordLower) {
+      const haystack = [
+        t.description,
+        t.subcategory ?? '',
+        t.note ?? '',
+        t.category,
+        t.paymentMethod ?? '',
+        String(t.amount),
+      ].join(' ').toLowerCase()
+      if (!haystack.includes(keywordLower)) return false
+    }
+    return true
+  }).sort((a, b) => b.date.getTime() - a.date.getTime())
+}
+
+// -- Ringkasan Cashflow Pintar --------------------------------------------------
+export interface CashflowSummary {
+  /** Periode label. */
+  periodLabel: string
+  income: number
+  expense: number
+  net: number
+  /** Rata-rata pengeluaran per hari sejauh ini bulan ini. */
+  avgDailyExpense: number
+  /** Estimasi pengeluaran akhir bulan berdasarkan burn rate saat ini. */
+  projectedMonthExpense: number
+  /** Estimasi saldo bersih akhir bulan. */
+  projectedMonthNet: number
+  /** Rasio tabungan = (income - expense) / income; null jika income = 0. */
+  savingsRatio: number | null
+  /** Burn rate = expense / income; null jika income = 0. */
+  burnRate: number | null
+  /** Jumlah hari yang sudah terlewat di bulan ini. */
+  daysElapsed: number
+  /** Total hari di bulan ini. */
+  daysInMonth: number
+  /** Peringatan teks (null jika aman). */
+  warnings: string[]
+}
+
+export function cashflowSummary(
+  transactions: Transaction[],
+  ref = new Date(),
+): CashflowSummary {
+  const start = new Date(ref.getFullYear(), ref.getMonth(), 1)
+  const end = new Date(ref.getFullYear(), ref.getMonth() + 1, 1)
+  const daysInMonth = new Date(ref.getFullYear(), ref.getMonth() + 1, 0).getDate()
+  const daysElapsed = Math.max(1, ref.getDate())
+  const periodLabel = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(ref)
+
+  let income = 0
+  let expense = 0
+
+  for (const t of transactions) {
+    if (isMoneyMove(t) || t.date < start || t.date >= end) continue
+    if (t.type === 'income') income += t.amount
+    else expense += t.amount
+  }
+
+  const net = income - expense
+  const avgDailyExpense = expense / daysElapsed
+  const projectedMonthExpense = Math.round(avgDailyExpense * daysInMonth)
+  const projectedMonthNet = income - projectedMonthExpense
+  const savingsRatio = income > 0 ? (income - expense) / income : null
+  const burnRate = income > 0 ? expense / income : null
+
+  const warnings: string[] = []
+  if (burnRate !== null && burnRate > 1) {
+    warnings.push(`Pengeluaran sudah melebihi pemasukan (${Math.round(burnRate * 100)}%).`)
+  }
+  if (projectedMonthNet < 0 && income > 0) {
+    warnings.push(`Estimasi akhir bulan defisit ${rupiah(Math.abs(projectedMonthNet))}.`)
+  }
+  if (savingsRatio !== null && savingsRatio < 0.1 && savingsRatio >= 0) {
+    warnings.push('Rasio tabungan rendah (< 10%). Coba kurangi pengeluaran non-esensial.')
+  }
+  if (daysElapsed <= 10 && expense > income * 0.5 && income > 0) {
+    warnings.push('Baru 10 hari tapi sudah keluar > 50% pemasukan. Hati-hati boros!')
+  }
+
+  return {
+    periodLabel,
+    income,
+    expense,
+    net,
+    avgDailyExpense,
+    projectedMonthExpense,
+    projectedMonthNet,
+    savingsRatio,
+    burnRate,
+    daysElapsed,
+    daysInMonth,
+    warnings,
+  }
+}
+
+// -- Insight Otomatis Sederhana -------------------------------------------------
+export interface AutoInsight {
+  emoji: string
+  text: string
+  type: 'positive' | 'negative' | 'neutral'
+}
+
+export function generateInsights(
+  transactions: Transaction[],
+  ref = new Date(),
+): AutoInsight[] {
+  const insights: AutoInsight[] = []
+  const cf = cashflowSummary(transactions, ref)
+
+  // 1. Surplus / Defisit bulan ini
+  if (cf.income > 0 && cf.net > 0) {
+    insights.push({
+      emoji: '💰',
+      text: `Surplus ${rupiah(cf.net)} bulan ini. Pertahankan!`,
+      type: 'positive',
+    })
+  } else if (cf.income > 0 && cf.net < 0) {
+    insights.push({
+      emoji: '🔴',
+      text: `Defisit ${rupiah(Math.abs(cf.net))}. Pengeluaran melebihi pemasukan.`,
+      type: 'negative',
+    })
+  }
+
+  // 2. Rasio tabungan
+  if (cf.savingsRatio !== null && cf.savingsRatio >= 0.2) {
+    insights.push({
+      emoji: '🎯',
+      text: `Rasio tabungan ${Math.round(cf.savingsRatio * 100)}%. Bagus, di atas 20%!`,
+      type: 'positive',
+    })
+  }
+
+  // 3. Proyeksi akhir bulan
+  if (cf.income > 0 && cf.projectedMonthNet < 0 && cf.daysElapsed <= 20) {
+    insights.push({
+      emoji: '⚠️',
+      text: `Jika terus begini, estimasi akhir bulan defisit ${rupiah(Math.abs(cf.projectedMonthNet))}.`,
+      type: 'negative',
+    })
+  }
+
+  // 4. Kategori terbesar bulan ini
+  const topCat = categoryBreakdown(transactions, ref, 'expense')
+  if (topCat.length > 0 && topCat[0].pct > 0.35) {
+    insights.push({
+      emoji: '📊',
+      text: `${Math.round(topCat[0].pct * 100)}% pengeluaran ke satu kategori. Cek apakah bisa ditekan.`,
+      type: 'neutral',
+    })
+  }
+
+  // 5. Perbandingan dengan bulan lalu
+  const prevMonth = new Date(ref.getFullYear(), ref.getMonth() - 1, 1)
+  const prevEnd = new Date(ref.getFullYear(), ref.getMonth(), 1)
+  let prevExpense = 0
+  for (const t of transactions) {
+    if (isMoneyMove(t) || t.type !== 'expense' || t.date < prevMonth || t.date >= prevEnd) continue
+    prevExpense += t.amount
+  }
+  if (prevExpense > 0) {
+    const pctChange = Math.round(((cf.expense - prevExpense) / prevExpense) * 100)
+    if (pctChange < -10) {
+      insights.push({
+        emoji: '📉',
+        text: `Pengeluaran turun ${Math.abs(pctChange)}% dari bulan lalu. Mantap!`,
+        type: 'positive',
+      })
+    } else if (pctChange > 20) {
+      insights.push({
+        emoji: '📈',
+        text: `Pengeluaran naik ${pctChange}% dari bulan lalu. Pantau terus.`,
+        type: 'negative',
+      })
+    }
+  }
+
+  // 6. Hari tanpa transaksi (streak miss)
+  const todayStr = dayKey(ref)
+  const yesterdayStr = dayKey(new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - 1))
+  const dayBefore = dayKey(new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - 2))
+  const txDays = new Set(transactions.map(t => dayKey(t.date)))
+  if (txDays.has(todayStr)) {
+    insights.push({
+      emoji: '✅',
+      text: 'Sudah mencatat hari ini. Konsistensi adalah kunci!',
+      type: 'positive',
+    })
+  } else if (!txDays.has(todayStr) && !txDays.has(yesterdayStr) && !txDays.has(dayBefore)) {
+    insights.push({
+      emoji: '🔔',
+      text: 'Sudah 2+ hari belum catat. Yuk jangan lupa!',
+      type: 'neutral',
+    })
+  }
+
+  return insights.slice(0, 4) // Maksimal 4 insight
+}
+
+// -- Perbandingan Kategori Tahunan -----------------------------------------------
+export interface CategoryYearlyComparisonRow {
+  category: string
+  total: number
+  pct: number
+  prevYearTotal: number
+  changeAmount: number
+  changePct: number | null
+}
+
+export function categoryYearlyComparison(
+  transactions: Transaction[],
+  year: number,
+  type: 'expense' | 'income' = 'expense',
+): CategoryYearlyComparisonRow[] {
+  const curStart = new Date(year, 0, 1)
+  const curEnd = new Date(year + 1, 0, 1)
+  const prevStart = new Date(year - 1, 0, 1)
+  const prevEnd = curStart
+
+  const cur = new Map<string, number>()
+  const prev = new Map<string, number>()
+
+  for (const t of transactions) {
+    if (isMoneyMove(t) || t.type !== type) continue
+    if (t.date >= curStart && t.date < curEnd) {
+      cur.set(t.category, (cur.get(t.category) ?? 0) + t.amount)
+    }
+    if (t.date >= prevStart && t.date < prevEnd) {
+      prev.set(t.category, (prev.get(t.category) ?? 0) + t.amount)
+    }
+  }
+
+  const grandTotal = Array.from(cur.values()).reduce((s, v) => s + v, 0)
+  const categories = new Set([...cur.keys(), ...prev.keys()])
+  const rows: CategoryYearlyComparisonRow[] = []
+
+  for (const category of categories) {
+    const total = cur.get(category) ?? 0
+    const prevTotal = prev.get(category) ?? 0
+    const changeAmount = total - prevTotal
+    const changePct = prevTotal > 0 ? (changeAmount / prevTotal) : (total > 0 ? null : 0)
+    rows.push({
+      category,
+      total,
+      pct: grandTotal > 0 ? total / grandTotal : 0,
+      prevYearTotal: prevTotal,
+      changeAmount,
+      changePct,
+    })
+  }
+
+  return rows.sort((a, b) => b.total - a.total)
+}
