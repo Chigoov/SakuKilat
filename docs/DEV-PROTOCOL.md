@@ -67,3 +67,48 @@ Aturan-aturan berikut merupakan keputusan desain final yang telah disetujui peng
 - **Clean Encoding**: Bebas karakter rusak / mojibake.
 - **No Unapproved Destructive Actions**: Tidak menghapus fungsi/file tanpa instruksi eksplisit.
 
+---
+
+## 4. Aturan Update Aplikasi Android dan Dokumentasi Versi
+
+Setiap APK publik baru harus diperlakukan sebagai **update in-place** dari aplikasi SakuKilat yang sudah terpasang. APK tersebut harus tetap dikenali Android sebagai aplikasi yang sama dan tetap dapat mengakses data pengguna sebelumnya.
+
+### 4.1 Identitas yang wajib dipertahankan
+
+- `applicationId` wajib tetap `com.sakukilat.app.v2`.
+- `appId` pada `capacitor.config.ts` wajib tetap `com.sakukilat.app.v2`.
+- Build untuk distribusi publik wajib memakai flavor `public`.
+- Flavor `personal` tidak boleh digunakan sebagai APK publik atau dianggap sebagai update aplikasi publik.
+- Release signing key wajib sama dengan versi sebelumnya.
+- Release certificate wajib tetap sama; fingerprint resmi yang tercatat adalah `13dccbbd787224435ad6ac5330fd96c5de30a5f703ee87689b46bf21991a90a4`.
+- Data dan storage pengguna wajib dipertahankan saat update.
+
+### 4.2 Nomor versi
+
+- `versionCode` wajib lebih tinggi daripada versi yang sudah terpasang di perangkat.
+- `versionName` wajib diperbarui sesuai versi aplikasi yang sedang dibuat.
+- `package.json` dan `android/app/build.gradle` wajib menunjukkan versi yang konsisten.
+- Setiap kenaikan versi wajib memiliki catatan di `docs/CHANGELOG.md`.
+- Catatan versi yang sudah difinalisasi wajib dimasukkan ke menu Profil → Catatan Rilis (Patch Notes) di dalam aplikasi.
+
+### 4.3 Prosedur release yang aman
+
+- Gunakan `assemblePublicRelease` atau script `scripts/update-apk.ps1`.
+- Release harus dihentikan jika `android/keystore.properties` atau file keystore resmi tidak tersedia, tidak lengkap, atau tidak dapat digunakan.
+- Debug signing tidak boleh menjadi fallback untuk release.
+- Sebelum APK dibagikan, verifikasi package ID, `versionCode`, `versionName`, dan sertifikat APK.
+- Jangan menyebut APK sebagai update resmi hanya karena APK berhasil dibuat secara lokal.
+- Jangan melakukan build, distribusi, atau push release sebelum pengguna memberikan persetujuan sesuai prosedur pada bagian sebelumnya.
+
+### 4.4 Status update
+
+Sebuah update hanya boleh disebut berhasil sebagai update aplikasi yang sama jika seluruh kondisi berikut terbukti:
+
+```text
+applicationId sama
+signing certificate sama
+versionCode meningkat
+flavor public digunakan
+data pengguna tetap dapat dibaca
+```
+

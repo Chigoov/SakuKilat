@@ -6,13 +6,19 @@ def hasReleaseKeystore = keystorePropertiesFile.exists()
 if (hasReleaseKeystore) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
+def hasReleaseSigningMaterial = hasReleaseKeystore &&
+        keystoreProperties['storeFile'] &&
+        file(keystoreProperties['storeFile']).exists() &&
+        keystoreProperties['storePassword'] &&
+        keystoreProperties['keyAlias'] &&
+        keystoreProperties['keyPassword']
 
 android {
     namespace = "com.sakukilat.app"
     compileSdk = rootProject.ext.compileSdkVersion
     signingConfigs {
         release {
-            if (hasReleaseKeystore) {
+            if (hasReleaseSigningMaterial) {
                 storeFile file(keystoreProperties['storeFile'])
                 storePassword keystoreProperties['storePassword']
                 keyAlias keystoreProperties['keyAlias']
@@ -54,13 +60,19 @@ android {
     }
     buildTypes {
         release {
-            if (hasReleaseKeystore) {
-                signingConfig signingConfigs.release
-            } else {
-                signingConfig signingConfigs.debug
-            }
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+if (!hasReleaseSigningMaterial) {
+    tasks.configureEach { task ->
+        if (task.name.toLowerCase().contains('release')) {
+            task.doFirst {
+                throw new GradleException('Release build dihentikan: signing material resmi tidak lengkap. Sediakan android/keystore.properties dan file keystore resmi; debug signing tidak boleh dipakai untuk release.')
+            }
         }
     }
 }

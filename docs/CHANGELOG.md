@@ -11,6 +11,14 @@ Ketika nomor versi dinaikkan, bagian `Unreleased` harus difinalisasi menjadi ver
 - Menetapkan `docs/CHANGELOG.md` sebagai arsip perubahan yang disimpan bersama source code.
 - Menjadikan menu **Profil → Catatan Rilis (Patch Notes)** sebagai tampilan riwayat versi untuk pengguna aplikasi.
 - Menyelaraskan label versi pada modal Patch Notes, menu Profil, dan Buku Panduan dengan versi aplikasi pada `package.json`.
+- Menambahkan aturan update-in-place agar package ID, signing certificate, version code, dan data pengguna tetap kompatibel dengan versi sebelumnya.
+- Menghentikan release build ketika signing material resmi tidak lengkap agar tidak menggunakan debug signing.
+
+### Pengujian
+
+- `pnpm test` — PASS.
+- `pnpm exec tsc --noEmit` — PASS.
+- `assemblePublicRelease` — BLOCKED pada environment lokal karena Gradle gagal membuat loopback connection; bukan karena signing guard atau source aplikasi.
 
 ## v1.0.7 — 24 Agustus 2026
 
