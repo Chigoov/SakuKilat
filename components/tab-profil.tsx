@@ -16,7 +16,7 @@ import { UserGuide } from '@/components/user-guide'
 import { TrophyCase } from '@/components/trophy-case'
 import { NotificationSettings } from '@/components/notification-settings'
 import { AppLockSettings } from '@/components/app-lock-settings'
-import { PatchNotesModal } from '@/components/patch-notes-modal'
+import { CURRENT_APP_VERSION, PatchNotesModal } from '@/components/patch-notes-modal'
 import { enableDemo, disableDemo, isDemoActive } from '@/lib/demo'
 import { cn } from '@/lib/utils'
 
@@ -381,7 +381,7 @@ export function TabProfil() {
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-[var(--sk-text)] leading-tight">Catatan Rilis (Patch Notes)</p>
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border border-[rgba(56,189,248,0.3)]">
-                    v1.0.7 BARU
+                    {CURRENT_APP_VERSION} BARU
                   </span>
                 </div>
                 <p className="text-[11px] text-[var(--sk-text-dim)] mt-0.5 leading-relaxed">

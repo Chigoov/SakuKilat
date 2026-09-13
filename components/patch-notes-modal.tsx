@@ -5,6 +5,7 @@ import {
   Sparkles, CheckCircle2, ShieldCheck, Wrench, Smartphone,
   Zap, ChevronDown, ChevronRight, X, History, Layers
 } from 'lucide-react'
+import pkg from '@/package.json'
 import { cn } from '@/lib/utils'
 
 interface PatchItem {
@@ -17,16 +18,16 @@ interface PatchItem {
 interface PatchRelease {
   version: string
   date: string
-  isLatest?: boolean
   summary: string
   items: PatchItem[]
 }
+
+export const CURRENT_APP_VERSION = `v${pkg.version}`
 
 const PATCH_HISTORY: PatchRelease[] = [
   {
     version: 'v1.0.7',
     date: '24 Agustus 2026',
-    isLatest: true,
     summary: 'Sprint Ergonomi & Sub Kategori: Quick Chips nominal, modal revisi transaksi bottom-sheet, horizontal subkategori carousel, smart subcategory NLP, dan drilldown rekapan.',
     items: [
       {
@@ -58,7 +59,6 @@ const PATCH_HISTORY: PatchRelease[] = [
   {
     version: 'v1.0.6',
     date: '24 Agustus 2026',
-    isLatest: false,
     summary: 'Peningkatan besar akurasi kalkulasi nominal, filter NLP bahasa Indonesia, tampilan saldo saku, dan optimalisasi ruang layar mobile.',
     items: [
       {
@@ -164,6 +164,8 @@ const PATCH_HISTORY: PatchRelease[] = [
   },
 ]
 
+const LATEST_DOCUMENTED_VERSION = PATCH_HISTORY[0]?.version ?? CURRENT_APP_VERSION
+
 export function PatchNotesModal({
   open,
   onClose,
@@ -171,7 +173,7 @@ export function PatchNotesModal({
   open: boolean
   onClose: () => void
 }) {
-  const [expandedVersion, setExpandedVersion] = useState<string>('v1.0.6')
+  const [expandedVersion, setExpandedVersion] = useState<string>(LATEST_DOCUMENTED_VERSION)
 
   if (!open) return null
 
@@ -209,7 +211,7 @@ export function PatchNotesModal({
                   Catatan Rilis & Fitur
                 </h3>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--sk-cyan)] text-[#090D16]">
-                  v1.0.6
+                  {CURRENT_APP_VERSION}
                 </span>
               </div>
               <p className="text-xs text-[var(--sk-text-dim)] mt-0.5">
@@ -231,12 +233,13 @@ export function PatchNotesModal({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           {PATCH_HISTORY.map((patch) => {
             const isExpanded = expandedVersion === patch.version
+            const isLatest = patch.version === LATEST_DOCUMENTED_VERSION
             return (
               <div
                 key={patch.version}
                 className={cn(
                   'rounded-2xl border transition-all overflow-hidden',
-                  patch.isLatest
+                  isLatest
                     ? 'bg-[var(--sk-surface-2)] border-[var(--sk-cyan)]/40 shadow-[0_0_20px_rgba(56,189,248,0.06)]'
                     : 'bg-[var(--sk-surface)] border-[var(--sk-border)]'
                 )}
@@ -251,7 +254,7 @@ export function PatchNotesModal({
                     <div
                       className={cn(
                         'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-xs',
-                        patch.isLatest
+                        isLatest
                           ? 'bg-[var(--sk-cyan)] text-[#090D16]'
                           : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border border-[var(--sk-border)]'
                       )}
@@ -261,7 +264,7 @@ export function PatchNotesModal({
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-[var(--sk-text)]">{patch.version}</span>
-                        {patch.isLatest && (
+                        {isLatest && (
                           <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border border-[rgba(56,189,248,0.3)]">
                             Terbaru
                           </span>
