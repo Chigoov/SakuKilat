@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:padding="14dp">
+
+    <!-- Main Content Container -->
+    <LinearLayout
+        android:id="@+id/layout_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Header: Logo + Title + Quick Action Button -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@mipmap/ic_launcher"
+                    android:contentDescription="SakuKilat Logo" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="SakuKilat"
+                    android:textColor="@color/sk_widget_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Quick Add Button (Clicks to sakukilat://entry?action=expense) -->
+            <TextView
+                android:id="@+id/btn_quick_add"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="@drawable/widget_btn_quick_add"
+                android:paddingStart="12dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="5dp"
+                android:text="+ Catat"
+                android:textColor="#090D16"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </RelativeLayout>
+
+        <!-- Dual Metrics Summary Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal"
+            android:baselineAligned="false"
+            android:weightSum="2">
+
+            <!-- Saldo Total (Clicks to sakukilat://saku) -->
+            <LinearLayout
+                android:id="@+id/layout_balance"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="5dp"
+                android:background="@drawable/widget_card_bg"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Saldo Total"
+                    android:textColor="@color/sk_widget_text_dim"
+                    android:textSize="10sp" />
+
+                <TextView
+                    android:id="@+id/text_total_balance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Rp0"
+                    android:textColor="@color/sk_widget_text_primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:singleLine="true" />
+            </LinearLayout>
+
+            <!-- Pengeluaran Bulan Ini (Clicks to sakukilat://rekapan) -->
+            <LinearLayout
+                android:id="@+id/layout_expense"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="5dp"
+                android:background="@drawable/widget_card_bg"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Pengeluaran Bulan Ini"
+                    android:textColor="@color/sk_widget_text_dim"
+                    android:textSize="10sp" />
+
+                <TextView
+                    android:id="@+id/text_monthly_expense"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Rp0"
+                    android:textColor="@color/sk_widget_expense"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:singleLine="true" />
+
+                <TextView
+                    android:id="@+id/text_monthly_tx_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
+                    android:text="0 transaksi"
+                    android:textColor="@color/sk_widget_text_dim"
+                    android:textSize="9sp"
+                    android:singleLine="true" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Nearest Bill Alert Section (Clicks to sakukilat://saku) -->
+        <LinearLayout
+            android:id="@+id/layout_bill_alert"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/widget_card_bg"
+            android:padding="7dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/text_bill_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/widget_bill_badge_bg"
+                android:paddingStart="6dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="6dp"
+                android:paddingBottom="2dp"
+                android:text="Tagihan"
+                android:textColor="@color/sk_widget_primary"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/text_bill_info"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
+                android:text="Tagihan Terdekat"
+                android:textColor="@color/sk_widget_text_primary"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:singleLine="true" />
+
+            <TextView
+                android:id="@+id/text_bill_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Due Date"
+                android:textColor="@color/sk_widget_text_dim"
+                android:textSize="9sp"
+                android:singleLine="true" />
+        </LinearLayout>
+
+        <!-- Recent 3 Transactions Section (Clicks to sakukilat://rekapan) -->
+        <LinearLayout
+            android:id="@+id/layout_recent_section"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Transaksi Terakhir"
+                android:textColor="@color/sk_widget_text_dim"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <!-- Transaction Item 1 -->
+            <LinearLayout
+                android:id="@+id/layout_tx_1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/widget_item_bg"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="5dp"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/text_tx_desc_1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Deskripsi"
+                        android:textColor="@color/sk_widget_text_primary"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:singleLine="true" />
+
+                    <TextView
+                        android:id="@+id/text_tx_date_1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Tanggal"
+                        android:textColor="@color/sk_widget_text_dim"
+                        android:textSize="9sp"
+                        android:singleLine="true" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/text_tx_amount_1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Rp0"
+                    android:textColor="@color/sk_widget_expense"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:singleLine="true" />
+            </LinearLayout>
+
+            <!-- Transaction Item 2 -->
+            <LinearLayout
+                android:id="@+id/layout_tx_2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="5dp"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/text_tx_desc_2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Deskripsi"
+                        android:textColor="@color/sk_widget_text_primary"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:singleLine="true" />
+
+                    <TextView
+                        android:id="@+id/text_tx_date_2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Tanggal"
+                        android:textColor="@color/sk_widget_text_dim"
+                        android:textSize="9sp"
+                        android:singleLine="true" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/text_tx_amount_2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Rp0"
+                    android:textColor="@color/sk_widget_expense"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:singleLine="true" />
+            </LinearLayout>
+
+            <!-- Transaction Item 3 -->
+            <LinearLayout
+                android:id="@+id/layout_tx_3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="5dp"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/text_tx_desc_3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Deskripsi"
+                        android:textColor="@color/sk_widget_text_primary"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:singleLine="true" />
+
+                    <TextView
+                        android:id="@+id/text_tx_date_3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Tanggal"
+                        android:textColor="@color/sk_widget_text_dim"
+                        android:textSize="9sp"
+                        android:singleLine="true" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/text_tx_amount_3"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Rp0"
+                    android:textColor="@color/sk_widget_expense"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:singleLine="true" />
+            </LinearLayout>
+
+            <!-- Empty transactions prompt -->
+            <TextView
+                android:id="@+id/text_tx_empty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Belum ada transaksi terbaru"
+                android:textColor="@color/sk_widget_text_dim"
+                android:textSize="10sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Footer Timestamp -->
+        <TextView
+            android:id="@+id/text_last_updated"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Diperbarui"
+            android:textColor="@color/sk_widget_text_dim"
+            android:textSize="9sp"
+            android:singleLine="true" />
+    </LinearLayout>
+
+    <!-- Uninitialized Prompt (Visible if snapshot is missing) -->
+    <LinearLayout
+        android:id="@+id/layout_uninitialized"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:src="@mipmap/ic_launcher"
+            android:contentDescription="SakuKilat Logo" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Buka SakuKilat"
+            android:textColor="@color/sk_widget_text_primary"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Buka aplikasi untuk memperbarui data widget"
+            android:textColor="@color/sk_widget_text_dim"
+            android:textSize="11sp"
+            android:gravity="center" />
+    </LinearLayout>
+
+</RelativeLayout>

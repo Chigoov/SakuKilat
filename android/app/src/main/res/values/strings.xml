@@ -4,4 +4,6 @@
     <string name="title_activity_main">SakuKilat</string>
     <string name="package_name">com.sakukilat.app</string>
     <string name="custom_url_scheme">com.sakukilat.app</string>
+    <string name="widget_name">SakuKilat</string>
+    <string name="widget_description">Ringkasan saldo, pengeluaran, dan aksi cepat SakuKilat</string>
 </resources>

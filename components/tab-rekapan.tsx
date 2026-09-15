@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -15,14 +15,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { ChevronLeft, ChevronRight, Minus, RotateCcw, Search, SlidersHorizontal, TrendingDown, TrendingUp, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Lock, Minus, RotateCcw, Search, SlidersHorizontal, TrendingDown, TrendingUp, X } from 'lucide-react'
 import { BottomSheet } from '@/components/bottom-sheet'
 import { FilterTabs, type FilterTab } from '@/components/filter-tabs'
 import { TransactionList } from '@/components/transaction-list'
 import { getCategoryConfig, getCategoryHex, CATEGORY_CONFIG, normalizeCategoryKey } from '@/components/category-badge'
-import { formatIDR, formatIDRCompact, formatIDRShort } from '@/lib/parser'
+import { formatIDR, formatIDRCompact, formatIDRCalendarCompact } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
-import { useTransactionActions, useTransactionData, useTransactionStatus } from '@/lib/store'
+import { useTransactionActions, useTransactionData, useTransactionStatus, useMonthlyCloseStore } from '@/lib/store'
+import { formatMonthId } from '@/lib/monthly-close'
+import { MonthlyCloseModal } from '@/components/monthly-close-modal'
 import {
   categoryMonthlyComparison,
   categoryYearlyComparison,
@@ -171,7 +173,7 @@ function rangeBounds(
 function monthGrid(month: Date) {
   const year = month.getFullYear()
   const monthIndex = month.getMonth()
-  const firstDay = new Date(year, monthIndex, 1)
+  const firstDay = new Date(year, monthIndex, 1, 12, 0, 0, 0)
   const totalDays = new Date(year, monthIndex + 1, 0).getDate()
   const leading = firstDay.getDay()
 
@@ -180,10 +182,12 @@ function monthGrid(month: Date) {
     cells.push({ key: `empty-start-${index}`, day: null, date: null })
   }
   for (let day = 1; day <= totalDays; day += 1) {
+    const paddedMonth = String(monthIndex + 1).padStart(2, '0')
+    const paddedDay = String(day).padStart(2, '0')
     cells.push({
-      key: `${year}-${monthIndex + 1}-${day}`,
+      key: `${year}-${paddedMonth}-${paddedDay}`,
       day,
-      date: new Date(year, monthIndex, day),
+      date: new Date(year, monthIndex, day, 12, 0, 0, 0),
     })
   }
   while (cells.length % 7 !== 0) {
@@ -240,6 +244,16 @@ export const TabRekapan = memo(function TabRekapan() {
   const [maxAmount, setMaxAmount] = useState<string>('')
   const [showAdvancedFilter, setShowAdvancedFilter] = useState<boolean>(false)
   const [comparisonPeriod, setComparisonPeriod] = useState<'month' | 'year'>('month')
+  const { isMonthClosed } = useMonthlyCloseStore()
+  const [monthlyCloseModalOpen, setMonthlyCloseModalOpen] = useState(false)
+  const [targetCloseYear, setTargetCloseYear] = useState<number | undefined>(undefined)
+  const [targetCloseMonth, setTargetCloseMonth] = useState<number | undefined>(undefined)
+
+  const handleOpenCloseModal = useCallback((year: number, month: number) => {
+    setTargetCloseYear(year)
+    setTargetCloseMonth(month)
+    setMonthlyCloseModalOpen(true)
+  }, [])
 
   useEffect(() => {
     if (detailSheet) {
@@ -270,6 +284,17 @@ export const TabRekapan = memo(function TabRekapan() {
   const allCategoryOptions = useMemo(() => {
     const catMap = new Map<string, { id: string; label: string }>()
     for (const t of transactions) {
+      if (t.splitItems && t.splitItems.length > 0) {
+        for (const s of t.splitItems) {
+          if (s.categoryId && s.categoryId !== 'transfer') {
+            const cfg = getCategoryConfig(s.categoryId)
+            const normKey = normalizeCategoryKey(cfg.label) || normalizeCategoryKey(s.categoryId)
+            if (!catMap.has(normKey)) {
+              catMap.set(normKey, { id: s.categoryId, label: cfg.label })
+            }
+          }
+        }
+      }
       if (t.category && t.category !== 'transfer') {
         const cfg = getCategoryConfig(t.category)
         const normKey = normalizeCategoryKey(cfg.label) || normalizeCategoryKey(t.category)
@@ -382,7 +407,7 @@ export const TabRekapan = memo(function TabRekapan() {
   const monthlyStart = monthStart(selectedMonth)
   const monthlyEnd = monthEndExclusive(selectedMonth)
   const monthTransactions = useMemo(
-    () => transactionsForRange(transactions, monthlyStart, monthlyEnd),
+    () => transactionsForRange(transactions, monthlyStart, monthlyEnd, { includeMoneyMoves: true }),
     [monthlyEnd, monthlyStart, transactions]
   )
 
@@ -451,7 +476,13 @@ export const TabRekapan = memo(function TabRekapan() {
       label: getCategoryConfig(slice.category).label,
       total: slice.total,
       pct: slice.pct,
-      count: rangeTransactions.filter((transaction) => transaction.type === 'expense' && transaction.category === slice.category).length,
+      count: rangeTransactions.filter((transaction) => {
+        if (transaction.type !== 'expense') return false
+        if (transaction.splitItems && transaction.splitItems.length > 0) {
+          return transaction.splitItems.some((s) => s.categoryId === slice.category)
+        }
+        return transaction.category === slice.category
+      }).length,
       color: getCategoryHex(slice.category),
       type: 'expense',
     }))
@@ -463,7 +494,13 @@ export const TabRekapan = memo(function TabRekapan() {
       label: getCategoryConfig(slice.category).label,
       total: slice.total,
       pct: slice.pct,
-      count: rangeTransactions.filter((transaction) => transaction.type === 'income' && transaction.category === slice.category).length,
+      count: rangeTransactions.filter((transaction) => {
+        if (transaction.type !== 'income') return false
+        if (transaction.splitItems && transaction.splitItems.length > 0) {
+          return transaction.splitItems.some((s) => s.categoryId === slice.category)
+        }
+        return transaction.category === slice.category
+      }).length,
       color: getCategoryHex(slice.category),
       type: 'income',
     }))
@@ -570,7 +607,21 @@ export const TabRekapan = memo(function TabRekapan() {
 
         {mode === 'history' && (
           <section>
-            <p className="mb-4 text-[14px] text-[var(--sk-text-dim)]">Riwayat: {bounds.label}</p>
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <p className="text-[14px] text-[var(--sk-text-dim)]">Riwayat: {bounds.label}</p>
+              {rangeMode === 'month' && isMonthClosed(formatMonthId(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1)) && (
+                <button
+                  type="button"
+                  data-testid="history-closed-indicator"
+                  onClick={() => handleOpenCloseModal(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--sk-cyan)] bg-[var(--sk-cyan-dim)] border border-[var(--sk-cyan)]/30 rounded-full px-2.5 py-0.5 hover:opacity-90 transition-all shrink-0"
+                  title="Periode ini telah ditutup resmi. Klik untuk melihat rincian."
+                >
+                  <Lock className="w-3 h-3" />
+                  <span>Periode Ditutup</span>
+                </button>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -731,9 +782,23 @@ export const TabRekapan = memo(function TabRekapan() {
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <div className="min-w-0 text-center">
-                <p className="truncate text-lg font-bold text-[var(--sk-text)]">
-                  {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth)}
-                </p>
+                <div className="flex items-center justify-center gap-1.5">
+                  <p className="truncate text-lg font-bold text-[var(--sk-text)]">
+                    {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth)}
+                  </p>
+                  {isMonthClosed(formatMonthId(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1)) && (
+                    <button
+                      type="button"
+                      data-testid="calendar-closed-indicator"
+                      onClick={() => handleOpenCloseModal(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1)}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--sk-cyan)] bg-[var(--sk-cyan-dim)] border border-[var(--sk-cyan)]/30 rounded-full px-2 py-0.5 shrink-0 hover:opacity-90 transition-all"
+                      title="Periode ini telah ditutup resmi. Klik untuk melihat rincian."
+                    >
+                      <Lock className="w-2.5 h-2.5" />
+                      <span>Tutup Buku</span>
+                    </button>
+                  )}
+                </div>
                 <p className="mt-0.5 text-[11px] uppercase tracking-[0.18em] text-[var(--sk-text-dim)]">
                   {monthTransactions.length} transaksi
                 </p>
@@ -793,15 +858,21 @@ export const TabRekapan = memo(function TabRekapan() {
                       {hasActivity ? <span className="h-1.5 w-1.5 rounded-full bg-[var(--sk-cyan)]" /> : null}
                     </div>
                     {hasActivity && (
-                      <div className="mt-2 space-y-1 overflow-hidden">
+                      <div className="mt-1.5 space-y-0.5 overflow-hidden w-full text-center">
                         {agg?.income ? (
-                          <div className="truncate text-[9px] font-semibold leading-tight tabular-nums text-[var(--sk-green)]">
-                            +{formatIDRShort(agg.income)}
+                          <div
+                            data-testid={`calendar-cell-income-${dateKeyValue}`}
+                            className="whitespace-nowrap tabular-nums text-[8.5px] sm:text-[9px] font-bold leading-none text-[var(--sk-green)]"
+                          >
+                            +{formatIDRCalendarCompact(agg.income)}
                           </div>
                         ) : null}
                         {agg?.expense ? (
-                          <div className="truncate text-[9px] font-semibold leading-tight tabular-nums text-[var(--sk-red)]">
-                            -{formatIDRShort(agg.expense)}
+                          <div
+                            data-testid={`calendar-cell-expense-${dateKeyValue}`}
+                            className="whitespace-nowrap tabular-nums text-[8.5px] sm:text-[9px] font-bold leading-none text-[var(--sk-red)]"
+                          >
+                            -{formatIDRCalendarCompact(agg.expense)}
                           </div>
                         ) : null}
                       </div>
@@ -856,6 +927,8 @@ export const TabRekapan = memo(function TabRekapan() {
               {yearlyRowsNewestFirst.map((row) => {
                 const hasData = row.income !== 0 || row.expense !== 0
                 const lastDay = new Date(selectedYear, row.monthIndex + 1, 0).getDate()
+                const rowMonthId = formatMonthId(selectedYear, row.monthIndex + 1)
+                const isClosed = isMonthClosed(rowMonthId)
                 return (
                   <button
                     key={row.monthIndex}
@@ -875,8 +948,20 @@ export const TabRekapan = memo(function TabRekapan() {
                       hasData ? 'active:bg-[var(--sk-surface-2)]' : 'opacity-45'
                     )}
                   >
-                    <div className="w-14 shrink-0">
-                      <p className="text-[18px] font-bold leading-none text-[var(--sk-text)]">{row.label}</p>
+                    <div className="w-16 shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[18px] font-bold leading-none text-[var(--sk-text)]">{row.label}</p>
+                        {isClosed && (
+                          <span
+                            data-testid={`closed-period-badge-${rowMonthId}`}
+                            className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[var(--sk-cyan)] bg-[var(--sk-cyan-dim)] border border-[var(--sk-cyan)]/30 rounded px-1.5 py-0.5"
+                            title="Periode ini telah ditutup resmi"
+                          >
+                            <Lock className="w-2.5 h-2.5" />
+                            Tutup
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-2 text-[11px] font-semibold text-[var(--sk-text-dim)]">{row.monthIndex + 1}.1 - {row.monthIndex + 1}.{lastDay}</p>
                     </div>
                     <div className="min-w-0 flex-1 text-right">
@@ -914,9 +999,23 @@ export const TabRekapan = memo(function TabRekapan() {
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <div className="text-center">
-                    <p className="text-lg font-bold text-[var(--sk-text)]">
-                      {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth)}
-                    </p>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <p className="text-lg font-bold text-[var(--sk-text)]">
+                        {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth)}
+                      </p>
+                      {trendUsesMonthPicker && isMonthClosed(formatMonthId(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1)) && (
+                        <button
+                          type="button"
+                          data-testid="trend-closed-indicator"
+                          onClick={() => handleOpenCloseModal(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1)}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--sk-cyan)] bg-[var(--sk-cyan-dim)] border border-[var(--sk-cyan)]/30 rounded-full px-2 py-0.5 shrink-0 hover:opacity-90 transition-all"
+                          title="Periode ini telah ditutup resmi. Klik untuk melihat rincian."
+                        >
+                          <Lock className="w-2.5 h-2.5" />
+                          <span>Tutup Buku</span>
+                        </button>
+                      )}
+                    </div>
                     <p className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-[var(--sk-text-dim)]">Alokasi Bulanan</p>
                   </div>
                   <button
@@ -998,7 +1097,13 @@ export const TabRekapan = memo(function TabRekapan() {
                           type="button"
                           onClick={() => openTransactions(
                             getCategoryConfig(slice.category).label,
-                            trendTransactions.filter((transaction) => transaction.type === allocationType && transaction.category === slice.category),
+                            trendTransactions.filter((transaction) => {
+                              if (transaction.type !== allocationType) return false
+                              if (transaction.splitItems && transaction.splitItems.length > 0) {
+                                return transaction.splitItems.some((s) => s.categoryId === slice.category)
+                              }
+                              return transaction.category === slice.category
+                            }),
                             new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth),
                             subcategoryBreakdownForRange(transactions, trendStart, trendEnd, slice.category, allocationType),
                           )}
@@ -1091,7 +1196,13 @@ export const TabRekapan = memo(function TabRekapan() {
                                 type="button"
                                 onClick={() => openTransactions(
                                   getCategoryConfig(slice.category).label,
-                                  trendTransactions.filter((t) => t.type === allocationType && t.category === slice.category),
+                                  trendTransactions.filter((t) => {
+                                    if (t.type !== allocationType) return false
+                                    if (t.splitItems && t.splitItems.length > 0) {
+                                      return t.splitItems.some((s) => s.categoryId === slice.category)
+                                    }
+                                    return t.category === slice.category
+                                  }),
                                   new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(selectedMonth),
                                   subSlices
                                 )}
@@ -1422,7 +1533,13 @@ export const TabRekapan = memo(function TabRekapan() {
                   type="button"
                   onClick={() => openTransactions(
                     item.label,
-                    rangeTransactions.filter((transaction) => transaction.type === item.type && transaction.category === item.id),
+                    rangeTransactions.filter((transaction) => {
+                      if (transaction.type !== item.type) return false
+                      if (transaction.splitItems && transaction.splitItems.length > 0) {
+                        return transaction.splitItems.some((s) => s.categoryId === item.id)
+                      }
+                      return transaction.category === item.id
+                    }),
                     bounds.label,
                     subcategoryBreakdownForRange(transactions, bounds.start, bounds.end, item.id, item.type),
                   )}
@@ -1462,6 +1579,12 @@ export const TabRekapan = memo(function TabRekapan() {
         initialYear={selectedYear}
         initialCategoryId={explorerCategory}
         initialType={explorerType}
+      />
+      <MonthlyCloseModal
+        open={monthlyCloseModalOpen}
+        onClose={() => setMonthlyCloseModalOpen(false)}
+        initialYear={targetCloseYear}
+        initialMonth={targetCloseMonth}
       />
     </div>
   )

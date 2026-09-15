@@ -398,7 +398,7 @@ export function CategoryManager() {
                 </button>
               </div>
               {editorSubcategories.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-1.5" data-testid="category-editor-subcategories">
                   {editorSubcategories.map((subcategory) => (
                     <button
                       key={subcategory}
@@ -459,7 +459,7 @@ export function CategoryManager() {
             {selected.subcategories.length > 0 ? (
               <div>
                 <p className="mb-2 text-[11px] uppercase tracking-[0.22em] text-[var(--sk-text-dim)]">Sub kategori</p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5" data-testid="category-details-subcategories">
                   {selected.subcategories.map((subcategory) => (
                     <span
                       key={subcategory}

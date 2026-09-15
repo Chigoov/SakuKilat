@@ -1,21 +1,24 @@
 'use client'
 
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDownLeft,
   ArrowRightLeft,
   ArrowUpRight,
   Check,
   Plus,
+  Split,
   Trash2,
   X,
 } from 'lucide-react'
 import {
   useCustomizationStore,
   useTransactionActions,
+  useTransactionData,
   useWalletStore,
   type TransactionUpdateInput,
 } from '@/lib/store'
+import { CompactPaymentSelector } from '@/components/compact-payment-selector'
 import {
   CATEGORY_CONFIG,
   CategoryIcon,
@@ -26,11 +29,23 @@ import {
   normalizeCategoryKey,
 } from '@/components/category-badge'
 import { formatAmountFieldInput, parseAmountInput } from '@/lib/amount'
-import { formatIDR } from '@/lib/parser'
+import {
+  formatIDR,
+  toCalendarDateString,
+  toTimeString,
+  fromCalendarDateTimeStrings,
+} from '@/lib/parser'
+import {
+  createSplitLineItem,
+  canSaveSplitTransaction,
+  type SplitLineItem,
+} from '@/lib/split-transaction'
+import { SplitTransactionEditor } from '@/components/split-transaction-editor'
 import type { Transaction } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
 import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
 import { RupiahInput } from '@/components/rupiah-input'
+import { CategorySuggestionChip } from '@/components/inbox-review'
 
 interface EditTransactionModalProps {
   open: boolean
@@ -40,20 +55,31 @@ interface EditTransactionModalProps {
   onDelete?: (id: string) => void
 }
 
-function dateInputValue(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+function dateInputValue(date: Date | string | number): string {
+  return toCalendarDateString(date)
 }
 
-function timeInputValue(date: Date): string {
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+function timeInputValue(date: Date | string | number): string {
+  return toTimeString(date)
 }
 
-function combineDateTime(dateStr: string, timeStr: string, fallback: Date): Date {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  const [hh, mm] = timeStr.split(':').map(Number)
-  if (!y || !m || !d) return fallback
-  const combined = new Date(y, m - 1, d, Number.isFinite(hh) ? hh : 0, Number.isFinite(mm) ? mm : 0)
-  return Number.isNaN(combined.getTime()) ? fallback : combined
+function combineDateTime(dateStr: string, timeStr: string, fallback: Date | string | number): Date {
+  const fbDate = fallback instanceof Date
+    ? (!Number.isNaN(fallback.getTime()) ? fallback : new Date())
+    : typeof fallback === 'string'
+      ? fromCalendarDateTimeStrings(fallback)
+      : typeof fallback === 'number'
+        ? new Date(fallback)
+        : new Date()
+
+  if (
+    dateStr === toCalendarDateString(fbDate) &&
+    timeStr === toTimeString(fbDate)
+  ) {
+    return new Date(fbDate.getTime())
+  }
+  const parsed = fromCalendarDateTimeStrings(dateStr, timeStr)
+  return Number.isNaN(parsed.getTime()) ? new Date(fbDate.getTime()) : parsed
 }
 
 const INCOME_CATEGORY_IDS = new Set([
@@ -68,7 +94,8 @@ export const EditTransactionModal = memo(function EditTransactionModal({
   onDelete,
 }: EditTransactionModalProps) {
   const { wallets } = useWalletStore()
-  const { customCategories, addCustomCategory, updateCustomCategory } = useCustomizationStore()
+  const { transactions } = useTransactionData()
+  const { customCategories, hiddenPaymentIds, addCustomCategory, updateCustomCategory } = useCustomizationStore()
   const { updateTransaction, deleteTransaction } = useTransactionActions()
 
   const [description, setDescription] = useState('')
@@ -83,12 +110,24 @@ export const EditTransactionModal = memo(function EditTransactionModal({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  // Split transaction state (Phase P11)
+  const [isSplitMode, setIsSplitMode] = useState(false)
+  const [splitItems, setSplitItems] = useState<SplitLineItem[]>([])
+
   // State untuk inline add subcategory
   const [isAddingSub, setIsAddingSub] = useState(false)
   const [newSubName, setNewSubName] = useState('')
+  const lastOpenedTxIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!open || !transaction) return
+    if (!open || !transaction) {
+      lastOpenedTxIdRef.current = null
+      return
+    }
+    // Only re-initialize form state when modal opens or a different transaction is selected
+    if (lastOpenedTxIdRef.current === transaction.id) return
+    lastOpenedTxIdRef.current = transaction.id
+
     setDescription(transaction.description || '')
     setAmountRaw(String(transaction.amount || ''))
     setPaymentMethod(transaction.paymentMethod || wallets[0]?.id || 'tunai')
@@ -102,6 +141,14 @@ export const EditTransactionModal = memo(function EditTransactionModal({
     setSubmitting(false)
     setIsAddingSub(false)
     setNewSubName('')
+
+    if (transaction.splitItems && transaction.splitItems.length > 0) {
+      setIsSplitMode(true)
+      setSplitItems(transaction.splitItems.map(item => ({ ...item })))
+    } else {
+      setIsSplitMode(false)
+      setSplitItems([])
+    }
   }, [open, transaction, wallets])
 
   // Back-stack integration: register modal, confirm delete dialog, and add sub dialog
@@ -209,19 +256,52 @@ export const EditTransactionModal = memo(function EditTransactionModal({
     [category, categoryOptions]
   )
 
+  const isSplitValid = useMemo(() => {
+    if (!isSplitMode) return true
+    return canSaveSplitTransaction(parsedAmount || 0, splitItems)
+  }, [isSplitMode, parsedAmount, splitItems])
+
+  const handleToggleSplit = useCallback(() => {
+    setIsSplitMode(prev => {
+      const next = !prev
+      if (next && splitItems.length === 0) {
+        const currentAmount = parseAmountInput(amountRaw) || transaction?.amount || 0
+        const half = Math.floor(currentAmount / 2)
+        const remainder = currentAmount - half
+        setSplitItems([
+          createSplitLineItem({
+            categoryId: category || 'makanan',
+            subcategoryId: subcategory || undefined,
+            amount: half,
+          }),
+          createSplitLineItem({
+            categoryId: 'lainnya',
+            amount: remainder,
+          }),
+        ])
+      }
+      return next
+    })
+  }, [amountRaw, category, subcategory, splitItems.length, transaction?.amount])
+
   const handleSave = () => {
     if (!transaction || !parsedAmount || parsedAmount <= 0) return
+    if (isSplitMode && !isSplitValid) return
     setSubmitting(true)
 
     const finalDate = combineDateTime(entryDate, entryTime, transaction.date)
+    const primaryCategory = isSplitMode && splitItems[0] ? splitItems[0].categoryId : category
+    const primarySubcategory = isSplitMode && splitItems[0] ? splitItems[0].subcategoryId : subcategory.trim() || undefined
+
     const updates: TransactionUpdateInput = {
       description: description.trim() || transaction.description,
       amount: parsedAmount,
       date: finalDate,
       paymentMethod,
-      category,
-      subcategory: subcategory.trim() || undefined,
+      category: primaryCategory,
+      subcategory: primarySubcategory,
       note: note.trim() || undefined,
+      splitItems: isSplitMode ? splitItems : undefined,
     }
 
     if (onUpdate) {
@@ -386,146 +466,194 @@ export const EditTransactionModal = memo(function EditTransactionModal({
             <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
               {isMove ? 'Dari Saku' : 'Saku / Metode Bayar'}
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-1">
-              {wallets.map(w => {
-                const active = paymentMethod === w.id
-                return (
-                  <button
-                    key={w.id}
-                    type="button"
-                    onClick={() => setPaymentMethod(w.id)}
-                    className={cn(
-                      'px-2.5 py-2 rounded-lg text-left transition-all border flex flex-col justify-center min-h-[44px]',
-                      active
-                        ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
-                        : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent hover:text-[var(--sk-text)]'
-                    )}
-                  >
-                    <span className="text-xs font-semibold truncate leading-tight">{w.label}</span>
-                    <span className="text-[10px] text-[var(--sk-text-dim)] tabular-nums mt-0.5">
-                      {formatIDR(w.balance)}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
+            <CompactPaymentSelector
+              activeId={paymentMethod}
+              onPick={setPaymentMethod}
+              wallets={wallets}
+              transactions={transactions}
+              hiddenPaymentIds={hiddenPaymentIds}
+              isTransferMode={isMove}
+              balanceFormat="full"
+            />
           </div>
 
           {/* Kategori (untuk Non-Transfer) */}
+          {/* Split Mode Toggle (Phase P11) */}
           {!isMove && (
-            <div>
-              <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
-                Kategori
-              </label>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 mt-1">
-                {categoryOptions.map(cat => {
-                  const Icon = cat.icon
-                  const active = category === cat.id
-                  return (
+            <div className="flex items-center justify-between p-2 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)]">
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  'w-6 h-6 rounded-lg flex items-center justify-center transition-colors',
+                  isSplitMode
+                    ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)]'
+                    : 'bg-[var(--sk-surface)] text-[var(--sk-text-muted)]'
+                )}>
+                  <Split className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-[var(--sk-text)] block leading-none">
+                    Pisah Kategori (Split)
+                  </span>
+                  <span className="text-[10px] text-[var(--sk-text-dim)]">
+                    {isSplitMode ? 'Bagi transaksi ke beberapa kategori' : 'Catat ke satu kategori saja'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                data-testid="edit-toggle-split-mode"
+                onClick={handleToggleSplit}
+                className={cn(
+                  'px-3 py-1 rounded-full text-xs font-bold transition-all border shadow-sm',
+                  isSplitMode
+                    ? 'bg-[var(--sk-cyan)] text-[#090D16] border-[var(--sk-cyan)]'
+                    : 'bg-[var(--sk-surface)] text-[var(--sk-text-muted)] border-[var(--sk-border)] hover:text-[var(--sk-text)]'
+                )}
+              >
+                {isSplitMode ? 'Aktif' : 'Nonaktif'}
+              </button>
+            </div>
+          )}
+
+          {/* Split Editor or Single Category Picker */}
+          {!isMove && isSplitMode ? (
+            <SplitTransactionEditor
+              parentAmount={parsedAmount || 0}
+              splitItems={splitItems}
+              onChange={setSplitItems}
+              type={isExpense ? 'expense' : 'income'}
+            />
+          ) : (
+            !isMove && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <CategorySuggestionChip
+                    description={description}
+                    currentCategoryId={category}
+                    currentSubcategoryId={subcategory}
+                    onApply={(suggestedCat, suggestedSub) => {
+                      setCategory(suggestedCat)
+                      if (suggestedSub) setSubcategory(suggestedSub)
+                    }}
+                    type={isExpense ? 'expense' : 'income'}
+                  />
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                      Kategori
+                    </label>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 mt-1">
+                      {categoryOptions.map(cat => {
+                        const Icon = cat.icon
+                        const active = category === cat.id
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => setCategory(cat.id)}
+                            className={cn(
+                              'px-2 py-2 rounded-lg flex flex-col items-center gap-0.5 transition-colors min-h-[44px] justify-center',
+                              active
+                                ? cn(cat.bg, cat.color, 'border border-current')
+                                : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border border-transparent hover:text-[var(--sk-text)]'
+                            )}
+                          >
+                            <Icon className="w-4 h-4" />
+                            <span className="text-[10px] font-medium truncate w-full text-center">
+                              {cat.label}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub Kategori (Flex Wrap Chips) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                      Sub Kategori
+                    </label>
                     <button
-                      key={cat.id}
                       type="button"
-                      onClick={() => setCategory(cat.id)}
+                      onClick={() => setIsAddingSub(prev => !prev)}
+                      className="text-[10px] font-bold text-[var(--sk-cyan)] flex items-center gap-1 hover:underline"
+                    >
+                      <Plus className="w-3 h-3" />
+                      + Sub Baru
+                    </button>
+                  </div>
+
+                  {isAddingSub && (
+                    <div className="flex items-center gap-1.5 mb-2 animate-fade-in">
+                      <input
+                        type="text"
+                        value={newSubName}
+                        onChange={e => setNewSubName(e.target.value)}
+                        placeholder="Nama subkategori baru..."
+                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-cyan)] text-xs text-[var(--sk-text)] outline-none"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCreateSubcategory}
+                        disabled={!newSubName.trim()}
+                        className="px-3 py-1.5 rounded-lg bg-[var(--sk-cyan)] text-[#090D16] text-xs font-bold disabled:opacity-50"
+                      >
+                        Simpan
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setIsAddingSub(false); setNewSubName('') }}
+                        className="p-1.5 text-[var(--sk-text-dim)]"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-1.5" data-testid="edit-modal-subcategories">
+                    <button
+                      type="button"
+                      onClick={() => setSubcategory('')}
                       className={cn(
-                        'px-2 py-2 rounded-lg flex flex-col items-center gap-0.5 transition-colors min-h-[44px] justify-center',
-                        active
-                          ? cn(cat.bg, cat.color, 'border border-current')
-                          : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border border-transparent hover:text-[var(--sk-text)]'
+                        'px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                        !subcategory
+                          ? 'bg-[var(--sk-surface-3)] text-[var(--sk-text)] border-[var(--sk-border-2)]'
+                          : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent'
                       )}
                     >
-                      <Icon className="w-4 h-4" />
-                      <span className="text-[10px] font-medium truncate w-full text-center">
-                        {cat.label}
-                      </span>
+                      Tanpa Sub
                     </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Sub Kategori (Horizontal Pill Carousel) */}
-          {!isMove && (
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
-                  Sub Kategori
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setIsAddingSub(prev => !prev)}
-                  className="text-[10px] font-bold text-[var(--sk-cyan)] flex items-center gap-1 hover:underline"
-                >
-                  <Plus className="w-3 h-3" />
-                  + Sub Baru
-                </button>
-              </div>
-
-              {isAddingSub && (
-                <div className="flex items-center gap-1.5 mb-2 animate-fade-in">
-                  <input
-                    type="text"
-                    value={newSubName}
-                    onChange={e => setNewSubName(e.target.value)}
-                    placeholder="Nama subkategori baru..."
-                    className="flex-1 px-2.5 py-1.5 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-cyan)] text-xs text-[var(--sk-text)] outline-none"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={handleCreateSubcategory}
-                    disabled={!newSubName.trim()}
-                    className="px-3 py-1.5 rounded-lg bg-[var(--sk-cyan)] text-[#090D16] text-xs font-bold disabled:opacity-50"
-                  >
-                    Simpan
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setIsAddingSub(false); setNewSubName('') }}
-                    className="p-1.5 text-[var(--sk-text-dim)]"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                    {selectedCategory?.subcategories.map(sub => (
+                      <button
+                        key={sub}
+                        type="button"
+                        onClick={() => setSubcategory(sub)}
+                        className={cn(
+                          'px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                          subcategory === sub
+                            ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
+                            : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent'
+                        )}
+                      >
+                        {sub}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              )}
-
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setSubcategory('')}
-                  className={cn(
-                    'px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-                    !subcategory
-                      ? 'bg-[var(--sk-surface-3)] text-[var(--sk-text)] border-[var(--sk-border-2)]'
-                      : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent'
-                  )}
-                >
-                  Tanpa Sub
-                </button>
-                {selectedCategory?.subcategories.map(sub => (
-                  <button
-                    key={sub}
-                    type="button"
-                    onClick={() => setSubcategory(sub)}
-                    className={cn(
-                      'px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-                      subcategory === sub
-                        ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
-                        : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent'
-                    )}
-                  >
-                    {sub}
-                  </button>
-                ))}
-              </div>
-            </div>
+              </>
+            )
           )}
 
-          {/* Waktu & Tanggal (Quick Date) */}
+          {/* Waktu & Tanggal (Quick Date & Accessible) */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
-                Waktu Transaksi
+              <label
+                htmlFor="sk-edit-tx-date"
+                className="text-[10px] uppercase tracking-widest font-bold text-[var(--sk-text-dim)] cursor-pointer"
+              >
+                Tanggal transaksi
               </label>
               <div className="flex items-center gap-1.5">
                 <button
@@ -564,15 +692,23 @@ export const EditTransactionModal = memo(function EditTransactionModal({
             </div>
             <div className="grid grid-cols-2 gap-2">
               <input
+                id="sk-edit-tx-date"
+                name="editDate"
                 type="date"
+                aria-label="Tanggal transaksi"
                 value={entryDate}
                 onChange={e => setEntryDate(e.target.value)}
+                data-testid="edit-tx-date"
                 className="w-full px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
               />
               <input
+                id="sk-edit-tx-time"
+                name="editTime"
                 type="time"
+                aria-label="Waktu transaksi"
                 value={entryTime}
                 onChange={e => setEntryTime(e.target.value)}
+                data-testid="edit-tx-time"
                 className="w-full px-3 py-2 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-sm text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
               />
             </div>
@@ -613,11 +749,13 @@ export const EditTransactionModal = memo(function EditTransactionModal({
             <button
               type="button"
               onClick={handleSave}
-              disabled={!parsedAmount || parsedAmount <= 0 || submitting}
+              disabled={!parsedAmount || parsedAmount <= 0 || (isSplitMode && !isSplitValid) || submitting}
               className="flex-1 py-2.5 rounded-xl bg-[var(--sk-cyan)] text-[#090D16] text-xs font-bold flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
-              <span>Simpan Perubahan</span>
+              <span>
+                {isSplitMode && !isSplitValid ? 'Alokasi Belum Seimbang' : 'Simpan Perubahan'}
+              </span>
             </button>
           )}
         </div>

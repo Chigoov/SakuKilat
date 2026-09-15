@@ -1,4 +1,5 @@
 import type { TransactionType } from './parser'
+import type { SplitLineItem } from './split-transaction.ts'
 
 export type TransactionKind = 'transaction' | 'transfer' | 'saving'
 export type WalletType = 'cash' | 'bank' | 'ewallet' | 'card' | 'savings' | 'other'
@@ -8,9 +9,19 @@ export interface WalletAccount {
   label: string
   type: WalletType
   balance: number
+  openingBalance?: number
+  currentBalance?: number
+  isArchived?: boolean
+  archivedAt?: string
+  isDeleted?: boolean
+  deletedAt?: string
+  createdAt?: string
   keywords: string[]
   isBuiltIn?: boolean
+  lastReconciledAt?: string
 }
+
+export type Wallet = WalletAccount
 
 export interface Transaction {
   id: string
@@ -26,6 +37,11 @@ export interface Transaction {
   toWalletId?: string
   date: Date
   isPending?: boolean // optimistic UI state
+  isReconciled?: boolean
+  reconciliationId?: string
+  billId?: string // Phase P5 reference
+  splitItems?: SplitLineItem[] // Phase P11 reference
+  historicalCategoryLabel?: string
 }
 
 export const SEED_WALLETS: WalletAccount[] = [

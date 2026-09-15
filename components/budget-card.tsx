@@ -14,57 +14,57 @@ export function BudgetCard() {
   const weekPct = Math.min(100, Math.round(status.pctWeekUsed * 100))
 
   return (
-    <section className="mt-5 h-full rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-5">
-        <div className="flex items-center gap-2 mb-3">
+    <section data-tour="budget-card" data-testid="budget-card" className="mt-2.5 sm:mt-4 h-full rounded-[22px] sm:rounded-[30px] border border-[var(--sk-border)] bg-[var(--sk-surface)] p-3 sm:p-5">
+        <div className="flex items-center gap-2 mb-2 sm:mb-2.5">
           <div className={cn(
-            'w-9 h-9 rounded-2xl flex-shrink-0 flex items-center justify-center',
+            'w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-2xl flex-shrink-0 flex items-center justify-center',
             status.roast ? 'bg-[var(--sk-red-dim)]' : 'bg-[var(--sk-amber-dim)]'
           )}>
-            <Gauge className={cn('w-4 h-4', status.roast ? 'text-[var(--sk-red)]' : 'text-[var(--sk-amber)]')} />
+            <Gauge className={cn('w-3.5 h-3.5 sm:w-4 sm:h-4', status.roast ? 'text-[var(--sk-red)]' : 'text-[var(--sk-amber)]')} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-[var(--sk-text-muted)]">Budget bulan ini</p>
-            <p className="text-[20px] font-bold leading-tight tabular-nums text-[var(--sk-text)]" data-amount>
+            <p className="text-[10px] sm:text-xs font-medium text-[var(--sk-text-muted)]">Budget bulan ini</p>
+            <p className="text-[17px] sm:text-[20px] font-bold leading-tight tabular-nums text-[var(--sk-text)]" data-amount>
               {formatIDR(status.budget)}
             </p>
           </div>
           <span className={cn(
-            'ml-2 flex-shrink-0 text-lg font-bold tabular-nums',
+            'ml-2 flex-shrink-0 text-sm sm:text-lg font-bold tabular-nums',
             status.roast ? 'text-[var(--sk-red)]' : pct > 75 ? 'text-[var(--sk-amber)]' : 'text-[var(--sk-green)]'
           )}>
             {pct}%
           </span>
         </div>
 
-        <div className="h-2 rounded-full bg-[var(--sk-surface-2)] overflow-hidden mb-3">
+        <div className="h-1.5 sm:h-2 rounded-full bg-[var(--sk-surface-2)] overflow-hidden mb-2 sm:mb-2.5">
           <div
             className={cn('h-full rounded-full', status.roast ? 'bg-[var(--sk-red)]' : 'bg-[var(--sk-cyan)]')}
             style={{ width: `${pct}%` }}
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          <div>
-            <p className="text-[11px] text-[var(--sk-text-dim)]">Terpakai</p>
-            <p className="text-[12px] font-semibold tabular-nums text-[var(--sk-red)]">{formatIDR(status.spent)}</p>
+        <div className="grid grid-cols-3 gap-2 mb-2 sm:mb-2.5">
+          <div data-testid="budget-spent">
+            <p className="text-[10px] sm:text-[11px] text-[var(--sk-text-dim)]">Terpakai</p>
+            <p className="text-[11px] sm:text-[12px] font-semibold tabular-nums text-[var(--sk-red)]">{formatIDR(status.spent)}</p>
           </div>
-          <div>
-            <p className="text-[11px] text-[var(--sk-text-dim)]">Jatah/hari</p>
-            <p className="text-[12px] font-semibold tabular-nums text-[var(--sk-cyan)]">{formatIDR(status.dynamicDailyBudget)}</p>
+          <div data-testid="budget-daily-allowance">
+            <p className="text-[10px] sm:text-[11px] text-[var(--sk-text-dim)]">Jatah/hari</p>
+            <p className="text-[11px] sm:text-[12px] font-semibold tabular-nums text-[var(--sk-cyan)]">{formatIDR(status.dynamicDailyBudget)}</p>
           </div>
-          <div>
-            <p className="text-[11px] text-[var(--sk-text-dim)]">Sisa hari</p>
-            <p className="text-[12px] font-semibold tabular-nums text-[var(--sk-text)]">{status.remainingDays}</p>
+          <div data-testid="budget-remaining-days">
+            <p className="text-[10px] sm:text-[11px] text-[var(--sk-text-dim)]">Sisa hari</p>
+            <p className="text-[11px] sm:text-[12px] font-semibold tabular-nums text-[var(--sk-text)]">{status.remainingDays}</p>
           </div>
         </div>
 
-        <div className="rounded-[24px] bg-[var(--sk-surface-2)] border border-[var(--sk-border)] p-4">
-          <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="rounded-[18px] sm:rounded-[24px] bg-[var(--sk-surface-2)] border border-[var(--sk-border)] p-2.5 sm:p-4">
+          <div className="flex items-center justify-between gap-3 mb-1.5 sm:mb-2">
             <div>
-              <p className="text-[10px] text-[var(--sk-text-dim)] uppercase tracking-widest">
+              <p className="text-[9px] sm:text-[10px] text-[var(--sk-text-dim)] uppercase tracking-widest">
                 Minggu {status.weekOfMonth}/{status.totalWeeks}
               </p>
-              <p className="text-xs text-[var(--sk-text-muted)]">
+              <p className="text-[11px] sm:text-xs text-[var(--sk-text-muted)]">
                 Tgl {status.weekStartDay}-{status.weekEndDay}
               </p>
             </div>
@@ -75,7 +75,7 @@ export function BudgetCard() {
               {weekPct}%
             </span>
           </div>
-          <div className="h-1.5 rounded-full bg-[var(--sk-surface-3)] overflow-hidden mb-2.5">
+          <div className="h-1 sm:h-1.5 rounded-full bg-[var(--sk-surface-3)] overflow-hidden mb-1.5 sm:mb-2.5">
             <div
               className={cn('h-full rounded-full', status.weekOverBase ? 'bg-[var(--sk-red)]' : 'bg-[var(--sk-amber)]')}
               style={{ width: `${weekPct}%` }}
@@ -83,19 +83,19 @@ export function BudgetCard() {
           </div>
           <div className="grid grid-cols-3 gap-2 text-xs">
             <div>
-              <p className="text-[var(--sk-text-dim)]">Jatah minggu ini</p>
-              <p className="font-semibold tabular-nums text-[var(--sk-text)]">{formatIDRCompact(status.dynamicWeeklyBudget)}</p>
+              <p className="text-[var(--sk-text-dim)] text-[9px] sm:text-xs">Jatah minggu</p>
+              <p className="font-semibold tabular-nums text-[var(--sk-text)] text-[10px] sm:text-xs">{formatIDRCompact(status.dynamicWeeklyBudget)}</p>
             </div>
             <div>
-              <p className="text-[var(--sk-text-dim)]">Sudah keluar</p>
-              <p className="font-semibold tabular-nums text-[var(--sk-red)]">{formatIDRCompact(status.weeklySpent)}</p>
+              <p className="text-[var(--sk-text-dim)] text-[9px] sm:text-xs">Sudah keluar</p>
+              <p className="font-semibold tabular-nums text-[var(--sk-red)] text-[10px] sm:text-xs">{formatIDRCompact(status.weeklySpent)}</p>
             </div>
             <div>
-              <p className="text-[var(--sk-text-dim)]">
+              <p className="text-[var(--sk-text-dim)] text-[9px] sm:text-xs">
                 {status.weeklyRemaining < 0 ? 'Lewat jatah' : 'Sisa jatah'}
               </p>
               <p className={cn(
-                'font-semibold tabular-nums',
+                'font-semibold tabular-nums text-[10px] sm:text-xs',
                 status.weeklyRemaining < 0 ? 'text-[var(--sk-red)]' : 'text-[var(--sk-green)]'
               )}>
                 {status.weeklyRemaining < 0 ? '-' : ''}{formatIDRCompact(Math.abs(status.weeklyRemaining))}

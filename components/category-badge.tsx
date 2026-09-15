@@ -54,24 +54,12 @@ export const CATEGORY_CONFIG: Record<Category, CategoryConfig> = {
   lainnya:      { icon: MoreHorizontal,  label: 'Lainnya',       color: 'text-[var(--sk-text-muted)]', bg: 'bg-[var(--sk-surface-3)]' },
 }
 
-export const DEFAULT_SUBCATEGORIES: Record<string, string[]> = {
-  makanan: ['Makan Siang/Malam', 'Kopi & Nongkrong', 'Bahan Dapur', 'Jajan & Camilan', 'Sarapan'],
-  transportasi: ['Bensin', 'Parkir & Tol', 'Ojek Online', 'Servis Kendaraan', 'Tiket Kendaraan'],
-  belanja: ['Kebutuhan Rumah', 'Pakaian & Fashion', 'Elektronik & Gadget', 'Hobi & Hiburan'],
-  tagihan: ['Listrik PLN', 'Internet & WiFi', 'Pulsa & Paket Data', 'Air PDAM', 'Langganan Aplikasi'],
-  kesehatan: ['Obat & Vitamin', 'Dokter & Klinik', 'Olahraga & Gym', 'Perawatan Diri'],
-  hiburan: ['Nonton Bioskop', 'Streaming', 'Game & Hiburan', 'Liburan & Wisata'],
-  pendidikan: ['Buku & Modul', 'Kursus & Sertifikasi', 'Alat Tulis', 'SPP & Biaya Sekolah'],
-  gaji: ['Gaji Pokok', 'Bonus & THR', 'Tunjangan', 'Insentif'],
-  investasi: ['Saham & Reksadana', 'Kripto', 'Emas', 'Dividen'],
-  freelance: ['Proyek Klien', 'Desain & Coding', 'Jasa / Konsultasi'],
-}
-
-export function getDefaultSubcategories(categoryId: string): string[] {
-  return DEFAULT_SUBCATEGORIES[categoryId] ?? []
-}
-
-export { dedupeSubcategories, normalizeCategoryKey } from '@/lib/category-utils'
+export {
+  DEFAULT_SUBCATEGORIES,
+  getDefaultSubcategories,
+  dedupeSubcategories,
+  normalizeCategoryKey,
+} from '@/lib/category-utils'
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   gopay:     'GoPay',

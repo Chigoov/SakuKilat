@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Plus,
   SlidersHorizontal,
+  Split,
   TrendingDown,
   TrendingUp,
   X,
@@ -22,11 +23,27 @@ import {
 } from '@/lib/store'
 import { CATEGORY_CONFIG, getCategoryConfig, getDefaultSubcategories, dedupeSubcategories, normalizeCategoryKey } from '@/components/category-badge'
 import { formatAmountFieldInput, parseAmountInput } from '@/lib/amount'
-import { formatIDR, formatIDRCompact, getBuiltinCategoryType, parseTransaction } from '@/lib/parser'
+import {
+  formatIDR,
+  formatIDRCompact,
+  getBuiltinCategoryType,
+  parseTransaction,
+  toCalendarDateString,
+  toTimeString,
+  fromCalendarDateTimeStrings,
+} from '@/lib/parser'
+import {
+  createSplitLineItem,
+  canSaveSplitTransaction,
+  type SplitLineItem,
+} from '@/lib/split-transaction'
+import { SplitTransactionEditor } from '@/components/split-transaction-editor'
 import { findPhraseSuggestions } from '@/lib/suggestions'
 import { cn } from '@/lib/utils'
 import { pushBackLayer, removeBackLayer } from '@/lib/back-stack'
 import { RupiahInput } from '@/components/rupiah-input'
+import { CompactPaymentSelector } from '@/components/compact-payment-selector'
+import { CategorySuggestionChip } from '@/components/inbox-review'
 
 interface ManualEntryFormProps {
   open: boolean
@@ -36,32 +53,16 @@ interface ManualEntryFormProps {
 
 type EntryType = 'expense' | 'income' | 'transfer'
 
-function dateInputValue(date = new Date()): string {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0'),
-  ].join('-')
+function dateInputValue(date?: Date | string | number): string {
+  return toCalendarDateString(date)
 }
 
-function timeInputValue(date = new Date()): string {
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+function timeInputValue(date?: Date | string | number): string {
+  return toTimeString(date)
 }
 
 function dateFromInput(value: string, timeValue?: string): Date {
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return new Date()
-  const now = new Date()
-  // Kalau timeValue diisi (HH:MM), pakai itu -- jadi user bisa catat transaksi
-  // di jam tertentu. Kalau kosong, fallback ke jam sekarang (perilaku lama).
-  let hour = now.getHours()
-  let minute = now.getMinutes()
-  if (timeValue) {
-    const [h, m] = timeValue.split(':').map(Number)
-    if (Number.isFinite(h)) hour = h
-    if (Number.isFinite(m)) minute = m
-  }
-  return new Date(year, month - 1, day, hour, minute, 0, 0)
+  return fromCalendarDateTimeStrings(value, timeValue)
 }
 
 export const ManualEntryForm = memo(function ManualEntryForm({
@@ -71,7 +72,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
 }: ManualEntryFormProps) {
   const { wallets, transferMoney } = useWalletStore()
   const { transactions } = useTransactionData()
-  const { customCategories, hiddenCategoryIds, addCustomCategory, updateCustomCategory } = useCustomizationStore()
+  const { customCategories, hiddenCategoryIds, hiddenPaymentIds, addCustomCategory, updateCustomCategory } = useCustomizationStore()
   const { addManualTransaction } = useTransactionActions()
 
   const [type, setType] = useState<EntryType>('expense')
@@ -85,6 +86,10 @@ export const ManualEntryForm = memo(function ManualEntryForm({
   const [entryDate, setEntryDate] = useState(() => dateInputValue())
   const [entryTime, setEntryTime] = useState(() => timeInputValue())
   const [submitting, setSubmitting] = useState(false)
+
+  // Split transaction state (Phase P11)
+  const [isSplitMode, setIsSplitMode] = useState(false)
+  const [splitItems, setSplitItems] = useState<SplitLineItem[]>([])
 
   // Remember last used category per type (Bagian D)
   const [lastCategoryPerType, setLastCategoryPerType] = useState<{ expense: string; income: string }>({
@@ -136,6 +141,8 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     setSubmitting(false)
     setIsAddingSub(false)
     setNewSubName('')
+    setIsSplitMode(false)
+    setSplitItems([])
   }, [open, seedInput, wallets])
 
   // Back-stack integration: register/unregister modal
@@ -174,9 +181,33 @@ export const ManualEntryForm = memo(function ManualEntryForm({
   }, [open])
 
   const parsedAmount = useMemo(() => parseAmountInput(amountRaw), [amountRaw])
+
+  const isSplitValid = useMemo(() => {
+    if (!isSplitMode) return true
+    return canSaveSplitTransaction(parsedAmount || 0, splitItems)
+  }, [isSplitMode, parsedAmount, splitItems])
+
   const canSubmit = type === 'transfer'
     ? !!parsedAmount && !!paymentMethod && !!toWalletId && paymentMethod !== toWalletId && !submitting
-    : !!parsedAmount && !!paymentMethod && !submitting
+    : isSplitMode
+      ? !!parsedAmount && !!paymentMethod && isSplitValid && !submitting
+      : !!parsedAmount && !!paymentMethod && !submitting
+
+  const handleToggleSplit = useCallback(() => {
+    setIsSplitMode(prev => {
+      const next = !prev
+      if (next && splitItems.length === 0) {
+        const currentAmt = parsedAmount || 0
+        const half = Math.floor(currentAmt / 2)
+        const remainder = currentAmt - half
+        setSplitItems([
+          createSplitLineItem({ categoryId: category || 'makanan', amount: half }),
+          createSplitLineItem({ categoryId: 'lainnya', amount: remainder }),
+        ])
+      }
+      return next
+    })
+  }, [parsedAmount, splitItems.length, category])
 
   const categoryOptions = useMemo(() => {
     const customById = new Map(customCategories.map(item => [item.id, item]))
@@ -277,8 +308,10 @@ export const ManualEntryForm = memo(function ManualEntryForm({
   )
 
   useEffect(() => {
-    if (type !== 'transfer' && !categoryOptions.some(item => item.id === category)) {
-      setCategory(type === 'income' ? 'gaji' : 'lainnya')
+    if (type !== 'transfer') {
+      if (!categoryOptions.some(item => item.id === category)) {
+        setCategory(type === 'income' ? 'gaji' : 'lainnya')
+      }
     }
   }, [type, categoryOptions, category])
 
@@ -319,17 +352,25 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     if (!canSubmit || !parsedAmount) return
     setSubmitting(true)
     const selectedDate = dateFromInput(entryDate, entryTime)
+    const primaryCategory = isSplitMode && splitItems[0] ? splitItems[0].categoryId : category
+    const primarySubcategory = isSplitMode && splitItems[0] ? splitItems[0].subcategoryId : subcategory
+
+    const noteTrimmed = note.trim()
+    const transferDescription = description.trim() || 'Pindah uang'
+    const finalTransferNote = noteTrimmed || undefined
+
     const ok = type === 'transfer'
-      ? transferMoney(paymentMethod, toWalletId, parsedAmount, description.trim() || 'Pindah uang', 'transfer', selectedDate)
+      ? transferMoney(paymentMethod, toWalletId, parsedAmount, transferDescription, 'transfer', selectedDate, finalTransferNote)
       : await addManualTransaction({
           description: description.trim() || selectedCategory?.label || '',
           amount: parsedAmount,
           type,
-          category,
-          subcategory: subcategory || undefined,
-          note: note.trim() || undefined,
+          category: primaryCategory,
+          subcategory: primarySubcategory || undefined,
+          note: noteTrimmed || undefined,
           paymentMethod,
           date: selectedDate,
+          splitItems: isSplitMode ? splitItems : undefined,
         })
     setSubmitting(false)
     if (ok) onClose()
@@ -340,6 +381,8 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     description,
     entryDate,
     entryTime,
+    isSplitMode,
+    splitItems,
     onClose,
     parsedAmount,
     paymentMethod,
@@ -523,11 +566,14 @@ export const ManualEntryForm = memo(function ManualEntryForm({
             <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
               {type === 'income' ? 'Saku tujuan' : 'Saku asal'}
             </label>
-            <WalletGrid
+            <CompactPaymentSelector
               activeId={paymentMethod}
               blockedId={type === 'transfer' ? toWalletId : undefined}
               onPick={setPaymentMethod}
               wallets={wallets}
+              transactions={transactions}
+              hiddenPaymentIds={hiddenPaymentIds}
+              isTransferMode={type === 'transfer'}
             />
           </div>
 
@@ -536,48 +582,209 @@ export const ManualEntryForm = memo(function ManualEntryForm({
               <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
                 Ke saku
               </label>
-              <WalletGrid
+              <CompactPaymentSelector
                 activeId={toWalletId}
                 blockedId={paymentMethod}
                 onPick={setToWalletId}
                 wallets={wallets}
+                transactions={transactions}
+                hiddenPaymentIds={hiddenPaymentIds}
+                isTransferMode={true}
               />
             </div>
           )}
 
-          {type !== 'transfer' && (
-            <div>
-              <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
-                Kategori {type === 'income' ? 'masuk' : 'keluar'}
+          {/* Split Mode Toggle (Phase P11) */}
+          {type !== 'transfer' ? (
+            <div className="flex items-center justify-between p-2 rounded-xl bg-[var(--sk-surface-2)] border border-[var(--sk-border)]">
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  'w-6 h-6 rounded-lg flex items-center justify-center transition-colors',
+                  isSplitMode
+                    ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)]'
+                    : 'bg-[var(--sk-surface)] text-[var(--sk-text-muted)]'
+                )}>
+                  <Split className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-[var(--sk-text)] block leading-none">
+                    Pisah Kategori (Split)
+                  </span>
+                  <span className="text-[10px] text-[var(--sk-text-dim)]">
+                    {isSplitMode ? 'Bagi transaksi ke beberapa kategori' : 'Catat ke satu kategori saja'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                data-testid="toggle-split-mode"
+                onClick={handleToggleSplit}
+                className={cn(
+                  'px-3 py-1 rounded-full text-xs font-bold transition-all border shadow-sm',
+                  isSplitMode
+                    ? 'bg-[var(--sk-cyan)] text-[#090D16] border-[var(--sk-cyan)]'
+                    : 'bg-[var(--sk-surface)] text-[var(--sk-text-muted)] border-[var(--sk-border)] hover:text-[var(--sk-text)]'
+                )}
+              >
+                {isSplitMode ? 'Aktif' : 'Nonaktif'}
+              </button>
+            </div>
+          ) : null}
+
+          {/* Split Editor or Single Category Picker */}
+          {type !== 'transfer' ? (
+            isSplitMode ? (
+              <SplitTransactionEditor
+                parentAmount={parsedAmount || 0}
+                splitItems={splitItems}
+                onChange={setSplitItems}
+                type={type}
+              />
+            ) : (
+              <>
+                <CategorySuggestionChip
+                  description={description}
+                  currentCategoryId={category}
+                  currentSubcategoryId={subcategory}
+                  onApply={(suggestedCat, suggestedSub) => {
+                    handleCategoryPick(suggestedCat)
+                    if (suggestedSub) setSubcategory(suggestedSub)
+                  }}
+                  type={type}
+                />
+
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
+                    Kategori {type === 'income' ? 'masuk' : 'keluar'}
+                  </label>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 mt-1">
+                    {categoryOptions.map(item => {
+                      const Icon = item.icon
+                      const active = category === item.id
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleCategoryPick(item.id)}
+                          className={cn(
+                            'px-2 py-2 rounded-lg flex flex-col items-center gap-0.5 transition-colors min-h-[44px] justify-center',
+                            active
+                              ? cn(item.bg, item.color, 'border border-current')
+                              : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border border-transparent hover:text-[var(--sk-text)]'
+                          )}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span className="text-[10px] font-medium truncate w-full text-center">
+                            {item.label}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            )
+          ) : null}
+
+          {/* Tanggal & Waktu Transaksi (Langsung Terlihat di Form Utama & Aksesibel) */}
+          <div className="rounded-xl p-3 bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="sk-manual-entry-date"
+                className="text-[10px] uppercase tracking-widest font-bold text-[var(--sk-text-dim)] cursor-pointer"
+              >
+                Tanggal transaksi
               </label>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 mt-1">
-                {categoryOptions.map(item => {
-                  const Icon = item.icon
-                  const active = category === item.id
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleCategoryPick(item.id)}
-                      className={cn(
-                        'px-2 py-2 rounded-lg flex flex-col items-center gap-0.5 transition-colors min-h-[44px] justify-center',
-                        active
-                          ? cn(item.bg, item.color, 'border border-current')
-                          : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border border-transparent hover:text-[var(--sk-text)]'
-                      )}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span className="text-[10px] font-medium truncate w-full text-center">
-                        {item.label}
-                      </span>
-                    </button>
-                  )
-                })}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setEntryDate(dateInputValue(new Date()))}
+                  className={cn(
+                    'px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors',
+                    entryDate === dateInputValue(new Date())
+                      ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)] shadow-sm'
+                      : 'bg-[var(--sk-surface)] text-[var(--sk-text-muted)] border-[var(--sk-border)] hover:text-[var(--sk-text)]'
+                  )}
+                >
+                  Hari Ini
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date()
+                    d.setDate(d.getDate() - 1)
+                    setEntryDate(dateInputValue(d))
+                  }}
+                  className={cn(
+                    'px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors',
+                    (() => {
+                      const d = new Date()
+                      d.setDate(d.getDate() - 1)
+                      return entryDate === dateInputValue(d)
+                    })()
+                      ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)] shadow-sm'
+                      : 'bg-[var(--sk-surface)] text-[var(--sk-text-muted)] border-[var(--sk-border)] hover:text-[var(--sk-text)]'
+                  )}
+                >
+                  Kemarin
+                </button>
               </div>
             </div>
-          )}
+            <div className="grid grid-cols-[1.3fr_1fr] gap-2">
+              <div className="relative">
+                <input
+                  id="sk-manual-entry-date"
+                  name="entryDate"
+                  type="date"
+                  aria-label="Tanggal transaksi"
+                  data-testid="manual-tx-date"
+                  value={entryDate}
+                  onChange={event => setEntryDate(event.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--sk-surface)] border border-[var(--sk-border)] text-xs font-medium text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
+                />
+              </div>
+              <div className="relative">
+                <input
+                  id="sk-manual-entry-time"
+                  name="entryTime"
+                  type="time"
+                  aria-label="Waktu transaksi"
+                  data-testid="manual-tx-time"
+                  value={entryTime}
+                  onChange={event => setEntryTime(event.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--sk-surface)] border border-[var(--sk-border)] text-xs font-medium text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
+                />
+              </div>
+            </div>
+          </div>
 
-          {/* Accordion Detail Tambahan (Subkategori, Waktu, Catatan) */}
+          {/* Catatan Transaksi (Eksplisit di Alur Utama untuk Semua Tipe) */}
+          <div className="rounded-xl p-3 bg-[var(--sk-surface-2)] border border-[var(--sk-border)] flex flex-col gap-1.5">
+            <label
+              htmlFor="sk-manual-entry-note"
+              className="text-[10px] uppercase tracking-widest font-bold text-[var(--sk-text-dim)] cursor-pointer"
+            >
+              Catatan (opsional)
+            </label>
+            <input
+              id="sk-manual-entry-note"
+              name="manualNote"
+              data-testid="manual-tx-note"
+              type="text"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder={
+                type === 'transfer'
+                  ? 'cth. Bayar patungan / topup saldo'
+                  : type === 'expense'
+                    ? 'cth. Makan siang kantor / beli bensin'
+                    : 'cth. Bonus proyek / cashback'
+              }
+              className="w-full px-3 py-2 rounded-lg bg-[var(--sk-surface)] border border-[var(--sk-border)] text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] focus:outline-none focus:border-[var(--sk-cyan)]"
+            />
+          </div>
+
+          {/* Accordion Detail Tambahan (Subkategori) */}
           <div className="border border-[var(--sk-border)] rounded-xl overflow-hidden bg-[var(--sk-surface-2)]/60">
             <button
               type="button"
@@ -587,11 +794,11 @@ export const ManualEntryForm = memo(function ManualEntryForm({
               <div className="flex items-center gap-1.5">
                 <SlidersHorizontal className="w-3.5 h-3.5 text-[var(--sk-cyan)]" />
                 <span>Detail Tambahan</span>
-                {(subcategory || note || entryDate !== dateInputValue(new Date())) && (
+                {subcategory && (
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--sk-cyan)]" />
                 )}
                 <span className="text-[10px] text-[var(--sk-text-dim)] font-normal hidden sm:inline">
-                  (Subkategori, Waktu, Catatan)
+                  (Subkategori)
                 </span>
               </div>
               <div className="flex items-center gap-1 text-[11px] text-[var(--sk-text-dim)]">
@@ -602,7 +809,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
 
             {showDetails && (
               <div className="px-3 pb-3 pt-2 border-t border-[var(--sk-border)] flex flex-col gap-3">
-                {type !== 'transfer' && selectedCategory && (
+                {type !== 'transfer' && !isSplitMode && selectedCategory ? (
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
@@ -646,7 +853,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
                       </div>
                     )}
 
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5" data-testid="manual-entry-subcategories">
                       <button
                         type="button"
                         onClick={() => setSubcategory('')}
@@ -676,82 +883,7 @@ export const ManualEntryForm = memo(function ManualEntryForm({
                       ))}
                     </div>
                   </div>
-                )}
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
-                      Waktu Transaksi
-                    </label>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setEntryDate(dateInputValue(new Date()))}
-                        className={cn(
-                          'px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors',
-                          entryDate === dateInputValue(new Date())
-                            ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
-                            : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent'
-                        )}
-                      >
-                        Hari Ini
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const d = new Date()
-                          d.setDate(d.getDate() - 1)
-                          setEntryDate(dateInputValue(d))
-                        }}
-                        className={cn(
-                          'px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors',
-                          (() => {
-                            const d = new Date()
-                            d.setDate(d.getDate() - 1)
-                            return entryDate === dateInputValue(d)
-                          })()
-                            ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
-                            : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent'
-                        )}
-                      >
-                        Kemarin
-                      </button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <input
-                        type="date"
-                        value={entryDate}
-                        onChange={event => setEntryDate(event.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-xs text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
-                      />
-                    </div>
-                    <div>
-                      <input
-                        type="time"
-                        value={entryTime}
-                        onChange={event => setEntryTime(event.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-xs text-[var(--sk-text)] focus:outline-none focus:border-[var(--sk-cyan)]"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {type !== 'transfer' && (
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest font-medium text-[var(--sk-text-dim)]">
-                      Catatan (opsional)
-                    </label>
-                    <input
-                      type="text"
-                      value={note}
-                      onChange={event => setNote(event.target.value)}
-                      placeholder="Boleh dikosongkan"
-                      className="w-full mt-1 px-3 py-1.5 rounded-lg bg-[var(--sk-surface-2)] border border-[var(--sk-border)] text-xs text-[var(--sk-text)] placeholder:text-[var(--sk-text-dim)] focus:outline-none focus:border-[var(--sk-cyan)] caret-[var(--sk-cyan)]"
-                    />
-                  </div>
-                )}
+                ) : null}
               </div>
             )}
           </div>
@@ -791,9 +923,11 @@ export const ManualEntryForm = memo(function ManualEntryForm({
                 <span>
                   {type === 'transfer'
                     ? parsedAmount ? `Transfer ${formatIDR(parsedAmount)}` : 'Transfer Uang'
-                    : type === 'expense'
-                      ? parsedAmount ? `Catat Pengeluaran ${formatIDR(parsedAmount)}` : 'Catat Pengeluaran'
-                      : parsedAmount ? `Catat Pemasukan ${formatIDR(parsedAmount)}` : 'Catat Pemasukan'}
+                    : isSplitMode && !isSplitValid
+                      ? 'Alokasi Belum Seimbang'
+                      : type === 'expense'
+                        ? parsedAmount ? `Catat Pengeluaran ${formatIDR(parsedAmount)}` : 'Catat Pengeluaran'
+                        : parsedAmount ? `Catat Pemasukan ${formatIDR(parsedAmount)}` : 'Catat Pemasukan'}
                 </span>
               </>
             )}
@@ -804,43 +938,3 @@ export const ManualEntryForm = memo(function ManualEntryForm({
     document.body
   )
 })
-
-function WalletGrid({
-  activeId,
-  blockedId,
-  onPick,
-  wallets,
-}: {
-  activeId: string
-  blockedId?: string
-  onPick: (id: string) => void
-  wallets: Array<{ id: string; label: string; balance: number }>
-}) {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-1">
-      {wallets.map(wallet => {
-        const blocked = blockedId === wallet.id
-        return (
-          <button
-            key={wallet.id}
-            type="button"
-            onClick={() => !blocked && onPick(wallet.id)}
-            disabled={blocked}
-            className={cn(
-              'px-2 py-2 rounded-lg text-[11px] font-medium transition-colors text-left border flex flex-col gap-0.5 min-h-[44px] justify-center',
-              activeId === wallet.id
-                ? 'bg-[var(--sk-cyan-dim)] text-[var(--sk-cyan)] border-[var(--sk-cyan)]'
-                : 'bg-[var(--sk-surface-2)] text-[var(--sk-text-muted)] border-transparent hover:text-[var(--sk-text)]',
-              blocked && 'opacity-40 cursor-not-allowed'
-            )}
-          >
-            <span className="font-semibold truncate w-full">{wallet.label}</span>
-            <span className="text-[9px] text-[var(--sk-text-dim)] tabular-nums">
-              {formatIDRCompact(wallet.balance)}
-            </span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}

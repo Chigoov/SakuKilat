@@ -322,7 +322,13 @@ export const TabRekapan = memo(function TabRekapan() {
       label: getCategoryConfig(slice.category).label,
       total: slice.total,
       pct: slice.pct,
-      count: rangeTransactions.filter((transaction) => transaction.type === 'expense' && transaction.category === slice.category).length,
+      count: rangeTransactions.filter((transaction) => {
+        if (transaction.type !== 'expense') return false
+        if (transaction.splitItems && transaction.splitItems.length > 0) {
+          return transaction.splitItems.some((s) => s.categoryId === slice.category)
+        }
+        return transaction.category === slice.category
+      }).length,
       color: getCategoryHex(slice.category),
       type: 'expense',
     }))
@@ -334,7 +340,13 @@ export const TabRekapan = memo(function TabRekapan() {
       label: getCategoryConfig(slice.category).label,
       total: slice.total,
       pct: slice.pct,
-      count: rangeTransactions.filter((transaction) => transaction.type === 'income' && transaction.category === slice.category).length,
+      count: rangeTransactions.filter((transaction) => {
+        if (transaction.type !== 'income') return false
+        if (transaction.splitItems && transaction.splitItems.length > 0) {
+          return transaction.splitItems.some((s) => s.categoryId === slice.category)
+        }
+        return transaction.category === slice.category
+      }).length,
       color: getCategoryHex(slice.category),
       type: 'income',
     }))

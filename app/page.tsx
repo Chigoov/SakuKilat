@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Home, BarChart2, Wallet, User, X, Fingerprint, KeyRound } from 'lucide-react'
+import { Home, BarChart2, Wallet, CalendarClock, User, X, Fingerprint, KeyRound } from 'lucide-react'
 import { initBackStack, handleBackAction } from '@/lib/back-stack'
 import pkg from '@/package.json'
 import { cn } from '@/lib/utils'
@@ -18,16 +18,18 @@ import { SmartInput } from '@/components/smart-input'
 import { TabBeranda } from '@/components/tab-beranda'
 import { TabSaku } from '@/components/tab-saku'
 import { TabProfil } from '@/components/tab-profil'
+import { TabRencana } from '@/components/tab-rencana'
 import { OnboardingTour } from '@/components/onboarding-tour'
 import { isNativeRuntime } from '@/lib/notifications'
 import { authenticateBiometric, readLockConfig, verifyPasscode, type AppLockConfig } from '@/lib/app-lock'
 
-type Tab = 'beranda' | 'saku' | 'rekapan' | 'profil'
+type Tab = 'beranda' | 'rekapan' | 'saku' | 'rencana' | 'profil'
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'beranda', label: 'Beranda', icon: Home },
   { id: 'rekapan', label: 'Rekapan', icon: BarChart2 },
   { id: 'saku', label: 'Saku', icon: Wallet },
+  { id: 'rencana', label: 'Rencana', icon: CalendarClock },
   { id: 'profil', label: 'Profil', icon: User },
 ]
 
@@ -206,7 +208,7 @@ function AppShell() {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const requestedTab = params.get('tab')
-    if (requestedTab === 'beranda' || requestedTab === 'rekapan' || requestedTab === 'saku' || requestedTab === 'profil') {
+    if (requestedTab === 'beranda' || requestedTab === 'rekapan' || requestedTab === 'saku' || requestedTab === 'rencana' || requestedTab === 'profil') {
       setActiveTab(requestedTab)
     }
   }, [])
@@ -225,6 +227,9 @@ function AppShell() {
       switchTab(detail.tab)
     }
     window.addEventListener('sakukilat:navigate', onNavigate as EventListener)
+    const onOpenPlanning = () => switchTab('rencana')
+    window.addEventListener('sakukilat:open-goals', onOpenPlanning)
+    window.addEventListener('sakukilat:open-bills', onOpenPlanning)
     const onHardwareBack = () => {
       handleBackAction({
         activeTab,
@@ -237,6 +242,8 @@ function AppShell() {
     window.addEventListener('sakukilat:hardware-back', onHardwareBack)
     return () => {
       window.removeEventListener('sakukilat:navigate', onNavigate as EventListener)
+      window.removeEventListener('sakukilat:open-goals', onOpenPlanning)
+      window.removeEventListener('sakukilat:open-bills', onOpenPlanning)
       window.removeEventListener('sakukilat:hardware-back', onHardwareBack)
     }
   }, [activeTab])
@@ -287,17 +294,18 @@ function AppShell() {
     <div className="h-[100dvh] overflow-hidden bg-[var(--sk-bg)] flex flex-col safe-top">
       <main className={cn(
         'min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain md:mb-0',
-        activeTab === 'beranda' ? 'pb-[182px] md:pb-[118px]' : 'pb-[80px] md:pb-[24px]'
+        activeTab === 'beranda' ? 'pb-[160px] md:pb-[118px]' : 'pb-[80px] md:pb-[24px]'
       )}>
         {activeTab === 'beranda' && <TabBeranda />}
         {activeTab === 'rekapan' && <TabRekapan />}
         {activeTab === 'saku' && <TabSaku />}
+        {activeTab === 'rencana' && <TabRencana />}
         {activeTab === 'profil' && <TabProfil />}
       </main>
 
       {activeTab === 'beranda' && (
-        <div className="fixed bottom-[62px] left-3 right-3 z-30 rounded-[28px] border border-[var(--sk-border-2)] bg-[var(--sk-surface)] shadow-[0_18px_40px_rgba(0,0,0,0.22)] safe-bottom md:bottom-5 md:left-[96px] md:right-6 md:max-w-[560px]">
-          <div className="px-3 py-2 md:px-4">
+        <div className="fixed bottom-[62px] left-3 right-3 z-30 rounded-[24px] border border-[var(--sk-border-2)] bg-[var(--sk-surface)] shadow-[0_12px_32px_rgba(0,0,0,0.22)] safe-bottom md:bottom-5 md:left-[96px] md:right-6 md:max-w-[560px]">
+          <div className="px-2.5 py-1.5 md:px-4 md:py-2">
             <SmartInput
               onSubmit={addTransaction}
               isSubmitting={isSubmitting}

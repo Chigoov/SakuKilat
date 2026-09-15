@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#06B6D4</color>
+    <color name="colorPrimaryDark">#090D16</color>
+    <color name="colorAccent">#00E5FF</color>
+
+    <!-- SakuKilat Native Widget Palette -->
+    <color name="sk_widget_bg">#0F172A</color>
+    <color name="sk_widget_surface">#1E293B</color>
+    <color name="sk_widget_surface_elevated">#25334D</color>
+    <color name="sk_widget_border">#334155</color>
+    <color name="sk_widget_primary">#06B6D4</color>
+    <color name="sk_widget_primary_dark">#0891B2</color>
+    <color name="sk_widget_text_primary">#F8FAFC</color>
+    <color name="sk_widget_text_secondary">#94A3B8</color>
+    <color name="sk_widget_text_dim">#64748B</color>
+    <color name="sk_widget_expense">#F43F5E</color>
+    <color name="sk_widget_income">#10B981</color>
+    <color name="sk_widget_transfer">#38BDF8</color>
+    <color name="sk_widget_badge_bg">#1E293B</color>
+    <color name="sk_widget_overdue_bg">#451A22</color>
+</resources>

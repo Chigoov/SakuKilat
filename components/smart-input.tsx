@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { ArrowRightLeft, Info, PiggyBank, SendHorizonal, Sparkles, SlidersHorizontal, X, Loader2, TrendingDown, TrendingUp } from 'lucide-react'
-import { parseEntry, formatIDR, type ParserExtras } from '@/lib/parser'
+import { parseEntry, formatIDR, detectMultipleTransactions, type ParserExtras } from '@/lib/parser'
 import { formatAmountFieldInput, formatNaturalAmountInput } from '@/lib/amount'
 import { findPhraseSuggestions } from '@/lib/suggestions'
 import { useTransactionData } from '@/lib/store'
 import { ManualEntryForm } from '@/components/manual-entry-form'
+import { MultiTransactionReviewModal } from '@/components/multi-transaction-review-modal'
 import { cn } from '@/lib/utils'
 import { getCategoryConfig, getPaymentLabel } from './category-badge'
 
@@ -78,6 +79,8 @@ export function SmartInput({ onSubmit, isSubmitting, className, parserExtras, au
   const [mode, setMode] = useState<InputMode>('auto')
   const [manualOpen, setManualOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [multiTxSegments, setMultiTxSegments] = useState<string[]>([])
+  const [multiTxOpen, setMultiTxOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const locked = Boolean(isSubmitting || localSubmitting)
 
@@ -165,9 +168,29 @@ export function SmartInput({ onSubmit, isSubmitting, className, parserExtras, au
     [transactions, value]
   )
 
+  const handleConfirmMultiTx = useCallback(async (confirmedSegments: string[]) => {
+    for (const segment of confirmedSegments) {
+      const submitted =
+        mode === 'income' ? `income ${segment}` :
+        mode === 'expense' ? `expense ${segment}` :
+        segment
+      await Promise.resolve(onSubmit(submitted))
+    }
+    setValue('')
+    setPreview(null)
+  }, [mode, onSubmit])
+
   const handleSubmit = useCallback(async () => {
     const trimmed = value.trim()
     if (!trimmed || locked) return
+
+    // Multi-transaction input gating (Task 3.13)
+    const segments = detectMultipleTransactions(trimmed)
+    if (segments.length > 1) {
+      setMultiTxSegments(segments)
+      setMultiTxOpen(true)
+      return
+    }
 
     setLocalSubmitting(true)
     try {
@@ -505,7 +528,7 @@ export function SmartInput({ onSubmit, isSubmitting, className, parserExtras, au
       </div>
 
       {!focused && !value && (
-        <p className="text-center text-[10px] text-[var(--sk-text-dim)] mt-2 leading-relaxed px-2">
+        <p className="hidden md:block text-center text-[10px] text-[var(--sk-text-dim)] mt-2 leading-relaxed px-2">
           Tulis transaksi pakai bahasa natural • tekan Enter untuk menyimpan
         </p>
       )}
@@ -514,6 +537,14 @@ export function SmartInput({ onSubmit, isSubmitting, className, parserExtras, au
         open={manualOpen}
         onClose={() => setManualOpen(false)}
         seedInput={value}
+      />
+
+      <MultiTransactionReviewModal
+        open={multiTxOpen}
+        onClose={() => setMultiTxOpen(false)}
+        segments={multiTxSegments}
+        onConfirm={handleConfirmMultiTx}
+        parserExtras={parserExtras}
       />
     </div>
   )

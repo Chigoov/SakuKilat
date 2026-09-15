@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ArrowRightLeft, ChevronRight, PiggyBank } from 'lucide-react'
-import { formatIDR, formatTime } from '@/lib/parser'
+import { formatIDR, formatTransactionDateTime } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import type { TransactionUpdateInput } from '@/lib/store'
 import { CategoryIcon, getCategoryConfig, getPaymentLabel, getWalletBadgeStyle } from './category-badge'
@@ -50,13 +50,23 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
           )}
 
           <div className="flex-1 min-w-0">
+            {/* Baris 1: Deskripsi Transaksi */}
             <div className="flex items-center gap-1.5">
               <span className="truncate text-sm font-semibold leading-tight capitalize text-[var(--sk-text)]">
                 {transaction.description}
               </span>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5 mt-1">
-              <span className="shrink-0 text-xs text-[var(--sk-text-muted)]">
+
+            {/* Baris 2: Tanggal dan Waktu Pencatatan (Tepat di Bawah Deskripsi / Kategori) */}
+            <div className="mt-0.5 flex items-center gap-1.5" data-testid="tx-date-row">
+              <span className="text-[11px] font-medium text-[var(--sk-text-dim)]" data-testid="tx-datetime">
+                {formatTransactionDateTime(transaction.date)}
+              </span>
+            </div>
+
+            {/* Baris 3: Kategori, Subkategori, Badge Split, dan Dompet */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              <span className="shrink-0 text-xs font-medium text-[var(--sk-text-muted)]">
                 {isMove ? typeLabel : config.label}
               </span>
               {transaction.subcategory && (
@@ -64,14 +74,19 @@ export function TransactionItem({ transaction, onDelete, onUpdate, isNew }: Tran
                   {transaction.subcategory}
                 </span>
               )}
+              {transaction.splitItems && transaction.splitItems.length > 0 && (
+                <span
+                  data-testid="tx-split-badge"
+                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--sk-surface-2)] text-[var(--sk-cyan)] border border-[var(--sk-cyan)]/30"
+                >
+                  Split ({transaction.splitItems.length})
+                </span>
+              )}
               <span className={cn(
                 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border',
                 getWalletBadgeStyle(isMove ? transaction.fromWalletId : transaction.paymentMethod)
               )}>
                 {isMove ? routeLabel : getPaymentLabel(transaction.paymentMethod)}
-              </span>
-              <span className="shrink-0 text-[11px] text-[var(--sk-text-dim)] ml-auto">
-                {formatTime(transaction.date)}
               </span>
             </div>
           </div>

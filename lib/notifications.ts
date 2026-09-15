@@ -31,13 +31,30 @@ function clampMinute(m: unknown): number {
 }
 
 export function loadNotifPrefs(): NotifPrefs {
-  return { ...DEFAULT_NOTIF_PREFS }
+  if (typeof window === 'undefined') return { ...DEFAULT_NOTIF_PREFS }
+  try {
+    const raw = window.localStorage.getItem(NOTIF_PREFS_KEY)
+    if (!raw) return { ...DEFAULT_NOTIF_PREFS }
+    const parsed = JSON.parse(raw) as Partial<NotifPrefs>
+    return {
+      enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : DEFAULT_NOTIF_PREFS.enabled,
+      hour: clampHour(parsed.hour),
+      minute: clampMinute(parsed.minute),
+    }
+  } catch {
+    return { ...DEFAULT_NOTIF_PREFS }
+  }
 }
 
-export function saveNotifPrefs(_p: NotifPrefs): void {
+export function saveNotifPrefs(p: NotifPrefs): void {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(DEFAULT_NOTIF_PREFS))
+    const safePrefs: NotifPrefs = {
+      enabled: Boolean(p.enabled),
+      hour: clampHour(p.hour),
+      minute: clampMinute(p.minute),
+    }
+    window.localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(safePrefs))
   } catch {
     // noop
   }

@@ -1,8 +1,23 @@
 'use client'
 
+import {
+  hashPasscodePBKDF2,
+  evaluatePasscodeAttempt,
+  verifyWebAuthnAssertion,
+  type SaltedPasscodeHash,
+  type LockoutStatus,
+} from './crypto-security.ts'
+
+export { hashPasscodePBKDF2, evaluatePasscodeAttempt, verifyWebAuthnAssertion }
+export type { SaltedPasscodeHash, LockoutStatus }
+
 export interface AppLockConfig {
   enabled: boolean
   passcodeHash: string
+  passcodeSalt?: string
+  consecutiveFailures?: number
+  lastFailureTimestamp?: number
+  lockoutUntil?: number
   biometricEnabled: boolean
   credentialId?: string
   updatedAt: string
@@ -17,7 +32,11 @@ function emitChange() {
 
 function randomBytes(length: number): Uint8Array {
   const bytes = new Uint8Array(length)
-  crypto.getRandomValues(bytes)
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes)
+  } else {
+    for (let i = 0; i < length; i++) bytes[i] = Math.floor(Math.random() * 256)
+  }
   return bytes
 }
 
@@ -66,7 +85,6 @@ async function sha256(value: string): Promise<string> {
     return Array.from(new Uint8Array(hash)).map((byte) => byte.toString(16).padStart(2, '0')).join('')
   }
 
-  // ponytail: fallback hash keeps local app lock usable in webviews that do not expose SubtleCrypto; upgrade by storing a stronger derived hash when secure crypto is guaranteed.
   let h1 = 0xdeadbeef ^ value.length
   let h2 = 0x41c6ce57 ^ value.length
   for (let i = 0; i < value.length; i += 1) {
@@ -80,9 +98,14 @@ async function sha256(value: string): Promise<string> {
 }
 
 export async function savePasscode(passcode: string, previous?: AppLockConfig | null): Promise<AppLockConfig> {
+  const salted = await hashPasscodePBKDF2(passcode)
   const next: AppLockConfig = {
     enabled: true,
-    passcodeHash: await sha256(passcode),
+    passcodeHash: salted.hashHex,
+    passcodeSalt: salted.saltHex,
+    consecutiveFailures: 0,
+    lastFailureTimestamp: undefined,
+    lockoutUntil: undefined,
     biometricEnabled: previous?.biometricEnabled ?? false,
     credentialId: previous?.credentialId,
     updatedAt: new Date().toISOString(),
@@ -93,7 +116,47 @@ export async function savePasscode(passcode: string, previous?: AppLockConfig | 
 
 export async function verifyPasscode(passcode: string, config = readLockConfig()): Promise<boolean> {
   if (!config?.passcodeHash) return false
-  return (await sha256(passcode)) === config.passcodeHash
+
+  // Evaluate progressive rate-limiting lockout
+  const lockout = evaluatePasscodeAttempt(config.consecutiveFailures || 0, config.lastFailureTimestamp)
+  if (lockout.isLocked) {
+    return false
+  }
+
+  let matches = false
+  if (config.passcodeSalt) {
+    const derived = await hashPasscodePBKDF2(passcode, config.passcodeSalt)
+    matches = derived.hashHex === config.passcodeHash
+  } else {
+    // Legacy fallback for unsalted passcodes
+    matches = (await sha256(passcode)) === config.passcodeHash
+    if (matches) {
+      // Opportunistically upgrade to salted PBKDF2
+      const salted = await hashPasscodePBKDF2(passcode)
+      config.passcodeHash = salted.hashHex
+      config.passcodeSalt = salted.saltHex
+    }
+  }
+
+  if (matches) {
+    writeLockConfig({
+      ...config,
+      consecutiveFailures: 0,
+      lastFailureTimestamp: undefined,
+      lockoutUntil: undefined,
+    })
+    return true
+  }
+
+  const failures = (config.consecutiveFailures || 0) + 1
+  const updatedLockout = evaluatePasscodeAttempt(failures, Date.now())
+  writeLockConfig({
+    ...config,
+    consecutiveFailures: failures,
+    lastFailureTimestamp: Date.now(),
+    lockoutUntil: updatedLockout.isLocked ? Date.now() + updatedLockout.remainingLockoutSeconds * 1000 : undefined,
+  })
+  return false
 }
 
 export function clearPasscode() {
@@ -155,15 +218,19 @@ export function disableBiometric(config = readLockConfig()) {
 export async function authenticateBiometric(config = readLockConfig()): Promise<boolean> {
   if (!config?.biometricEnabled || !config.credentialId || !isBiometricSupported()) return false
   try {
+    const challengeBytes = randomBytes(32)
+    const challengeBase64 = bytesToBase64(challengeBytes)
     const credential = await navigator.credentials.get({
       publicKey: {
-        challenge: randomBytes(32),
+        challenge: challengeBytes,
         allowCredentials: [{ id: base64ToBytes(config.credentialId), type: 'public-key' }],
         userVerification: 'required',
         timeout: 60000,
       },
-    })
-    return Boolean(credential)
+    }) as PublicKeyCredential | null
+
+    if (!credential) return false
+    return await verifyWebAuthnAssertion(credential, challengeBase64)
   } catch {
     return false
   }

@@ -512,6 +512,43 @@ function applyAmountModifiers(
   }
 }
 
+/**
+ * Clamps date to the maximum valid day in the given month (0-indexed)
+ * without rolling over to the subsequent month.
+ */
+export function clampDateToMonthMaxDays(year: number, month: number, day: number): Date {
+  const maxDays = new Date(year, month + 1, 0).getDate()
+  const clampedDay = Math.min(Math.max(1, day), maxDays)
+  return new Date(year, month, clampedDay)
+}
+
+/**
+ * Detects multiple transactions embedded in natural language input.
+ * Splits by newlines, semicolons, and sequential Indonesian connectors:
+ * "lalu", "kemudian", "setelah itu", "dan".
+ */
+export function detectMultipleTransactions(inputText: string): string[] {
+  if (!inputText || typeof inputText !== 'string') return []
+  const delimiterRegex = /(?:\r?\n|;|\s+(?:lalu|kemudian|setelah itu|dan)\s+)/i
+  const segments = inputText.split(delimiterRegex).map(s => s.trim()).filter(s => s.length > 5)
+  return segments
+}
+
+const INDONESIAN_MONTH_MAP: Record<string, number> = {
+  jan: 0, januari: 0,
+  feb: 1, februari: 1,
+  mar: 2, maret: 2,
+  apr: 3, april: 3,
+  mei: 4, may: 4,
+  jun: 5, juni: 5,
+  jul: 6, juli: 6,
+  agu: 7, agustus: 7, ags: 7,
+  sep: 8, september: 8,
+  okt: 9, oktober: 9,
+  nov: 10, november: 10,
+  des: 11, desember: 11,
+}
+
 function dateWithOffset(days: number): Date {
   const now = new Date()
   return new Date(now.getFullYear(), now.getMonth(), now.getDate() + days)
@@ -539,8 +576,8 @@ function parseDateHint(tokens: string[]): { date: Date; indexes: Set<number> } |
       const year = compactMatch[3]
         ? Number(compactMatch[3].length === 2 ? `20${compactMatch[3]}` : compactMatch[3])
         : now.getFullYear()
-      const date = new Date(year, month - 1, day)
-      if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
+      if (month >= 1 && month <= 12 && day >= 1) {
+        const date = clampDateToMonthMaxDays(year, month - 1, day)
         return { date, indexes: new Set([i]) }
       }
     }
@@ -549,9 +586,28 @@ function parseDateHint(tokens: string[]): { date: Date; indexes: Set<number> } |
       const day = parsePositiveIntegerToken(normalized[i + 1])
       if (day && day >= 1 && day <= 31) {
         const now = new Date()
-        const date = new Date(now.getFullYear(), now.getMonth(), day)
-        return { date, indexes: new Set([i, i + 1]) }
+        let targetMonth = now.getMonth()
+        let consumedTokens = 2
+
+        if (normalized[i + 2] && INDONESIAN_MONTH_MAP[normalized[i + 2]] !== undefined) {
+          targetMonth = INDONESIAN_MONTH_MAP[normalized[i + 2]]
+          consumedTokens = 3
+        }
+
+        const date = clampDateToMonthMaxDays(now.getFullYear(), targetMonth, day)
+        const indexes = new Set<number>()
+        for (let k = 0; k < consumedTokens; k++) indexes.add(i + k)
+        return { date, indexes }
       }
+    }
+
+    // Direct day + month name without prefix (e.g. "31 apr")
+    const possibleDay = parsePositiveIntegerToken(token)
+    if (possibleDay && possibleDay >= 1 && possibleDay <= 31 && normalized[i + 1] && INDONESIAN_MONTH_MAP[normalized[i + 1]] !== undefined) {
+      const now = new Date()
+      const targetMonth = INDONESIAN_MONTH_MAP[normalized[i + 1]]
+      const date = clampDateToMonthMaxDays(now.getFullYear(), targetMonth, possibleDay)
+      return { date, indexes: new Set([i, i + 1]) }
     }
   }
 
@@ -1183,6 +1239,7 @@ export function parseEntry(input: string, extras?: ParserExtras): ParsedEntry | 
 
 // ── Format currency (IDR) ────────────────────────────────────────────────────
 export function formatIDR(amount: number): string {
+  const safeAmount = Number.isFinite(amount) ? Math.round(amount) : 0
   // Pakai non-breaking space (\u00a0) antara "Rp" dan angka agar tidak pernah
   // dipisah ke baris berbeda oleh browser — mencegah "Rp\n1.225.500"
   return new Intl.NumberFormat('id-ID', {
@@ -1190,11 +1247,51 @@ export function formatIDR(amount: number): string {
     currency: 'IDR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount).replace(/\s+/g, '\u00a0')
+  }).format(safeAmount).replace(/\s+/g, '\u00a0')
 }
 
 export function formatIDRCompact(amount: number): string {
   return formatIDR(amount)
+}
+
+/**
+ * Format rupiah ringkas adaptif khusus sel kalender sempit (lebar sel ~44-48px).
+ * Menghasilkan representasi kompak tanpa pemotongan elipsis:
+ * - < 1.000          => "500"
+ * - < 1.000.000      => "250rb", "75rb", "1,5rb"
+ * - < 1.000.000.000  => "1,5jt", "25jt", "100jt"
+ * - >= 1.000.000.000 => "1,2M"
+ *
+ * Menangani bilangan bulat vs pecahan secara rapi:
+ * menggunakan koma untuk desimal, tanpa trailing zero (cth. 25,0jt -> 25jt).
+ */
+export function formatIDRCalendarCompact(amount: number): string {
+  const safe = Math.abs(Number.isFinite(amount) ? Math.round(amount) : 0)
+  if (safe < 1_000) return String(safe)
+
+  const formatUnit = (val: number, unit: string): string => {
+    const rounded = Math.round(val * 10) / 10
+    if (rounded % 1 === 0 || val >= 100) {
+      return `${Math.round(val)}${unit}`
+    }
+    const formatted = rounded.toFixed(1).replace('.', ',')
+    return `${formatted}${unit}`
+  }
+
+  if (safe < 1_000_000) {
+    const k = safe / 1_000
+    if (Math.round(k) >= 1_000) return '1jt'
+    return formatUnit(k, 'rb')
+  }
+
+  if (safe < 1_000_000_000) {
+    const m = safe / 1_000_000
+    if (Math.round(m) >= 1_000) return '1M'
+    return formatUnit(m, 'jt')
+  }
+
+  const b = safe / 1_000_000_000
+  return formatUnit(b, 'M')
 }
 
 /**
@@ -1232,3 +1329,192 @@ export function formatTime(date: Date): string {
 export function formatRelativeDate(date: Date): string {
   return formatDate(date)
 }
+
+// ── Phase P1: Calendar-Accurate Date & Time Formatting & Conversions ──────────
+
+export interface TransactionDateParts {
+  year: number
+  month: number // 1 - 12
+  day: number   // 1 - 31
+  hours: number // 0 - 23
+  minutes: number // 0 - 59
+}
+
+export const INDONESIAN_SHORT_MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+  'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+] as const
+
+/**
+ * Extracts calendar-accurate components unaffected by UTC timezone conversion shifts.
+ * Accepts Date object, ISO string, timestamp number, or undefined (defaults to current date).
+ * Returns "YYYY-MM-DD"
+ */
+export function toCalendarDateString(dateInput?: Date | string | number): string {
+  let d: Date
+  if (dateInput instanceof Date) {
+    d = !Number.isNaN(dateInput.getTime()) ? dateInput : new Date()
+  } else if (typeof dateInput === 'string') {
+    d = fromCalendarDateTimeStrings(dateInput)
+  } else if (typeof dateInput === 'number') {
+    d = new Date(dateInput)
+  } else {
+    d = new Date()
+  }
+  if (Number.isNaN(d.getTime())) d = new Date()
+
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
+ * Extracts calendar-accurate time component string unaffected by UTC timezone conversion shifts.
+ * Accepts Date object, ISO string, timestamp number, or undefined (defaults to current time).
+ * Returns "HH:mm" (24-hour format)
+ */
+export function toTimeString(dateInput?: Date | string | number): string {
+  let d: Date
+  if (dateInput instanceof Date) {
+    d = !Number.isNaN(dateInput.getTime()) ? dateInput : new Date()
+  } else if (typeof dateInput === 'string') {
+    d = fromCalendarDateTimeStrings(dateInput)
+  } else if (typeof dateInput === 'number') {
+    d = new Date(dateInput)
+  } else {
+    d = new Date()
+  }
+  if (Number.isNaN(d.getTime())) d = new Date()
+
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
+/**
+ * Extracts calendar date parts into structured object.
+ */
+export function toTransactionDateParts(dateInput?: Date | string | number): TransactionDateParts {
+  let d: Date
+  if (dateInput instanceof Date) {
+    d = !Number.isNaN(dateInput.getTime()) ? dateInput : new Date()
+  } else if (typeof dateInput === 'string') {
+    d = fromCalendarDateTimeStrings(dateInput)
+  } else if (typeof dateInput === 'number') {
+    d = new Date(dateInput)
+  } else {
+    d = new Date()
+  }
+  if (Number.isNaN(d.getTime())) d = new Date()
+
+  return {
+    year: d.getFullYear(),
+    month: d.getMonth() + 1,
+    day: d.getDate(),
+    hours: d.getHours(),
+    minutes: d.getMinutes(),
+  }
+}
+
+/**
+ * Constructs a Date object from calendar date components, isolating from UTC timezone drift.
+ * - dateStr: "YYYY-MM-DD" or ISO/datetime string (e.g. "2026-09-13", "2026-09-13T14:30:00")
+ * - timeStr: optional "HH:mm" or "HH.mm" (e.g. "14:30", "14.30")
+ * Falls back safely to current Date on invalid or unparseable input.
+ */
+export function fromCalendarDateTimeStrings(dateStr: string, timeStr?: string): Date {
+  if (!dateStr || typeof dateStr !== 'string') {
+    return new Date()
+  }
+
+  const trimmedDate = dateStr.trim()
+  const dateMatch = trimmedDate.match(
+    /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T ](\d{1,2})[:.](\d{1,2})(?:[:.](\d{1,2}))?)?/
+  )
+
+  let year: number
+  let month: number
+  let day: number
+  let hours = 0
+  let minutes = 0
+  let seconds = 0
+
+  if (dateMatch) {
+    year = parseInt(dateMatch[1], 10)
+    month = parseInt(dateMatch[2], 10)
+    day = parseInt(dateMatch[3], 10)
+    if (dateMatch[4] !== undefined) hours = parseInt(dateMatch[4], 10)
+    if (dateMatch[5] !== undefined) minutes = parseInt(dateMatch[5], 10)
+    if (dateMatch[6] !== undefined) seconds = parseInt(dateMatch[6], 10)
+  } else {
+    const fallback = new Date(trimmedDate)
+    if (!Number.isNaN(fallback.getTime())) {
+      return fallback
+    }
+    return new Date()
+  }
+
+  if (timeStr && typeof timeStr === 'string') {
+    const timeMatch = timeStr.trim().match(/^(\d{1,2})[:.](\d{1,2})(?:[:.](\d{1,2}))?/)
+    if (timeMatch) {
+      hours = parseInt(timeMatch[1], 10)
+      minutes = parseInt(timeMatch[2], 10)
+      if (timeMatch[3] !== undefined) seconds = parseInt(timeMatch[3], 10)
+    }
+  }
+
+  const result = new Date(year, month - 1, day, hours, minutes, seconds, 0)
+  if (Number.isNaN(result.getTime())) {
+    return new Date()
+  }
+  return result
+}
+
+/**
+ * Converts a Date object or ISO string into localized Indonesian format.
+ * - Current calendar day: "Hari ini • HH.mm"
+ * - Other calendar days: "DD MMM YYYY • HH.mm" (e.g. "13 Sep 2026 • 14.30")
+ * Never abbreviates nominals (keeps full formatIDR: e.g. "Rp25.000").
+ */
+export function formatTransactionDateTime(
+  dateInput: Date | string | number,
+  now: Date = new Date()
+): string {
+  let date: Date
+  if (dateInput instanceof Date) {
+    date = dateInput
+  } else if (typeof dateInput === 'string') {
+    date = fromCalendarDateTimeStrings(dateInput)
+  } else if (typeof dateInput === 'number') {
+    date = new Date(dateInput)
+  } else {
+    date = new Date()
+  }
+
+  if (Number.isNaN(date.getTime())) {
+    date = new Date()
+  }
+
+  const refNow = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date()
+
+  const isToday =
+    date.getFullYear() === refNow.getFullYear() &&
+    date.getMonth() === refNow.getMonth() &&
+    date.getDate() === refNow.getDate()
+
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const timeStr = `${hours}.${minutes}`
+
+  if (isToday) {
+    return `Hari ini • ${timeStr}`
+  }
+
+  const day = date.getDate()
+  const monthStr = INDONESIAN_SHORT_MONTHS[date.getMonth()] ?? 'Jan'
+  const year = date.getFullYear()
+
+  return `${day} ${monthStr} ${year} • ${timeStr}`
+}
+

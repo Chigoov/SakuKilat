@@ -263,7 +263,7 @@ const SECTIONS: GuideSection[] = [
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--sk-cyan)] text-[#090D16]">Terbaru</span>
           </div>
           <p className="text-[11px] text-[var(--sk-text-dim)] leading-relaxed">
-            Rincian fitur, perbaikan bug, dan perubahan setiap versi tersedia di Catatan Rilis (Patch Notes) pada tab Profil.
+            Pembaruan v1.1.0 menghadirkan pengerasan integritas buku besar Single Source of Truth (SSoT), proteksi kebangkitan dompet (anti-resurrection), pengerasan kriptografi PBKDF2 ber-salt, validasi skema mendalam, sanitasi numerik ketat, dan penegakan 25 invarian sistem.
           </p>
         </div>
         <p className="text-[11px] text-[var(--sk-text-dim)] leading-relaxed">

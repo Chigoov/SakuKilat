@@ -22,10 +22,12 @@
  * - Saat menyimpan: cermin localStorage -> Preferences (lihat syncAllToNative()).
  */
 
-import { Capacitor } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 import { Preferences } from '@capacitor/preferences'
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
 import { APP_STORAGE_PREFIX, appScopedKey } from './app-variant.ts'
+
+export const WIDGET_SNAPSHOT_KEY = 'sakukilat:v2:widget-snapshot'
 
 const NATIVE_INDEX_KEY = `${APP_STORAGE_PREFIX}:native-keys`
 const BACKUP_DIR = APP_STORAGE_PREFIX.replace(/[:]/g, '-')
@@ -40,6 +42,7 @@ const CANONICAL_TRACKED_KEYS = [
   ...CANONICAL_PRIMARY_KEYS,
   'sakukilat:v2:celebrated-goals',
   'sakukilat:v2:app-lock',
+  WIDGET_SNAPSHOT_KEY,
   'sakukilat:v2:onboarding-completed',
   'sakukilat:v2:onboarding-completed-v9',
   'sakukilat:v2:onboarding-completed-v9:local',
@@ -71,6 +74,7 @@ const TRACKED_KEYS = [
   appScopedKey('recurring'),
   appScopedKey('celebrated-goals'),
   appScopedKey('app-lock'),
+  appScopedKey('widget-snapshot'),
 ] as const
 
 let fileBackupTimer: ReturnType<typeof setTimeout> | null = null
@@ -113,6 +117,7 @@ function localEntries() {
     ['sakukilat:v2:recurring', appScopedKey('recurring')],
     ['sakukilat:v2:celebrated-goals', appScopedKey('celebrated-goals')],
     ['sakukilat:v2:app-lock', appScopedKey('app-lock')],
+    [WIDGET_SNAPSHOT_KEY, appScopedKey('widget-snapshot')],
   ]
   for (const [canonical, scoped] of keyPairs) {
     if (!entries[canonical] && entries[scoped]) entries[canonical] = entries[scoped]
@@ -135,6 +140,8 @@ function applyEntries(entries: Record<string, string>) {
         window.localStorage.setItem('sakukilat:v2:goals', value)
       } else if (key === appScopedKey('recurring')) {
         window.localStorage.setItem('sakukilat:v2:recurring', value)
+      } else if (key === appScopedKey('widget-snapshot')) {
+        window.localStorage.setItem(WIDGET_SNAPSHOT_KEY, value)
       }
     }
   }
@@ -286,5 +293,93 @@ export async function readFileBackup(): Promise<Record<string, string> | null> {
     return Object.keys(entries).length > 0 ? entries : null
   } catch {
     return null
+  }
+}
+
+interface WidgetNativePlugin {
+  notifyUpdate?: () => Promise<{ ok: boolean }>
+}
+
+let widgetNativePlugin: WidgetNativePlugin | null = null
+try {
+  widgetNativePlugin = registerPlugin<WidgetNativePlugin>('SakuKilatWidget')
+} catch {
+  /* plugin unavailable */
+}
+
+/**
+ * Simpan snapshot widget ke native SharedPreferences melalui @capacitor/preferences
+ * dan cermin ke window.localStorage.
+ */
+export async function saveWidgetSnapshotToNative(snapshotJson: string): Promise<void> {
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(WIDGET_SNAPSHOT_KEY, snapshotJson)
+      window.localStorage.setItem(appScopedKey('widget-snapshot'), snapshotJson)
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!isNative()) return
+  try {
+    await Preferences.set({ key: WIDGET_SNAPSHOT_KEY, value: snapshotJson })
+    await Preferences.set({ key: appScopedKey('widget-snapshot'), value: snapshotJson })
+    const { value: indexRaw } = await Preferences.get({ key: NATIVE_INDEX_KEY })
+    const set = new Set<string>(indexRaw ? JSON.parse(indexRaw) : [])
+    set.add(WIDGET_SNAPSHOT_KEY)
+    set.add(appScopedKey('widget-snapshot'))
+    await Preferences.set({ key: NATIVE_INDEX_KEY, value: JSON.stringify([...set]) })
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
+ * Baca snapshot widget dari native SharedPreferences atau localStorage.
+ */
+export async function readWidgetSnapshotFromNative(): Promise<string | null> {
+  if (isNative()) {
+    try {
+      const { value } = await Preferences.get({ key: WIDGET_SNAPSHOT_KEY })
+      if (typeof value === 'string' && value.length > 0) return value
+    } catch {
+      /* fallback */
+    }
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      return window.localStorage.getItem(WIDGET_SNAPSHOT_KEY)
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+/**
+ * Kirim broadcast pembaruan widget ke launcher Android native.
+ */
+export async function triggerWidgetUpdateBroadcast(): Promise<void> {
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('sakukilat:widget-updated'))
+    } catch {
+      /* ignore */
+    }
+    try {
+      const android = (window as unknown as { SakuKilatAndroid?: { notifyWidgetUpdate?: () => void } }).SakuKilatAndroid
+      if (typeof android?.notifyWidgetUpdate === 'function') {
+        android.notifyWidgetUpdate()
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (isNative() && widgetNativePlugin && typeof widgetNativePlugin.notifyUpdate === 'function') {
+    try {
+      await widgetNativePlugin.notifyUpdate()
+    } catch {
+      /* ignore */
+    }
   }
 }

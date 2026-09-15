@@ -74,14 +74,31 @@ export function categoryYearlyBreakdown(
   for (const tx of transactions) {
     if (isExcludedTx(tx)) continue
     if (tx.type !== type) continue
-    if (tx.category !== categoryId) continue
-    if (subcategory && tx.subcategory !== subcategory) continue
 
     const date = parseTxDate(tx.date)
     if (date.getFullYear() !== year) continue
 
     const monthIndex = date.getMonth() // 0 to 11
-    if (monthIndex >= 0 && monthIndex < 12) {
+    if (monthIndex < 0 || monthIndex >= 12) continue
+
+    if (tx.splitItems && tx.splitItems.length > 0) {
+      let splitTotal = 0
+      for (const split of tx.splitItems) {
+        if (split.categoryId === categoryId) {
+          if (!subcategory || split.subcategoryId === subcategory) {
+            splitTotal += Math.round(split.amount || 0)
+          }
+        }
+      }
+      if (splitTotal > 0) {
+        months[monthIndex].total += splitTotal
+        months[monthIndex].count += 1
+        months[monthIndex].transactions.push(tx)
+      }
+    } else {
+      if (tx.category !== categoryId) continue
+      if (subcategory && tx.subcategory !== subcategory) continue
+
       months[monthIndex].total += Math.round(tx.amount || 0)
       months[monthIndex].count += 1
       months[monthIndex].transactions.push(tx)
@@ -177,19 +194,35 @@ export function subcategoryYearlyBreakdown(
   for (const tx of transactions) {
     if (isExcludedTx(tx)) continue
     if (tx.type !== type) continue
-    if (tx.category !== categoryId) continue
 
     const date = parseTxDate(tx.date)
     if (date.getFullYear() !== year) continue
 
-    const subName = tx.subcategory?.trim() || '(Tanpa subkategori)'
-    if (!map[subName]) {
-      map[subName] = { total: 0, count: 0 }
+    if (tx.splitItems && tx.splitItems.length > 0) {
+      for (const split of tx.splitItems) {
+        if (split.categoryId === categoryId) {
+          const subName = split.subcategoryId?.trim() || '(Tanpa subkategori)'
+          if (!map[subName]) {
+            map[subName] = { total: 0, count: 0 }
+          }
+          const amt = Math.round(split.amount || 0)
+          map[subName].total += amt
+          map[subName].count += 1
+          categoryTotal += amt
+        }
+      }
+    } else {
+      if (tx.category !== categoryId) continue
+
+      const subName = tx.subcategory?.trim() || '(Tanpa subkategori)'
+      if (!map[subName]) {
+        map[subName] = { total: 0, count: 0 }
+      }
+      const amt = Math.round(tx.amount || 0)
+      map[subName].total += amt
+      map[subName].count += 1
+      categoryTotal += amt
     }
-    const amt = Math.round(tx.amount || 0)
-    map[subName].total += amt
-    map[subName].count += 1
-    categoryTotal += amt
   }
 
   const items: SubcategoryYearlyItem[] = Object.entries(map).map(([name, stat]) => ({
@@ -214,16 +247,33 @@ export function topTransactionInCategory(
   categoryId: string,
 ): Transaction | null {
   let best: Transaction | null = null
+  let bestAmount = 0
 
   for (const tx of transactions) {
     if (isExcludedTx(tx)) continue
-    if (tx.type !== type || tx.category !== categoryId) continue
+    if (tx.type !== type) continue
 
     const date = parseTxDate(tx.date)
     if (date.getFullYear() !== year) continue
 
-    if (!best || tx.amount > best.amount) {
-      best = tx
+    if (tx.splitItems && tx.splitItems.length > 0) {
+      let splitTotal = 0
+      for (const split of tx.splitItems) {
+        if (split.categoryId === categoryId) {
+          splitTotal += Math.round(split.amount || 0)
+        }
+      }
+      if (splitTotal > 0 && (!best || splitTotal > bestAmount)) {
+        best = tx
+        bestAmount = splitTotal
+      }
+    } else {
+      if (tx.category !== categoryId) continue
+      const amt = Math.round(tx.amount || 0)
+      if (!best || amt > bestAmount) {
+        best = tx
+        bestAmount = amt
+      }
     }
   }
 

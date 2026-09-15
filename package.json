@@ -1,6 +1,6 @@
 {
   "name": "my-project",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "engines": {
@@ -15,6 +15,7 @@
     "build:apk": "powershell -ExecutionPolicy Bypass -File scripts/update-apk.ps1",
     "open:android": "npx cap open android",
     "test": "node scripts/run-all-tests.mjs",
+    "test:pbt": "node scripts/run-pbt-tests.mjs",
     "test:unit": "node scripts/test-budget-logic.mjs",
     "test:regression": "node scripts/test-storage-corruption.mjs && node scripts/test-import-restore.mjs",
     "test:security": "node scripts/scan-personal-data.mjs"
@@ -46,6 +47,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "cross-env": "^10.1.0",
+    "fast-check": "^4.10.0",
     "postcss": "^8.5",
     "tailwindcss": "^4.2.0",
     "typescript": "5.7.3"

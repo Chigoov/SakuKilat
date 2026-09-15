@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { formatIDR, formatRelativeDate } from '@/lib/parser'
+import { formatIDR, formatRelativeDate, toCalendarDateString } from '@/lib/parser'
 import type { Transaction } from '@/lib/mock-data'
 import type { TransactionUpdateInput } from '@/lib/store'
 import { isMoneyMove } from '@/lib/stats'
@@ -60,8 +60,7 @@ export function TransactionList({
     )
 
     for (const txn of sorted) {
-      const d = txn.date
-      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+      const key = toCalendarDateString(txn.date)
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(txn)
     }

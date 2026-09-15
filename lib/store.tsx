@@ -27,6 +27,12 @@ import {
   type WalletType,
 } from './mock-data'
 import {
+  type Bill,
+  type RecurrencePeriod,
+  computeNextDueDate,
+  createBill,
+} from './bills'
+import {
   parseEntry,
   type ParserExtras,
   type CustomPayment,
@@ -45,6 +51,8 @@ import {
   persistState,
   canMutateState,
   cleanupStaleStorageKeys,
+  serializeTransactionDate,
+  deserializeTransactionDate,
   STORAGE_KEY,
   CURRENT_SCHEMA_VERSION,
   type StorageStatus,
@@ -52,6 +60,119 @@ import {
 } from '@/lib/storage'
 import { createComprehensiveCheckpoint } from '@/lib/data-restore'
 import { StorageRecoveryScreen } from '@/components/storage-recovery-screen'
+import { syncWidgetSnapshot } from '@/lib/widget-snapshot'
+import {
+  type WalletReconciliation,
+  type ReconcileWalletParams,
+  type ReconcileWalletResult,
+  calculateReconciliationVariance,
+  createReconciliationRecord,
+  createAdjustmentTransaction,
+  getWalletReconciliationHistory,
+} from './reconciliation'
+import {
+  type LocalCategoryRule,
+  type InboxTransactionItem,
+  type CategoryMatchEvaluation,
+  type CreateLocalRuleInput,
+  type CreateInboxItemInput,
+  createLocalRule,
+  createInboxItem,
+  evaluateTransactionForRules,
+  routeToInboxIfNeeded,
+  approveInboxTransaction,
+  rejectInboxTransaction,
+  incrementRuleUsage,
+  getPendingInboxItems,
+  isDuplicateRule,
+  RuleInboxManager,
+} from './rules-inbox'
+import {
+  type MonthlyCloseRecord,
+  type MonthlyFinancialSummary,
+  type PreClosingChecklistResult,
+  type PreClosingChecklistOptions,
+  type CreateMonthlyCloseParams,
+  formatMonthId,
+  formatMonthLabel,
+  evaluatePreClosingChecklist,
+  compileMonthlyFinancialSummary,
+  createMonthlyCloseRecord,
+  reopenMonthlyClose,
+  recloseMonthlyClose,
+  isMonthClosed,
+  getMonthlyCloseRecord,
+  MonthlyCloseManager,
+} from './monthly-close'
+import {
+  type DebtItem,
+  type DebtType,
+  type DebtPayment,
+  type CreateDebtInput,
+  type RecordDebtPaymentParams,
+  type RecordDebtPaymentResult,
+  type NetWorthSummary,
+  calculateTotalAssets,
+  calculateTotalLiabilities,
+  calculateNetWorth,
+  compileNetWorthSummary,
+  createDebtItem,
+  updateDebtItem,
+  recordDebtPayment,
+  NetWorthTracker,
+} from './net-worth'
+import {
+  type SplitLineItem,
+  type SplitValidationResult,
+  type DistributedReportingItem,
+  createSplitLineItem,
+  calculateSplitTotal,
+  calculateSplitDiscrepancy,
+  validateSplitTransaction,
+  canSaveSplitTransaction,
+  isSplitTransaction,
+  expandTransactionForReporting,
+  expandTransactionsForReporting,
+  distributeCategoryAmounts,
+  distributeCategorySlices,
+  distributeSubcategoryAmounts,
+  SplitTransactionValidator,
+} from './split-transaction'
+import {
+  computeWalletBalanceFromLedger,
+  reconcileWalletBalances,
+  calculateLedgerImpact,
+  type AuditLogEntry,
+  type BalanceReconciliationResult,
+} from './wallet-ledger'
+import {
+  isSyncingWalletPayment,
+  setSyncingWalletPayment,
+  syncWalletAndCustomPayment,
+} from './wallet-sync'
+import {
+  sanitizeIntegerRupiah,
+  validatePositiveMonetaryAmount,
+  safeToISOString,
+} from './sanitizer'
+import {
+  executeSafeUndo,
+  type UndoSnapshot,
+} from './undo-manager'
+
+export {
+  computeWalletBalanceFromLedger,
+  reconcileWalletBalances,
+  calculateLedgerImpact,
+  isSyncingWalletPayment,
+  setSyncingWalletPayment,
+  syncWalletAndCustomPayment,
+  sanitizeIntegerRupiah,
+  validatePositiveMonetaryAmount,
+  safeToISOString,
+  executeSafeUndo,
+}
+export type { AuditLogEntry, BalanceReconciliationResult, UndoSnapshot }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface MockUser {
@@ -82,6 +203,8 @@ export interface TransactionUpdateInput {
   subcategory?: string
   /** Catatan opsional. */
   note?: string
+  /** Phase P11: Multi-category split line items */
+  splitItems?: SplitLineItem[]
 }
 
 /** Pre-validated transaction payload used by the manual-entry escape hatch.
@@ -95,9 +218,39 @@ export interface ManualTransactionInput {
   note?: string
   paymentMethod: string
   date?: Date
+  /** Phase P11: Multi-category split line items */
+  splitItems?: SplitLineItem[]
 }
 
 export type ThemeMode = 'system' | 'dark' | 'light'
+
+export type {
+  WalletReconciliation,
+  ReconcileWalletParams,
+  ReconcileWalletResult,
+  Bill,
+  RecurrencePeriod,
+  LocalCategoryRule,
+  InboxTransactionItem,
+  CategoryMatchEvaluation,
+  CreateLocalRuleInput,
+  CreateInboxItemInput,
+  MonthlyCloseRecord,
+  MonthlyFinancialSummary,
+  PreClosingChecklistResult,
+  PreClosingChecklistOptions,
+  CreateMonthlyCloseParams,
+  DebtItem,
+  DebtType,
+  DebtPayment,
+  CreateDebtInput,
+  RecordDebtPaymentParams,
+  RecordDebtPaymentResult,
+  NetWorthSummary,
+  SplitLineItem,
+  SplitValidationResult,
+  DistributedReportingItem,
+}
 
 interface StoreValue {
   // auth
@@ -120,8 +273,57 @@ interface StoreValue {
   addWallet: (label: string, type: WalletType, balance: number, keywords: string[]) => void
   updateWallet: (id: string, updates: { label: string; type: WalletType; balance: number; keywords: string[] }) => void
   removeWallet: (id: string) => void
-  transferMoney: (fromWalletId: string, toWalletId: string, amount: number, note?: string, kind?: TransactionKind, date?: Date) => boolean
+  archiveWallet: (id: string) => void
+  transferMoney: (fromWalletId: string, toWalletId: string, amount: number, description?: string, kind?: TransactionKind, date?: Date, note?: string) => boolean
   saveMoney: (fromWalletId: string, amount: number, toWalletId?: string) => boolean
+
+  // reconciliation (Phase P6)
+  reconciliations: WalletReconciliation[]
+  reconcileWallet: (params: ReconcileWalletParams) => ReconcileWalletResult | null
+  getWalletReconciliations: (walletId: string) => WalletReconciliation[]
+
+  // bills (Phase P5)
+  bills: Bill[]
+  addBill: (input: Omit<Bill, 'id' | 'nextDueDate'> & { nextDueDate?: string }) => string
+  updateBill: (id: string, updates: Partial<Omit<Bill, 'id'>>) => void
+  removeBill: (id: string) => void
+  toggleBillActive: (id: string) => void
+  markBillPaid: (billId: string, paidAmount?: number, walletId?: string, note?: string) => Transaction | null
+
+  // rules & inbox (Phase P8)
+  localRules: LocalCategoryRule[]
+  inbox: InboxTransactionItem[]
+  pendingInboxCount: number
+  addLocalRule: (input: CreateLocalRuleInput) => LocalCategoryRule | null
+  updateLocalRule: (id: string, updates: Partial<Omit<LocalCategoryRule, 'id' | 'createdAt'>>) => void
+  removeLocalRule: (id: string) => void
+  toggleLocalRuleActive: (id: string) => void
+  addInboxItem: (input: CreateInboxItemInput) => InboxTransactionItem
+  updateInboxItemStatus: (id: string, status: 'approved' | 'rejected', confirmedCategory?: { categoryId: string; subcategoryId?: string }) => void
+  removeInboxItem: (id: string) => void
+  matchDescriptionToRule: (description: string) => CategoryMatchEvaluation
+  evaluateAndQueueTransaction: (transaction: { id?: string; description: string; amount: number; date?: Date | string }) => {
+    match: CategoryMatchEvaluation
+    inboxItem: InboxTransactionItem | null
+  }
+
+  // monthly close (Phase P9)
+  monthlyCloses: MonthlyCloseRecord[]
+  executePreClosingChecklist: (year: number, month: number, options?: PreClosingChecklistOptions) => PreClosingChecklistResult
+  compileMonthlySummary: (year: number, month: number) => MonthlyFinancialSummary
+  closeMonth: (params: { year: number; month: number; closedAt?: string | Date; overrideValidation?: boolean }) => MonthlyCloseRecord | null
+  reopenMonth: (monthId: string, note: string, reopenedAt?: string | Date) => MonthlyCloseRecord | null
+  isMonthClosed: (monthId: string) => boolean
+  getMonthlyCloseRecord: (monthId: string) => MonthlyCloseRecord | undefined
+
+  // net worth & debts (Phase P10)
+  debts?: DebtItem[]
+  netWorthSummary?: NetWorthSummary
+  addDebt?: (input: CreateDebtInput) => DebtItem | null
+  updateDebt?: (id: string, updates: Partial<Omit<DebtItem, 'id' | 'createdAt'>>) => void
+  removeDebt?: (id: string) => void
+  payDebt?: (params: RecordDebtPaymentParams) => RecordDebtPaymentResult | null
+  getDebt?: (id: string) => DebtItem | undefined
 
   // budget
   monthlyBudget: number
@@ -186,8 +388,65 @@ interface WalletStore {
   addWallet: (label: string, type: WalletType, balance: number, keywords: string[]) => void
   updateWallet: (id: string, updates: { label: string; type: WalletType; balance: number; keywords: string[] }) => void
   removeWallet: (id: string) => void
-  transferMoney: (fromWalletId: string, toWalletId: string, amount: number, note?: string, kind?: TransactionKind, date?: Date) => boolean
+  archiveWallet: (id: string) => void
+  transferMoney: (fromWalletId: string, toWalletId: string, amount: number, description?: string, kind?: TransactionKind, date?: Date, note?: string) => boolean
   saveMoney: (fromWalletId: string, amount: number, toWalletId?: string) => boolean
+  reconciliations: WalletReconciliation[]
+  reconcileWallet: (params: ReconcileWalletParams) => ReconcileWalletResult | null
+  getWalletReconciliations: (walletId: string) => WalletReconciliation[]
+}
+
+interface ReconciliationStore {
+  reconciliations: WalletReconciliation[]
+  reconcileWallet: (params: ReconcileWalletParams) => ReconcileWalletResult | null
+  getWalletReconciliations: (walletId: string) => WalletReconciliation[]
+}
+
+export interface BillStore {
+  bills: Bill[]
+  addBill: (input: Omit<Bill, 'id' | 'nextDueDate'> & { nextDueDate?: string }) => string
+  updateBill: (id: string, updates: Partial<Omit<Bill, 'id'>>) => void
+  removeBill: (id: string) => void
+  toggleBillActive: (id: string) => void
+  markBillPaid: (billId: string, paidAmount?: number, walletId?: string, note?: string) => Transaction | null
+}
+
+export interface RuleInboxStore {
+  localRules: LocalCategoryRule[]
+  inbox: InboxTransactionItem[]
+  pendingInboxCount: number
+  addLocalRule: (input: CreateLocalRuleInput) => LocalCategoryRule | null
+  updateLocalRule: (id: string, updates: Partial<Omit<LocalCategoryRule, 'id' | 'createdAt'>>) => void
+  removeLocalRule: (id: string) => void
+  toggleLocalRuleActive: (id: string) => void
+  addInboxItem: (input: CreateInboxItemInput) => InboxTransactionItem
+  updateInboxItemStatus: (id: string, status: 'approved' | 'rejected', confirmedCategory?: { categoryId: string; subcategoryId?: string }) => void
+  removeInboxItem: (id: string) => void
+  matchDescriptionToRule: (description: string) => CategoryMatchEvaluation
+  evaluateAndQueueTransaction: (transaction: { id?: string; description: string; amount: number; date?: Date | string }) => {
+    match: CategoryMatchEvaluation
+    inboxItem: InboxTransactionItem | null
+  }
+}
+
+export interface MonthlyCloseStore {
+  monthlyCloses: MonthlyCloseRecord[]
+  executePreClosingChecklist: (year: number, month: number, options?: PreClosingChecklistOptions) => PreClosingChecklistResult
+  compileMonthlySummary: (year: number, month: number) => MonthlyFinancialSummary
+  closeMonth: (params: { year: number; month: number; closedAt?: string | Date; overrideValidation?: boolean }) => MonthlyCloseRecord | null
+  reopenMonth: (monthId: string, note: string, reopenedAt?: string | Date) => MonthlyCloseRecord | null
+  isMonthClosed: (monthId: string) => boolean
+  getMonthlyCloseRecord: (monthId: string) => MonthlyCloseRecord | undefined
+}
+
+export interface NetWorthStore {
+  debts: DebtItem[]
+  netWorthSummary: NetWorthSummary
+  addDebt: (input: CreateDebtInput) => DebtItem | null
+  updateDebt: (id: string, updates: Partial<Omit<DebtItem, 'id' | 'createdAt'>>) => void
+  removeDebt: (id: string) => void
+  payDebt: (params: RecordDebtPaymentParams) => RecordDebtPaymentResult | null
+  getDebt: (id: string) => DebtItem | undefined
 }
 
 interface BudgetStore {
@@ -230,6 +489,11 @@ const TransactionDataContext = createContext<TransactionDataStore | null>(null)
 const TransactionActionsContext = createContext<TransactionActionsStore | null>(null)
 const TransactionStatusContext = createContext<TransactionStatusStore | null>(null)
 const WalletContext = createContext<WalletStore | null>(null)
+const ReconciliationContext = createContext<ReconciliationStore | null>(null)
+const BillContext = createContext<BillStore | null>(null)
+const RuleInboxContext = createContext<RuleInboxStore | null>(null)
+const MonthlyCloseContext = createContext<MonthlyCloseStore | null>(null)
+const NetWorthContext = createContext<NetWorthStore | null>(null)
 const BudgetContext = createContext<BudgetStore | null>(null)
 const CustomizationContext = createContext<CustomizationStore | null>(null)
 const PreferenceContext = createContext<PreferenceStore | null>(null)
@@ -253,6 +517,7 @@ const KNOWN_STORAGE_KEYS = new Set([
   'sakukilat:v2:recurring',
   'sakukilat:v2:celebrated-streak',
   'sakukilat:v2:onboarding-completed',
+  'sakukilat:v2:debts',
 ])
 // Prefix key yang BUKAN garbage & wajib dipertahankan saat pembersihan
 // localStorage (counter & progress achievement, flag fitur, dll).
@@ -279,6 +544,7 @@ const PRESERVED_KEY_PREFIXES = [
   'sakukilat:v2:last-rollover',
   'sakukilat:v2:app-lock',
   'sakukilat:v2:demo',
+  'sakukilat:v2:debts',
 ]
 const DEMO_USER: MockUser = {
   name: 'Perangkat Ini',
@@ -296,6 +562,12 @@ interface PersistedState {
   customCategories?: CustomCategory[]
   hiddenPaymentIds?: string[]
   hiddenCategoryIds?: string[]
+  reconciliations?: WalletReconciliation[]
+  bills?: Bill[]
+  localRules?: LocalCategoryRule[]
+  inbox?: InboxTransactionItem[]
+  monthlyCloses?: MonthlyCloseRecord[]
+  debts?: DebtItem[]
   zenMode?: boolean
   themeMode?: ThemeMode
   profileName?: string | null
@@ -374,7 +646,7 @@ function reviveTransactions(items: PersistedState['transactions']): Transaction[
   return items
     .map(item => ({
       ...item,
-      date: new Date(item.date),
+      date: deserializeTransactionDate(item.date),
     }))
     .filter(item => Number.isFinite(item.date.getTime()))
 }
@@ -430,6 +702,30 @@ function migratePersistedState(state: PersistedState): PersistedState {
 
   if (prevVersion < 8) {
     Object.assign(next, promoteGenericIncomeSubcategories(next))
+  }
+
+  if (!Array.isArray(next.reconciliations)) {
+    next.reconciliations = []
+  }
+
+  if (!Array.isArray(next.bills)) {
+    next.bills = []
+  }
+
+  if (!Array.isArray(next.localRules)) {
+    next.localRules = []
+  }
+
+  if (!Array.isArray(next.inbox)) {
+    next.inbox = []
+  }
+
+  if (!Array.isArray(next.monthlyCloses)) {
+    next.monthlyCloses = []
+  }
+
+  if (!Array.isArray(next.debts)) {
+    next.debts = []
   }
 
   Object.assign(next, deduplicatePersistedCategories(next))
@@ -675,25 +971,163 @@ function createWallet(label: string, type: WalletType, balance: number, keywords
   }
 }
 
-function ensureWallet(wallets: WalletAccount[], id: string): WalletAccount[] {
-  if (wallets.some(wallet => wallet.id === id)) return wallets
-  return [
-    ...wallets,
-    {
-      id,
-      label: id.charAt(0).toUpperCase() + id.slice(1),
-      type: 'other',
-      balance: 0,
-      keywords: [id],
-    },
-  ]
+export function validateWalletPayload(payload: {
+  label?: string
+  openingBalance?: number
+  currentBalance?: number
+  balance?: number
+}): void {
+  if (payload.label !== undefined && payload.label.trim().length === 0) {
+    throw new Error('Nama saku tidak boleh kosong.')
+  }
+  if (payload.openingBalance !== undefined) {
+    if (!Number.isFinite(payload.openingBalance) || Number.isNaN(payload.openingBalance) || payload.openingBalance < 0) {
+      throw new Error('Saldo awal harus berupa bilangan bulat valid dan tidak boleh negatif.')
+    }
+  }
+  if (payload.currentBalance !== undefined) {
+    if (!Number.isFinite(payload.currentBalance) || Number.isNaN(payload.currentBalance)) {
+      throw new Error('Saldo saat ini harus berupa bilangan bulat valid.')
+    }
+  }
+  if (payload.balance !== undefined) {
+    if (!Number.isFinite(payload.balance) || Number.isNaN(payload.balance) || payload.balance < 0) {
+      throw new Error('Saldo harus berupa bilangan bulat valid dan tidak boleh negatif.')
+    }
+  }
+}
+
+export function validateMonthlyBudget(budget: unknown): number {
+  const sanitized = sanitizeIntegerRupiah(budget, 'Anggaran bulanan')
+  if (sanitized < 0) {
+    throw new Error('Anggaran bulanan tidak boleh bernilai negatif.')
+  }
+  return sanitized
+}
+
+export function archiveWallet(walletId: string, wallets: WalletAccount[]): WalletAccount[] {
+  return wallets.map(w => (w.id === walletId ? { ...w, isArchived: true, archivedAt: new Date().toISOString() } : w))
+}
+
+export function ensureWallet(
+  first: string | WalletAccount[],
+  second: string | WalletAccount[],
+  options?: { allowCreate?: boolean; fallbackWalletId?: string }
+): any {
+  let nameOrId: string
+  let wallets: WalletAccount[]
+
+  if (typeof first === 'string') {
+    nameOrId = first
+    wallets = Array.isArray(second) ? second : []
+  } else {
+    wallets = Array.isArray(first) ? first : []
+    nameOrId = typeof second === 'string' ? second : ''
+  }
+
+  const trimmed = (nameOrId || '').trim().toLowerCase()
+  const existing = wallets.find(w => w.id === nameOrId || w.label.toLowerCase() === trimmed)
+
+  if (existing) {
+    if (existing.isDeleted || existing.isArchived) {
+      // Guard against resurrecting deleted or archived wallets
+      const fallbackWallet =
+        wallets.find(w => w.id === options?.fallbackWalletId && !w.isDeleted && !w.isArchived) ||
+        wallets.find(w => (w.id === 'cash' || w.id === 'tunai') && !w.isDeleted && !w.isArchived) ||
+        wallets.find(w => !w.isDeleted && !w.isArchived)
+
+      if (!fallbackWallet) {
+        throw new Error('Tidak ada saku aktif yang dapat digunakan sebagai fallback.')
+      }
+      return { wallet: fallbackWallet, wasCreated: false, wasRejected: true, walletResurrected: false }
+    }
+    return { wallet: existing, wasCreated: false, wasRejected: false, walletResurrected: false }
+  }
+
+  if (!options?.allowCreate) {
+    const fallbackWallet =
+      wallets.find(w => w.id === options?.fallbackWalletId && !w.isDeleted && !w.isArchived) ||
+      wallets.find(w => (w.id === 'cash' || w.id === 'tunai') && !w.isDeleted && !w.isArchived) ||
+      wallets.find(w => !w.isDeleted && !w.isArchived)
+    return { wallet: fallbackWallet!, wasCreated: false, wasRejected: true, walletResurrected: false }
+  }
+
+  const newWallet: WalletAccount = {
+    id: slugify(nameOrId.trim()) || `wallet-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    label: nameOrId.trim(),
+    type: 'other',
+    balance: 0,
+    openingBalance: 0,
+    currentBalance: 0,
+    isArchived: false,
+    isDeleted: false,
+    keywords: [trimmed],
+    createdAt: new Date().toISOString(),
+  }
+  return { wallet: newWallet, wasCreated: true, wasRejected: false, walletResurrected: false }
+}
+
+export function deleteCategoryPreservingLabels(
+  categoryId: string,
+  categories: CustomCategory[],
+  transactions: Transaction[],
+  fallbackCategory = { id: 'lainnya', label: 'Lain-lain' }
+): { updatedCategories: CustomCategory[]; updatedTransactions: Transaction[] } {
+  const catToDelete = categories.find(c => c.id === categoryId)
+  const preservedLabel = catToDelete?.label || fallbackCategory.label
+
+  const updatedCategories = categories.filter(c => c.id !== categoryId)
+  const updatedTransactions = transactions.map(tx => {
+    if (tx.category === categoryId) {
+      return {
+        ...tx,
+        category: fallbackCategory.id,
+        historicalCategoryLabel: preservedLabel,
+      }
+    }
+    return tx
+  })
+
+  return { updatedCategories, updatedTransactions }
+}
+
+export function deduplicateCategories(
+  categories: CustomCategory[],
+  transactions: Transaction[]
+): { uniqueCategories: CustomCategory[]; remappedTransactions: Transaction[] } {
+  const canonicalMap = new Map<string, CustomCategory>()
+  const idRemapTable = new Map<string, string>()
+
+  for (const cat of categories) {
+    const key = `${cat.label.trim().toLowerCase()}-${cat.type || 'expense'}`
+    if (!canonicalMap.has(key)) {
+      canonicalMap.set(key, cat)
+      idRemapTable.set(cat.id, cat.id)
+    } else {
+      const canonical = canonicalMap.get(key)!
+      idRemapTable.set(cat.id, canonical.id)
+    }
+  }
+
+  const uniqueCategories = Array.from(canonicalMap.values())
+  const remappedTransactions = transactions.map(tx => {
+    const canonicalId = idRemapTable.get(tx.category)
+    return canonicalId && canonicalId !== tx.category ? { ...tx, category: canonicalId } : tx
+  })
+
+  return { uniqueCategories, remappedTransactions }
 }
 
 function adjustWallets(wallets: WalletAccount[], deltas: Record<string, number>): WalletAccount[] {
-  const withMissing = Object.keys(deltas).reduce((current, id) => ensureWallet(current, id), wallets)
+  const withMissing = Object.keys(deltas).reduce((current, id) => {
+    if (current.some(w => w.id === id)) return current
+    const res = ensureWallet(id, current, { allowCreate: true })
+    return res.wasCreated ? [...current, res.wallet] : current
+  }, wallets)
   return withMissing.map(wallet => ({
     ...wallet,
     balance: wallet.balance + (deltas[wallet.id] ?? 0),
+    currentBalance: (wallet.currentBalance ?? wallet.balance) + (deltas[wallet.id] ?? 0),
   }))
 }
 
@@ -745,6 +1179,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     !Array.isArray(persisted.customCategories) &&
     !Array.isArray(persisted.hiddenPaymentIds) &&
     !Array.isArray(persisted.hiddenCategoryIds) &&
+    !Array.isArray(persisted.bills) &&
+    !Array.isArray(persisted.localRules) &&
+    !Array.isArray(persisted.inbox) &&
+    !Array.isArray(persisted.monthlyCloses) &&
+    !Array.isArray(persisted.debts) &&
     typeof persisted.zenMode !== 'boolean' &&
     !persisted.themeMode &&
     persisted.profileName === undefined &&
@@ -755,7 +1194,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [bundleSeedResolved, setBundleSeedResolved] = useState(() => !needsBundleSeed)
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => reviveTransactions(persisted.transactions) ?? [])
-  const [wallets, setWallets] = useState<WalletAccount[]>(() => Array.isArray(persisted.wallets) && persisted.wallets.length > 0 ? persisted.wallets : createSeedWallets().map(wallet => ({ ...wallet, balance: 0 })))
+  const [wallets, setWallets] = useState<WalletAccount[]>(() => {
+    const rawWallets = Array.isArray(persisted.wallets) && persisted.wallets.length > 0
+      ? persisted.wallets
+      : createSeedWallets().map(wallet => ({ ...wallet, balance: 0 }))
+    const initialTxs = reviveTransactions(persisted.transactions) ?? []
+    const { reconciledWallets } = reconcileWalletBalances(rawWallets, initialTxs)
+    return reconciledWallets
+  })
+  const mutationSequenceIdRef = useRef(0)
+  const isUndoneRef = useRef<Record<string, boolean>>({})
   const [lastActiveWalletId, setLastActiveWalletId] = useState('tunai')
   const [newTransactionId, setNewTransactionId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -774,6 +1222,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
   const [hiddenCategoryIds, setHiddenCategoryIds] = useState<string[]>(() =>
     Array.isArray(persisted.hiddenCategoryIds) ? persisted.hiddenCategoryIds : []
+  )
+  const [reconciliations, setReconciliations] = useState<WalletReconciliation[]>(() =>
+    Array.isArray(persisted.reconciliations) ? persisted.reconciliations : []
+  )
+  const [bills, setBills] = useState<Bill[]>(() =>
+    Array.isArray(persisted.bills) ? persisted.bills : []
+  )
+  const [localRules, setLocalRules] = useState<LocalCategoryRule[]>(() =>
+    Array.isArray(persisted.localRules) ? persisted.localRules : []
+  )
+  const [inbox, setInbox] = useState<InboxTransactionItem[]>(() =>
+    Array.isArray(persisted.inbox) ? persisted.inbox : []
+  )
+  const [monthlyCloses, setMonthlyCloses] = useState<MonthlyCloseRecord[]>(() =>
+    Array.isArray(persisted.monthlyCloses) ? persisted.monthlyCloses : []
+  )
+  const [debts, setDebts] = useState<DebtItem[]>(() =>
+    Array.isArray(persisted.debts) ? persisted.debts : []
   )
 
   const [zenMode, setZenMode] = useState(() => Boolean(persisted.zenMode))
@@ -818,6 +1284,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (Array.isArray(next.customCategories)) setCustomCategories(next.customCategories)
     if (Array.isArray(next.hiddenPaymentIds)) setHiddenPaymentIds(next.hiddenPaymentIds)
     if (Array.isArray(next.hiddenCategoryIds)) setHiddenCategoryIds(next.hiddenCategoryIds)
+    if (Array.isArray(next.reconciliations)) setReconciliations(next.reconciliations)
+    if (Array.isArray(next.bills)) setBills(next.bills)
+    if (Array.isArray(next.localRules)) setLocalRules(next.localRules)
+    if (Array.isArray(next.inbox)) setInbox(next.inbox)
+    if (Array.isArray(next.monthlyCloses)) setMonthlyCloses(next.monthlyCloses)
+    if (Array.isArray(next.debts)) setDebts(next.debts)
     if (typeof next.zenMode === 'boolean') setZenMode(next.zenMode)
     if (next.themeMode) setThemeModeState(next.themeMode)
     if ('profileName' in next) setProfileName(next.profileName ?? null)
@@ -827,7 +1299,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const persistedSnapshot = useMemo<PersistedState>(() => ({
     transactions: transactions.map(transaction => ({
       ...transaction,
-      date: transaction.date.toISOString(),
+      date: serializeTransactionDate(transaction.date),
     })),
     wallets,
     monthlyBudget,
@@ -835,6 +1307,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     customCategories,
     hiddenPaymentIds,
     hiddenCategoryIds,
+    reconciliations,
+    bills,
+    localRules,
+    inbox,
+    monthlyCloses,
+    debts,
     zenMode,
     themeMode,
     profileName,
@@ -847,6 +1325,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     customCategories,
     hiddenPaymentIds,
     hiddenCategoryIds,
+    reconciliations,
+    bills,
+    localRules,
+    inbox,
+    monthlyCloses,
+    debts,
     zenMode,
     themeMode,
     profileName,
@@ -911,10 +1395,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => media.removeEventListener('change', applyTheme)
   }, [themeMode])
 
+  const netWorthSummary = useMemo(
+    () => compileNetWorthSummary(wallets, debts),
+    [wallets, debts]
+  )
+
   useEffect(() => {
     if (!bundleSeedResolved || typeof window === 'undefined') return
     persistState(window.localStorage, persistedSnapshot, storageStatus)
-  }, [bundleSeedResolved, persistedSnapshot, storageStatus])
+    void syncWidgetSnapshot({
+      transactions,
+      wallets,
+      bills,
+      debts,
+      netWorth: netWorthSummary.netWorth,
+    }).catch(() => {
+      /* non-blocking widget snapshot sync */
+    })
+  }, [bundleSeedResolved, persistedSnapshot, storageStatus, transactions, wallets, bills, debts, netWorthSummary.netWorth])
 
   // Keep the display registry in sync with custom slang
   useEffect(() => {
@@ -983,7 +1481,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [showToast, storageStatus])
 
   const totalStored = useMemo(
-    () => wallets.reduce((sum, wallet) => sum + wallet.balance, 0),
+    () =>
+      wallets
+        .filter(wallet => !wallet.isArchived && !wallet.isDeleted)
+        .reduce((sum, wallet) => {
+          const bal = wallet.currentBalance !== undefined ? wallet.currentBalance : wallet.balance
+          return sum + (Number.isFinite(bal) ? bal : 0)
+        }, 0),
     [wallets]
   )
 
@@ -992,8 +1496,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       showToast('Penyimpanan terkunci (mode recovery). Budget tidak dapat diubah.', 'error')
       return
     }
+    let validBudget: number
+    try {
+      validBudget = validateMonthlyBudget(amount)
+    } catch (err: any) {
+      showToast(err?.message || 'Nominal budget tidak valid.', 'error')
+      return
+    }
     const hadBudget = monthlyBudget > 0
-    setMonthlyBudgetState(Math.max(0, Math.round(amount)))
+    setMonthlyBudgetState(validBudget)
     void import('./achievements').then(m => {
       m.setFlag('sakukilat:v2:budget-set')
       if (hadBudget) m.setFlag('sakukilat:v2:ach-budget-up')
@@ -1007,13 +1518,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         showToast('Penyimpanan terkunci (mode recovery). Saku tidak dapat diubah.', 'error')
         return
       }
+      try {
+        validateWalletPayload({ label, balance, openingBalance: balance })
+      } catch (err: any) {
+        showToast(err?.message || 'Data saku tidak valid.', 'error')
+        return
+      }
+
       const wallet = createWallet(label, type, balance, keywords)
-      setWallets(prev => prev.some(item => item.id === wallet.id) ? prev : [...prev, wallet])
-      setCustomPayments(prev =>
-        prev.some(payment => payment.id === wallet.id)
-          ? prev
-          : [...prev, { id: wallet.id, label: wallet.label, keywords: wallet.keywords }]
-      )
+      const opening = Number.isFinite(balance) ? Math.max(0, Math.round(balance)) : 0
+      const enrichedWallet: WalletAccount = {
+        ...wallet,
+        openingBalance: opening,
+        currentBalance: opening,
+        isArchived: false,
+        isDeleted: false,
+        createdAt: new Date().toISOString(),
+      }
+
+      setWallets(prev => (prev.some(item => item.id === enrichedWallet.id) ? prev : [...prev, enrichedWallet]))
+
+      // Idempotency guard for mutual creation loop
+      if (!isSyncingWalletPayment) {
+        setSyncingWalletPayment(true)
+        try {
+          setCustomPayments(prev =>
+            prev.some(payment => payment.id === enrichedWallet.id)
+              ? prev
+              : [...prev, { id: enrichedWallet.id, label: enrichedWallet.label, keywords: enrichedWallet.keywords }]
+          )
+        } finally {
+          setSyncingWalletPayment(false)
+        }
+      }
+
       showToast(`Saku "${wallet.label}" ditambahkan.`, 'success')
     },
     [showToast, storageStatus]
@@ -1025,13 +1563,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         showToast('Penyimpanan terkunci (mode recovery). Saku tidak dapat diubah.', 'error')
         return
       }
-      const label = updates.label.trim()
-      if (!label) {
-        showToast('Nama saku tidak boleh kosong.', 'error')
+
+      // Parity validation (Task 3.10)
+      try {
+        validateWalletPayload({
+          label: updates.label,
+          balance: updates.balance,
+          currentBalance: updates.balance,
+        })
+      } catch (err: any) {
+        showToast(err?.message || 'Data saku tidak valid.', 'error')
         return
       }
 
+      const label = updates.label.trim()
       const normalizedKeywords = normalizeKeywords(id, updates.keywords)
+      const roundedBalance = Math.round(updates.balance)
+
       setWallets(prev =>
         prev.map(wallet =>
           wallet.id === id
@@ -1039,18 +1587,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 ...wallet,
                 label,
                 type: updates.type,
-                balance: Math.round(updates.balance),
+                balance: roundedBalance,
+                currentBalance: roundedBalance,
+                openingBalance: wallet.openingBalance ?? roundedBalance,
                 keywords: normalizedKeywords,
               }
             : wallet
         )
       )
-      setCustomPayments(prev => {
-        const payment = { id, label, keywords: normalizedKeywords }
-        return prev.some(item => item.id === id)
-          ? prev.map(item => item.id === id ? payment : item)
-          : [...prev, payment]
-      })
+
+      if (!isSyncingWalletPayment) {
+        setSyncingWalletPayment(true)
+        try {
+          setCustomPayments(prev => {
+            const payment = { id, label, keywords: normalizedKeywords }
+            return prev.some(item => item.id === id)
+              ? prev.map(item => item.id === id ? payment : item)
+              : [...prev, payment]
+          })
+        } finally {
+          setSyncingWalletPayment(false)
+        }
+      }
+
       showToast(`Saku "${label}" diperbarui.`, 'success')
     },
     [showToast, storageStatus]
@@ -1064,33 +1623,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       const wallet = wallets.find(item => item.id === id)
       if (!wallet) return
-      setWallets(prev => prev.filter(item => item.id !== id))
-      showToast(`Saku "${wallet.label}" dihapus.`, 'success')
+      // Soft-delete: preserve historical transactions and references
+      setWallets(prev => archiveWallet(id, prev))
+      setCustomPayments(prev => prev.filter(payment => payment.id !== id))
+      showToast(`Saku "${wallet.label}" diarsipkan.`, 'success')
     },
     [wallets, showToast, storageStatus]
   )
 
   const createMove = useCallback(
-    (fromWalletId: string, toWalletId: string, amount: number, note = 'Pindah uang', kind: TransactionKind = 'transfer', date = new Date()) => {
+    (fromWalletId: string, toWalletId: string, amount: number, description = 'Pindah uang', kind: TransactionKind = 'transfer', date = new Date(), note?: string) => {
       if (!canMutateState(storageStatus)) {
         showToast('Penyimpanan terkunci (mode recovery). Transfer tidak dapat disimpan.', 'error')
         return null
       }
       const roundedAmount = Math.round(amount)
-      if (!fromWalletId || !toWalletId || fromWalletId === toWalletId || roundedAmount <= 0) return null
+      if (!fromWalletId || !toWalletId || fromWalletId === toWalletId || roundedAmount <= 0) {
+        if (fromWalletId && toWalletId && fromWalletId === toWalletId) {
+          showToast('Dompet asal dan tujuan tidak boleh sama.', 'error')
+        }
+        return null
+      }
 
       const id = generateId()
+      const moveDate = date && !Number.isNaN(date.getTime()) ? new Date(date.getTime()) : new Date()
       const move: Transaction = {
         id,
         kind,
-        description: note,
+        description,
         amount: roundedAmount,
         type: 'expense',
         category: 'transfer',
         paymentMethod: fromWalletId,
         fromWalletId,
         toWalletId,
-        date,
+        date: moveDate,
+        note: note?.trim() || undefined,
       }
 
       if (walletDropsBelowZero(wallets, move)) return null
@@ -1107,8 +1675,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const transferMoney = useCallback(
-    (fromWalletId: string, toWalletId: string, amount: number, note = 'Pindah uang', kind: TransactionKind = 'transfer', date?: Date) => {
-      const move = createMove(fromWalletId, toWalletId, amount, note, kind, date)
+    (fromWalletId: string, toWalletId: string, amount: number, description = 'Pindah uang', kind: TransactionKind = 'transfer', date?: Date, note?: string) => {
+      const move = createMove(fromWalletId, toWalletId, amount, description, kind, date, note)
       if (!move) {
         showToast('Pindah uang belum valid atau saldo saku asal tidak cukup.', 'error')
         return false
@@ -1123,6 +1691,95 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (fromWalletId: string, amount: number, toWalletId = 'tabungan') =>
       transferMoney(fromWalletId, toWalletId, amount, 'Simpan uang', 'saving'),
     [transferMoney]
+  )
+
+  // ── Reconciliation (Phase P6) ────────────────────────────────────────────────
+  const reconcileWallet = useCallback(
+    (params: ReconcileWalletParams): ReconcileWalletResult | null => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Rekonsiliasi tidak dapat disimpan.', 'error')
+        return null
+      }
+      const wallet = wallets.find(w => w.id === params.walletId)
+      if (!wallet) {
+        showToast('Saku tidak ditemukan.', 'error')
+        return null
+      }
+      const actualBalance = Math.round(Number(params.actualBalance))
+      if (!Number.isFinite(actualBalance) || Number.isNaN(actualBalance)) {
+        showToast('Nominal saldo fisik tidak valid.', 'error')
+        return null
+      }
+
+      const expectedBalance = wallet.balance
+      const difference = calculateReconciliationVariance(actualBalance, expectedBalance)
+      const reconcileDate = params.date && !Number.isNaN(params.date.getTime())
+        ? new Date(params.date.getTime())
+        : new Date()
+      const reconciledAt = reconcileDate.toISOString()
+
+      const shouldCreateAdjustment = params.createAdjustment !== false && difference !== 0
+      let adjustmentTx: Transaction | null = null
+
+      if (shouldCreateAdjustment) {
+        adjustmentTx = createAdjustmentTransaction(
+          wallet.id,
+          wallet.label,
+          difference,
+          params.note,
+          reconcileDate
+        )
+      }
+
+      const reconciliation = createReconciliationRecord({
+        walletId: wallet.id,
+        expectedBalance,
+        actualBalance,
+        difference,
+        note: params.note,
+        adjustmentTransactionId: adjustmentTx?.id,
+        reconciledAt,
+      })
+
+      // Non-destructive: Existing historical transactions are never modified or deleted.
+      if (adjustmentTx) {
+        setTransactions(prev => [adjustmentTx!, ...prev])
+        setWallets(prev =>
+          adjustWallets(
+            prev.map(w => w.id === wallet.id ? { ...w, lastReconciledAt: reconciledAt } : w),
+            transactionImpact(adjustmentTx!, 1)
+          )
+        )
+      } else {
+        setWallets(prev =>
+          prev.map(w => w.id === wallet.id ? { ...w, lastReconciledAt: reconciledAt } : w)
+        )
+      }
+
+      setReconciliations(prev => [reconciliation, ...prev])
+      triggerHaptic(30)
+      showToast(
+        difference === 0
+          ? `Saldo "${wallet.label}" terverifikasi cocok.`
+          : shouldCreateAdjustment
+            ? `Rekonsiliasi & penyesuaian saldo "${wallet.label}" dicatat.`
+            : `Catatan rekonsiliasi saldo "${wallet.label}" disimpan.`,
+        'success'
+      )
+
+      return {
+        reconciliation,
+        adjustmentTransaction: adjustmentTx ?? undefined,
+      }
+    },
+    [wallets, storageStatus, showToast]
+  )
+
+  const getWalletReconciliations = useCallback(
+    (walletId: string): WalletReconciliation[] => {
+      return getWalletReconciliationHistory(walletId, reconciliations)
+    },
+    [reconciliations]
   )
 
   // ── Optimistic add ──────────────────────────────────────────────────────────
@@ -1163,7 +1820,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         category: parsed.category,
         subcategory: parsed.subcategory,
         paymentMethod: parsed.paymentMethod,
-        date: parsed.date ?? new Date(),
+        date: parsed.date && !Number.isNaN(parsed.date.getTime()) ? new Date(parsed.date.getTime()) : new Date(),
       }
 
       // Soft balance gate. We INTENTIONALLY no longer block submission when
@@ -1176,6 +1833,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setNewTransactionId(optimisticId)
       setIsSubmitting(false)
 
+      // Evaluate and queue to Inbox if unclassified or low confidence (Phase P8, Req 8.3)
+      const ruleEval = evaluateTransactionForRules(optimistic.description, localRules)
+      if (ruleEval.requiresInboxReview) {
+        const queueEval = {
+          ...ruleEval,
+          suggestedCategoryId: ruleEval.suggestedCategoryId || (optimistic.category !== 'lainnya' ? optimistic.category : undefined),
+          suggestedSubcategoryId: ruleEval.suggestedSubcategoryId || optimistic.subcategory,
+        }
+        const routeResult = routeToInboxIfNeeded(
+          { id: optimisticId, description: optimistic.description, amount: optimistic.amount, date: optimistic.date },
+          queueEval,
+          inbox
+        )
+        if (routeResult.routed) {
+          setInbox(routeResult.updatedInbox)
+        }
+      }
+
+      mutationSequenceIdRef.current += 1
+      const currentMutationSeq = mutationSequenceIdRef.current
+
       // Haptic thumb feedback
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
         navigator.vibrate(40)
@@ -1187,8 +1865,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         {
           label: 'Urungkan',
           onClick: () => {
-            setTransactions(prev => prev.filter(t => t.id !== optimisticId))
-            setWallets(prev => adjustWallets(prev, transactionImpact(optimistic, -1)))
+            if (isUndoneRef.current[optimisticId]) return
+            isUndoneRef.current[optimisticId] = true
+
+            setTransactions(prev => {
+              const undoResult = executeSafeUndo(
+                {
+                  mutationSequenceId: currentMutationSeq,
+                  timestamp: Date.now(),
+                  transaction: optimistic,
+                  actionType: 'CREATE',
+                },
+                mutationSequenceIdRef.current,
+                { transactions: prev, wallets }
+              )
+              if (!undoResult.success) {
+                showToast(undoResult.reason || 'Pembatalan gagal.', 'error')
+                return prev.filter(t => t.id !== optimisticId)
+              }
+              setWallets(undoResult.state.wallets)
+              return undoResult.state.transactions
+            })
+            setInbox(prev => prev.filter(i => i.id !== `inbox-${optimisticId}`))
             void import('./achievements').then(m => m.bumpCount(m.UNDO_COUNT_KEY))
             showToast('Transaksi diurungkan.', 'success')
           },
@@ -1197,7 +1895,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       )
       return true
     },
-    [parserExtras, showToast, transferMoney, wallets, storageStatus]
+    [parserExtras, showToast, transferMoney, wallets, storageStatus, localRules, inbox]
   )
 
   /** Manual entry — bypasses the parser entirely. Used by the modal form
@@ -1226,7 +1924,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         subcategory: input.subcategory,
         note: input.note?.trim() || undefined,
         paymentMethod: input.paymentMethod,
-        date: input.date ?? new Date(),
+        date: input.date && !Number.isNaN(input.date.getTime()) ? new Date(input.date.getTime()) : new Date(),
+        splitItems: input.splitItems && input.splitItems.length > 0 ? input.splitItems : undefined,
       }
 
       // Soft balance gate — a wallet may go minus; we record silently without
@@ -1237,12 +1936,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setNewTransactionId(optimisticId)
       setIsSubmitting(false)
 
+      // Evaluate and queue to Inbox if unclassified or low confidence (Phase P8, Req 8.3)
+      const ruleEval = evaluateTransactionForRules(optimistic.description, localRules)
+      if (ruleEval.requiresInboxReview) {
+        const queueEval = {
+          ...ruleEval,
+          suggestedCategoryId: ruleEval.suggestedCategoryId || (optimistic.category !== 'lainnya' ? optimistic.category : undefined),
+          suggestedSubcategoryId: ruleEval.suggestedSubcategoryId || optimistic.subcategory,
+        }
+        const routeResult = routeToInboxIfNeeded(
+          { id: optimisticId, description: optimistic.description, amount: optimistic.amount, date: optimistic.date },
+          queueEval,
+          inbox
+        )
+        if (routeResult.routed) {
+          setInbox(routeResult.updatedInbox)
+        }
+      }
+
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
         navigator.vibrate(28)
       }
       return true
     },
-    [wallets, showToast, storageStatus]
+    [wallets, showToast, storageStatus, localRules, inbox]
   )
 
   const deleteTransaction = useCallback(
@@ -1254,8 +1971,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const transaction = transactions.find(t => t.id === id)
       if (!transaction) return
 
+      mutationSequenceIdRef.current += 1
+      const currentMutationSeq = mutationSequenceIdRef.current
+      const deleteId = `del-${id}-${currentMutationSeq}`
+
       setWallets(prev => adjustWallets(prev, transactionImpact(transaction, -1)))
       setTransactions(prev => prev.filter(t => t.id !== id))
+      setInbox(prev => prev.filter(i => i.id !== `inbox-${id}`))
       triggerHaptic(25)
       showToast(
         'Transaksi dihapus.',
@@ -1263,8 +1985,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         {
           label: 'Urungkan',
           onClick: () => {
-            setTransactions(prev => prev.some(t => t.id === transaction.id) ? prev : [transaction, ...prev])
-            setWallets(prev => adjustWallets(prev, transactionImpact(transaction, 1)))
+            if (isUndoneRef.current[deleteId]) return
+            isUndoneRef.current[deleteId] = true
+
+            setTransactions(prev => {
+              const undoResult = executeSafeUndo(
+                {
+                  mutationSequenceId: currentMutationSeq,
+                  timestamp: Date.now(),
+                  transaction,
+                  actionType: 'DELETE',
+                },
+                mutationSequenceIdRef.current,
+                { transactions: prev, wallets }
+              )
+              if (!undoResult.success) {
+                showToast(undoResult.reason || 'Pembatalan gagal.', 'error')
+                return prev.some(t => t.id === transaction.id) ? prev : [transaction, ...prev]
+              }
+              setWallets(undoResult.state.wallets)
+              return undoResult.state.transactions
+            })
             void import('./achievements').then(m => m.bumpCount(m.UNDO_COUNT_KEY))
             showToast('Transaksi dikembalikan.', 'success')
           },
@@ -1272,7 +2013,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         5500
       )
     },
-    [transactions, showToast, storageStatus]
+    [transactions, wallets, showToast, storageStatus]
   )
 
   // ── Custom slang management ──────────────────────────────────────────────────
@@ -1297,6 +2038,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ? updates.paymentMethod
         : transaction.paymentMethod
 
+      if (!isMove && updates.paymentMethod) {
+        const targetWallet = wallets.find(w => w.id === updates.paymentMethod)
+        if (targetWallet && (targetWallet.isArchived || targetWallet.isDeleted)) {
+          showToast('Tidak dapat memindahkan transaksi ke dompet yang diarsipkan atau tidak aktif.', 'error')
+          return
+        }
+      }
+
       // Kategori & sub-kategori hanya boleh berubah untuk transaksi normal (bukan
       // transfer/tabungan yang kind !== 'transaction').
       const nextCategory = !isMove && updates.category
@@ -1310,10 +2059,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ? undefined
             : updates.subcategory.trim()
 
-      // Tanggal: kalau input valid, pakai. Jaga-jaga terhadap Date invalid.
+      // Tanggal: kalau input valid, gunakan salinan Date baru untuk isolasi.
+      // Jika tidak dikirim atau tidak valid, pertahankan salinan tanggal transaksi lama tanpa mutasi.
       const nextDate = updates.date instanceof Date && !Number.isNaN(updates.date.getTime())
-        ? updates.date
-        : transaction.date
+        ? new Date(updates.date.getTime())
+        : new Date(transaction.date.getTime())
 
       const updated: Transaction = {
         ...transaction,
@@ -1325,6 +2075,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         note: updates.note !== undefined ? updates.note : transaction.note,
         date: nextDate,
         isPending: false,
+        splitItems: updates.splitItems !== undefined ? updates.splitItems : transaction.splitItems,
       }
       // Soft balance gate — editing may push a wallet minus; we allow it
       // silently (consistent with adding a transaction) and no longer block.
@@ -1343,6 +2094,507 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [transactions, wallets, showToast, storageStatus]
   )
 
+  // ── Bill management (Phase P5) ──────────────────────────────────────────────
+  const addBill = useCallback(
+    (input: Omit<Bill, 'id' | 'nextDueDate'> & { nextDueDate?: string }): string => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Tagihan tidak dapat disimpan.', 'error')
+        return ''
+      }
+      const bill = createBill(input)
+      setBills(prev => [bill, ...prev])
+      showToast(`Tagihan "${bill.name}" ditambahkan.`, 'success')
+      return bill.id
+    },
+    [showToast, storageStatus]
+  )
+
+  const updateBill = useCallback(
+    (id: string, updates: Partial<Omit<Bill, 'id'>>) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Tagihan tidak dapat diubah.', 'error')
+        return
+      }
+      setBills(prev =>
+        prev.map(bill => {
+          if (bill.id !== id) return bill
+          const nextRecurrence = updates.recurrence ?? bill.recurrence
+          const nextDueDay = updates.dueDay !== undefined ? Math.max(1, Math.round(updates.dueDay)) : bill.dueDay
+          const nextDueMonth = updates.dueMonth ?? bill.dueMonth
+          let nextDueDate = updates.nextDueDate ?? bill.nextDueDate
+          if (
+            (updates.recurrence !== undefined || updates.dueDay !== undefined || updates.dueMonth !== undefined) &&
+            updates.nextDueDate === undefined
+          ) {
+            nextDueDate = computeNextDueDate(nextRecurrence, nextDueDay, new Date(), { dueMonth: nextDueMonth })
+          }
+          return {
+            ...bill,
+            ...updates,
+            recurrence: nextRecurrence,
+            dueDay: nextDueDay,
+            dueMonth: nextDueMonth,
+            nextDueDate,
+            name: updates.name !== undefined ? updates.name.trim() : bill.name,
+            amount: updates.amount !== undefined ? Math.max(0, Math.round(updates.amount)) : bill.amount,
+          }
+        })
+      )
+      showToast('Tagihan diperbarui.', 'success')
+    },
+    [showToast, storageStatus]
+  )
+
+  const removeBill = useCallback(
+    (id: string) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Tagihan tidak dapat diubah.', 'error')
+        return
+      }
+      const bill = bills.find(b => b.id === id)
+      setBills(prev => prev.filter(b => b.id !== id))
+      if (bill) {
+        showToast(`Tagihan "${bill.name}" dihapus.`, 'success')
+      }
+    },
+    [bills, showToast, storageStatus]
+  )
+
+  const toggleBillActive = useCallback(
+    (id: string) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Tagihan tidak dapat diubah.', 'error')
+        return
+      }
+      setBills(prev => prev.map(b => (b.id === id ? { ...b, isActive: !b.isActive } : b)))
+    },
+    [storageStatus]
+  )
+
+  const markBillPaid = useCallback(
+    (billId: string, paidAmount?: number, walletId?: string, note?: string): Transaction | null => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Pembayaran tidak dapat disimpan.', 'error')
+        return null
+      }
+      const bill = bills.find(b => b.id === billId)
+      if (!bill) {
+        showToast('Tagihan tidak ditemukan.', 'error')
+        return null
+      }
+      const amount = paidAmount !== undefined && paidAmount > 0 ? Math.round(paidAmount) : bill.amount
+      const paymentWallet = walletId || bill.paymentMethodId || 'tunai'
+      const txId = generateId()
+      const now = new Date()
+
+      const tx: Transaction = {
+        id: txId,
+        kind: 'transaction',
+        description: `Bayar tagihan: ${bill.name}`,
+        amount,
+        type: 'expense',
+        category: bill.categoryId || 'tagihan',
+        paymentMethod: paymentWallet,
+        date: now,
+        note: note?.trim() || bill.note,
+        billId: bill.id,
+      }
+
+      setTransactions(prev => [tx, ...prev])
+      setWallets(prev => adjustWallets(prev, transactionImpact(tx, 1)))
+
+      const nextDueDate = computeNextDueDate(bill.recurrence, bill.dueDay, bill.nextDueDate || now, {
+        dueMonth: bill.dueMonth,
+      })
+
+      setBills(prev =>
+        prev.map(b =>
+          b.id === billId
+            ? {
+                ...b,
+                nextDueDate,
+                lastPaidTransactionId: txId,
+                lastPaidAt: now.toISOString(),
+              }
+            : b
+        )
+      )
+
+      triggerHaptic(30)
+      showToast(`Tagihan "${bill.name}" dicatat sudah dibayar.`, 'success')
+      return tx
+    },
+    [bills, showToast, storageStatus]
+  )
+
+  // ── Rules & Inbox management (Phase P8) ──────────────────────────────────
+  const pendingInboxCount = useMemo(
+    () => inbox.filter(item => item.status === 'pending').length,
+    [inbox]
+  )
+
+  const matchDescriptionToRule = useCallback(
+    (description: string): CategoryMatchEvaluation => {
+      return evaluateTransactionForRules(description, localRules)
+    },
+    [localRules]
+  )
+
+  const addLocalRule = useCallback(
+    (input: CreateLocalRuleInput): LocalCategoryRule | null => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Aturan tidak dapat disimpan.', 'error')
+        return null
+      }
+      try {
+        const rule = createLocalRule(input, localRules)
+        setLocalRules(prev => [rule, ...prev])
+        showToast(`Aturan kategori "${rule.keyword}" ditambahkan.`, 'success')
+        return rule
+      } catch (err: any) {
+        showToast(err?.message || 'Gagal menambahkan aturan kategori.', 'error')
+        return null
+      }
+    },
+    [localRules, showToast, storageStatus]
+  )
+
+  const updateLocalRule = useCallback(
+    (id: string, updates: Partial<Omit<LocalCategoryRule, 'id' | 'createdAt'>>) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Aturan tidak dapat diubah.', 'error')
+        return
+      }
+      setLocalRules(prev =>
+        prev.map(rule => {
+          if (rule.id !== id) return rule
+          const nextKeyword = updates.keyword !== undefined ? updates.keyword.trim().toLowerCase() : rule.keyword
+          return {
+            ...rule,
+            ...updates,
+            keyword: nextKeyword || rule.keyword,
+            categoryId: updates.categoryId !== undefined ? updates.categoryId.trim() : rule.categoryId,
+            subcategoryId: updates.subcategoryId !== undefined ? updates.subcategoryId.trim() || undefined : rule.subcategoryId,
+          }
+        })
+      )
+      showToast('Aturan kategori diperbarui.', 'success')
+    },
+    [showToast, storageStatus]
+  )
+
+  const removeLocalRule = useCallback(
+    (id: string) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Aturan tidak dapat dihapus.', 'error')
+        return
+      }
+      const rule = localRules.find(r => r.id === id)
+      setLocalRules(prev => prev.filter(r => r.id !== id))
+      if (rule) {
+        showToast(`Aturan "${rule.keyword}" dihapus.`, 'success')
+      }
+    },
+    [localRules, showToast, storageStatus]
+  )
+
+  const toggleLocalRuleActive = useCallback(
+    (id: string) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Aturan tidak dapat diubah.', 'error')
+        return
+      }
+      setLocalRules(prev => prev.map(r => (r.id === id ? { ...r, isActive: !r.isActive } : r)))
+    },
+    [storageStatus]
+  )
+
+  const addInboxItem = useCallback(
+    (input: CreateInboxItemInput): InboxTransactionItem => {
+      const item = createInboxItem(input)
+      setInbox(prev => [item, ...prev])
+      return item
+    },
+    []
+  )
+
+  const updateInboxItemStatus = useCallback(
+    (id: string, status: 'approved' | 'rejected', confirmedCategory?: { categoryId: string; subcategoryId?: string }) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Status inbox tidak dapat diubah.', 'error')
+        return
+      }
+      setInbox(prev =>
+        prev.map(item => {
+          if (item.id !== id) return item
+          return status === 'approved'
+            ? approveInboxTransaction(item, confirmedCategory)
+            : rejectInboxTransaction(item)
+        })
+      )
+    },
+    [showToast, storageStatus]
+  )
+
+  const removeInboxItem = useCallback(
+    (id: string) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Item inbox tidak dapat dihapus.', 'error')
+        return
+      }
+      setInbox(prev => prev.filter(inboxItem => inboxItem.id !== id))
+    },
+    [storageStatus]
+  )
+
+  const evaluateAndQueueTransaction = useCallback(
+    (transaction: { id?: string; description: string; amount: number; date?: Date | string }): {
+      match: CategoryMatchEvaluation
+      inboxItem: InboxTransactionItem | null
+    } => {
+      const match = evaluateTransactionForRules(transaction.description, localRules)
+      if (match.requiresInboxReview) {
+        const routeResult = routeToInboxIfNeeded(transaction, match, inbox)
+        if (routeResult.routed && routeResult.inboxItem) {
+          setInbox(routeResult.updatedInbox)
+          return { match, inboxItem: routeResult.inboxItem }
+        }
+      }
+      return { match, inboxItem: null }
+    },
+    [localRules, inbox]
+  )
+
+  // ── Monthly close management (Phase P9) ──────────────────────────────────
+  const executePreClosingChecklistCallback = useCallback(
+    (year: number, month: number, options?: PreClosingChecklistOptions): PreClosingChecklistResult => {
+      return evaluatePreClosingChecklist({
+        year,
+        month,
+        transactions,
+        inbox,
+        wallets,
+        reconciliations,
+        bills,
+        options: {
+          hiddenWalletIds: hiddenPaymentIds,
+          ...options,
+        },
+      })
+    },
+    [transactions, inbox, wallets, reconciliations, bills, hiddenPaymentIds]
+  )
+
+  const compileMonthlySummaryCallback = useCallback(
+    (year: number, month: number): MonthlyFinancialSummary => {
+      return compileMonthlyFinancialSummary({
+        year,
+        month,
+        transactions,
+        reconciliations,
+      })
+    },
+    [transactions, reconciliations]
+  )
+
+  const closeMonthCallback = useCallback(
+    (params: { year: number; month: number; closedAt?: string | Date; overrideValidation?: boolean }): MonthlyCloseRecord | null => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Tutup bulan tidak dapat disimpan.', 'error')
+        return null
+      }
+
+      const { year, month, closedAt, overrideValidation } = params
+      const monthId = formatMonthId(year, month)
+
+      if (!overrideValidation) {
+        const checklist = evaluatePreClosingChecklist({
+          year,
+          month,
+          transactions,
+          inbox,
+          wallets,
+          reconciliations,
+          bills,
+          options: { hiddenWalletIds: hiddenPaymentIds },
+        })
+
+        if (!checklist.isReadyToClose) {
+          showToast(`Tutup buku belum siap: terdapat ${checklist.totalIssuesCount} item yang belum diselesaikan.`, 'error')
+          return null
+        }
+      }
+
+      const record = createMonthlyCloseRecord({
+        year,
+        month,
+        transactions,
+        reconciliations,
+        closedAt,
+        overrideValidation,
+      })
+
+      setMonthlyCloses(prev => {
+        const existingIndex = prev.findIndex(r => r.id === monthId)
+        if (existingIndex >= 0) {
+          const next = [...prev]
+          next[existingIndex] = record
+          return next
+        }
+        return [record, ...prev]
+      })
+
+      triggerHaptic(35)
+      showToast(`Periode ${formatMonthLabel(year, month)} berhasil ditutup.`, 'success')
+      return record
+    },
+    [transactions, inbox, wallets, reconciliations, bills, hiddenPaymentIds, storageStatus, showToast]
+  )
+
+  const reopenMonthCallback = useCallback(
+    (monthId: string, note: string, reopenedAt?: string | Date): MonthlyCloseRecord | null => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Status tutup buku tidak dapat diubah.', 'error')
+        return null
+      }
+
+      const trimmedNote = note?.trim()
+      if (!trimmedNote) {
+        showToast('Catatan alasan pembukaan kembali wajib diisi.', 'error')
+        return null
+      }
+
+      const existingRecord = monthlyCloses.find(r => r.id === monthId)
+      if (!existingRecord) {
+        showToast('Catatan tutup buku tidak ditemukan.', 'error')
+        return null
+      }
+
+      const updated = reopenMonthlyClose(existingRecord, trimmedNote, reopenedAt)
+      setMonthlyCloses(prev => prev.map(r => r.id === monthId ? updated : r))
+
+      triggerHaptic(25)
+      showToast(`Periode ${formatMonthLabel(existingRecord.year, existingRecord.month)} dibuka kembali.`, 'success')
+      return updated
+    },
+    [monthlyCloses, storageStatus, showToast]
+  )
+
+  const isMonthClosedCallback = useCallback(
+    (monthId: string): boolean => {
+      return isMonthClosed(monthId, monthlyCloses)
+    },
+    [monthlyCloses]
+  )
+
+  const getMonthlyCloseRecordCallback = useCallback(
+    (monthId: string): MonthlyCloseRecord | undefined => {
+      return getMonthlyCloseRecord(monthId, monthlyCloses)
+    },
+    [monthlyCloses]
+  )
+
+  // ── Net Worth & Debts management (Phase P10) ─────────────────────────────
+  const addDebt = useCallback(
+    (input: CreateDebtInput): DebtItem | null => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Utang tidak dapat disimpan.', 'error')
+        return null
+      }
+      try {
+        const debt = createDebtItem(input)
+        setDebts(prev => [debt, ...prev])
+        showToast(`${debt.type === 'receivable' ? 'Piutang' : 'Utang'} "${debt.name}" dicatat.`, 'success')
+        return debt
+      } catch (err: any) {
+        showToast(err?.message || 'Gagal mencatat utang.', 'error')
+        return null
+      }
+    },
+    [storageStatus, showToast]
+  )
+
+  const updateDebt = useCallback(
+    (id: string, updates: Partial<Omit<DebtItem, 'id' | 'createdAt'>>) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Utang tidak dapat diubah.', 'error')
+        return
+      }
+      try {
+        setDebts(prev =>
+          prev.map(debt => {
+            if (debt.id !== id) return debt
+            return updateDebtItem(debt, updates)
+          })
+        )
+        showToast('Catatan utang diperbarui.', 'success')
+      } catch (err: any) {
+        showToast(err?.message || 'Gagal memperbarui utang.', 'error')
+      }
+    },
+    [storageStatus, showToast]
+  )
+
+  const removeDebt = useCallback(
+    (id: string) => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Utang tidak dapat dihapus.', 'error')
+        return
+      }
+      const debt = debts.find(d => d.id === id)
+      setDebts(prev => prev.filter(d => d.id !== id))
+      if (debt) {
+        showToast(`${debt.type === 'receivable' ? 'Piutang' : 'Utang'} "${debt.name}" dihapus.`, 'success')
+      }
+    },
+    [debts, storageStatus, showToast]
+  )
+
+  const payDebt = useCallback(
+    (params: RecordDebtPaymentParams): RecordDebtPaymentResult | null => {
+      if (!canMutateState(storageStatus)) {
+        showToast('Penyimpanan terkunci (mode recovery). Pembayaran tidak dapat disimpan.', 'error')
+        return null
+      }
+      const debt = debts.find(d => d.id === params.debtId)
+      if (!debt) {
+        showToast('Catatan utang tidak ditemukan.', 'error')
+        return null
+      }
+
+      try {
+        const result = recordDebtPayment(debt, params)
+        setDebts(prev => prev.map(d => d.id === debt.id ? result.updatedDebt : d))
+
+        if (result.transaction) {
+          const tx = result.transaction
+          setTransactions(prev => [tx, ...prev])
+          setWallets(prev => adjustWallets(prev, transactionImpact(tx, 1)))
+        }
+
+        triggerHaptic(30)
+        showToast(
+          result.updatedDebt.isSettled
+            ? `${debt.type === 'receivable' ? 'Piutang' : 'Utang'} "${debt.name}" lunas!`
+            : `Pembayaran ${debt.type === 'receivable' ? 'piutang' : 'utang'} "${debt.name}" dicatat.`,
+          'success'
+        )
+        return result
+      } catch (err: any) {
+        showToast(err?.message || 'Gagal mencatat pembayaran utang.', 'error')
+        return null
+      }
+    },
+    [debts, storageStatus, showToast]
+  )
+
+  const getDebt = useCallback(
+    (id: string): DebtItem | undefined => {
+      return debts.find(d => d.id === id)
+    },
+    [debts]
+  )
+
   const addCustomPayment = useCallback(
     (label: string, keywords: string[]) => {
       if (!canMutateState(storageStatus)) {
@@ -1355,11 +2607,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setCustomPayments(prev =>
         prev.some(p => p.id === id) ? prev : [...prev, { id, label: label.trim(), keywords: kws }]
       )
-      setWallets(prev =>
-        prev.some(wallet => wallet.id === id)
-          ? prev
-          : [...prev, { id, label: label.trim(), type: 'other', balance: 0, keywords: kws }]
-      )
+
+      if (!isSyncingWalletPayment) {
+        setSyncingWalletPayment(true)
+        try {
+          setWallets(prev =>
+            prev.some(wallet => wallet.id === id)
+              ? prev
+              : [
+                  ...prev,
+                  {
+                    id,
+                    label: label.trim(),
+                    type: 'other',
+                    balance: 0,
+                    openingBalance: 0,
+                    currentBalance: 0,
+                    keywords: kws,
+                    isArchived: false,
+                    isDeleted: false,
+                    createdAt: new Date().toISOString(),
+                  },
+                ]
+          )
+        } finally {
+          setSyncingWalletPayment(false)
+        }
+      }
+
       showToast(`Metode "${label.trim()}" ditambahkan.`, 'success')
     },
     [showToast, storageStatus]
@@ -1492,14 +2767,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       showToast('Kategori inti tidak bisa disembunyikan.', 'error')
       return
     }
-    setCustomCategories(prev => prev.filter(c => c.id !== id))
+
+    // Preserve historicalCategoryLabel on past transactions (Task 3.16)
+    const { updatedCategories, updatedTransactions } = deleteCategoryPreservingLabels(
+      id,
+      customCategories,
+      transactions
+    )
+    setCustomCategories(updatedCategories)
+    setTransactions(updatedTransactions)
+
     if (isBuiltin) {
       setHiddenCategoryIds(prev => prev.includes(id) ? prev : [...prev, id])
       showToast('Kategori bawaan disembunyikan.', 'success')
       return
     }
     showToast('Kategori dihapus.', 'success')
-  }, [showToast, storageStatus])
+  }, [showToast, storageStatus, customCategories, transactions])
 
   const restoreHiddenCategory = useCallback((id: string) => {
     if (!canMutateState(storageStatus)) {
@@ -1548,10 +2832,100 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addWallet,
       updateWallet,
       removeWallet,
+      archiveWallet: removeWallet,
       transferMoney,
       saveMoney,
+      reconciliations,
+      reconcileWallet,
+      getWalletReconciliations,
     }),
-    [wallets, totalStored, addWallet, updateWallet, removeWallet, transferMoney, saveMoney]
+    [wallets, totalStored, addWallet, updateWallet, removeWallet, transferMoney, saveMoney, reconciliations, reconcileWallet, getWalletReconciliations]
+  )
+
+  const reconciliationValue = useMemo<ReconciliationStore>(
+    () => ({
+      reconciliations,
+      reconcileWallet,
+      getWalletReconciliations,
+    }),
+    [reconciliations, reconcileWallet, getWalletReconciliations]
+  )
+
+  const billValue = useMemo<BillStore>(
+    () => ({
+      bills,
+      addBill,
+      updateBill,
+      removeBill,
+      toggleBillActive,
+      markBillPaid,
+    }),
+    [bills, addBill, updateBill, removeBill, toggleBillActive, markBillPaid]
+  )
+
+  const ruleInboxValue = useMemo<RuleInboxStore>(
+    () => ({
+      localRules,
+      inbox,
+      pendingInboxCount,
+      addLocalRule,
+      updateLocalRule,
+      removeLocalRule,
+      toggleLocalRuleActive,
+      addInboxItem,
+      updateInboxItemStatus,
+      removeInboxItem,
+      matchDescriptionToRule,
+      evaluateAndQueueTransaction,
+    }),
+    [
+      localRules,
+      inbox,
+      pendingInboxCount,
+      addLocalRule,
+      updateLocalRule,
+      removeLocalRule,
+      toggleLocalRuleActive,
+      addInboxItem,
+      updateInboxItemStatus,
+      removeInboxItem,
+      matchDescriptionToRule,
+      evaluateAndQueueTransaction,
+    ]
+  )
+
+  const monthlyCloseValue = useMemo<MonthlyCloseStore>(
+    () => ({
+      monthlyCloses,
+      executePreClosingChecklist: executePreClosingChecklistCallback,
+      compileMonthlySummary: compileMonthlySummaryCallback,
+      closeMonth: closeMonthCallback,
+      reopenMonth: reopenMonthCallback,
+      isMonthClosed: isMonthClosedCallback,
+      getMonthlyCloseRecord: getMonthlyCloseRecordCallback,
+    }),
+    [
+      monthlyCloses,
+      executePreClosingChecklistCallback,
+      compileMonthlySummaryCallback,
+      closeMonthCallback,
+      reopenMonthCallback,
+      isMonthClosedCallback,
+      getMonthlyCloseRecordCallback,
+    ]
+  )
+
+  const netWorthValue = useMemo<NetWorthStore>(
+    () => ({
+      debts,
+      netWorthSummary,
+      addDebt,
+      updateDebt,
+      removeDebt,
+      payDebt,
+      getDebt,
+    }),
+    [debts, netWorthSummary, addDebt, updateDebt, removeDebt, payDebt, getDebt]
   )
 
   const budgetValue = useMemo<BudgetStore>(
@@ -1620,8 +2994,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addWallet,
       updateWallet,
       removeWallet,
+      archiveWallet: removeWallet,
       transferMoney,
       saveMoney,
+      reconciliations,
+      reconcileWallet,
+      getWalletReconciliations,
+      bills,
+      addBill,
+      updateBill,
+      removeBill,
+      toggleBillActive,
+      markBillPaid,
+      localRules,
+      inbox,
+      pendingInboxCount,
+      addLocalRule,
+      updateLocalRule,
+      removeLocalRule,
+      toggleLocalRuleActive,
+      addInboxItem,
+      updateInboxItemStatus,
+      removeInboxItem,
+      matchDescriptionToRule,
+      evaluateAndQueueTransaction,
+      monthlyCloses,
+      executePreClosingChecklist: executePreClosingChecklistCallback,
+      compileMonthlySummary: compileMonthlySummaryCallback,
+      closeMonth: closeMonthCallback,
+      reopenMonth: reopenMonthCallback,
+      isMonthClosed: isMonthClosedCallback,
+      getMonthlyCloseRecord: getMonthlyCloseRecordCallback,
+      debts,
+      netWorthSummary,
+      addDebt,
+      updateDebt,
+      removeDebt,
+      payDebt,
+      getDebt,
       monthlyBudget,
       setMonthlyBudget,
       customPayments,
@@ -1649,6 +3059,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       user, authReady, updateProfile, updateProfileAvatar,
       transactions, addTransaction, addManualTransaction, updateTransaction, deleteTransaction, newTransactionId, isSubmitting,
       wallets, totalStored, addWallet, updateWallet, removeWallet, transferMoney, saveMoney,
+      reconciliations, reconcileWallet, getWalletReconciliations,
+      bills, addBill, updateBill, removeBill, toggleBillActive, markBillPaid,
+      localRules, inbox, pendingInboxCount, addLocalRule, updateLocalRule, removeLocalRule, toggleLocalRuleActive,
+      addInboxItem, updateInboxItemStatus, removeInboxItem, matchDescriptionToRule, evaluateAndQueueTransaction,
+      monthlyCloses, executePreClosingChecklistCallback, compileMonthlySummaryCallback, closeMonthCallback, reopenMonthCallback, isMonthClosedCallback, getMonthlyCloseRecordCallback,
+      debts, netWorthSummary, addDebt, updateDebt, removeDebt, payDebt, getDebt,
       monthlyBudget, setMonthlyBudget,
       customPayments, customCategories, hiddenPaymentIds, hiddenCategoryIds, addCustomPayment, updateCustomPayment, removeCustomPayment,
       restoreHiddenPayment, addCustomCategory, updateCustomCategory, removeCustomCategory, restoreHiddenCategory, parserExtras,
@@ -1668,15 +3084,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         <TransactionActionsContext.Provider value={transactionActionsValue}>
           <TransactionStatusContext.Provider value={transactionStatusValue}>
             <WalletContext.Provider value={walletValue}>
-              <BudgetContext.Provider value={budgetValue}>
-                <CustomizationContext.Provider value={customizationValue}>
-                  <PreferenceContext.Provider value={preferenceValue}>
-                    <FeedbackContext.Provider value={feedbackValue}>
-                      <StoreContext.Provider value={value}>{content}</StoreContext.Provider>
-                    </FeedbackContext.Provider>
-                  </PreferenceContext.Provider>
-                </CustomizationContext.Provider>
-              </BudgetContext.Provider>
+              <ReconciliationContext.Provider value={reconciliationValue}>
+                <BillContext.Provider value={billValue}>
+                  <RuleInboxContext.Provider value={ruleInboxValue}>
+                    <MonthlyCloseContext.Provider value={monthlyCloseValue}>
+                      <NetWorthContext.Provider value={netWorthValue}>
+                        <BudgetContext.Provider value={budgetValue}>
+                          <CustomizationContext.Provider value={customizationValue}>
+                            <PreferenceContext.Provider value={preferenceValue}>
+                              <FeedbackContext.Provider value={feedbackValue}>
+                                <StoreContext.Provider value={value}>{content}</StoreContext.Provider>
+                              </FeedbackContext.Provider>
+                            </PreferenceContext.Provider>
+                          </CustomizationContext.Provider>
+                        </BudgetContext.Provider>
+                      </NetWorthContext.Provider>
+                    </MonthlyCloseContext.Provider>
+                  </RuleInboxContext.Provider>
+                </BillContext.Provider>
+              </ReconciliationContext.Provider>
             </WalletContext.Provider>
           </TransactionStatusContext.Provider>
         </TransactionActionsContext.Provider>
@@ -1715,6 +3141,26 @@ export function useTransactionStatus(): TransactionStatusStore {
 
 export function useWalletStore(): WalletStore {
   return useRequiredContext(WalletContext, 'useWalletStore')
+}
+
+export function useReconciliationStore(): ReconciliationStore {
+  return useRequiredContext(ReconciliationContext, 'useReconciliationStore')
+}
+
+export function useBillStore(): BillStore {
+  return useRequiredContext(BillContext, 'useBillStore')
+}
+
+export function useRuleInboxStore(): RuleInboxStore {
+  return useRequiredContext(RuleInboxContext, 'useRuleInboxStore')
+}
+
+export function useMonthlyCloseStore(): MonthlyCloseStore {
+  return useRequiredContext(MonthlyCloseContext, 'useMonthlyCloseStore')
+}
+
+export function useNetWorthStore(): NetWorthStore {
+  return useRequiredContext(NetWorthContext, 'useNetWorthStore')
 }
 
 export function useBudgetStore(): BudgetStore {

@@ -535,7 +535,7 @@ export function TabProfil() {
 
         <div className="text-center pt-4">
           <p className="text-[11px] text-[var(--sk-text-dim)]">
-            SakuKilat - dibuat oleh Ardhika Argha
+            SakuKilat v1.1.0 • dibuat oleh Ardhika Argha
           </p>
         </div>
       </div>

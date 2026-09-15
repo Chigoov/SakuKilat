@@ -18,6 +18,7 @@ interface PatchItem {
 interface PatchRelease {
   version: string
   date: string
+  isLatest?: boolean
   summary: string
   items: PatchItem[]
 }
@@ -26,8 +27,153 @@ export const CURRENT_APP_VERSION = `v${pkg.version}`
 
 const PATCH_HISTORY: PatchRelease[] = [
   {
+    version: 'v1.1.0',
+    date: '14 September 2026',
+    isLatest: true,
+    summary: 'Rilis Akbar Arsitektur & Integritas Data: Single Source of Truth (SSoT) buku besar mutasi, proteksi kebangkitan dompet (anti-resurrection) & penghapusan non-destruktif, sinkronisasi dua arah dompet & metode pembayaran kustom, pengerasan kriptografis PBKDF2 ber-salt & asersi WebAuthn, validasi skema mendalam & mitigasi storage error, sanitasi numerik ketat (integer rupiah), serta penegakan 25 invarian sistem.',
+    items: [
+      {
+        tag: 'core',
+        tagLabel: 'Buku Besar & SSoT',
+        title: 'Single Source of Truth Integritas Saldo Dompet',
+        description: 'Kalkulasi saldo kini ditegakkan secara absolut melalui formula matematis openingBalance + sum(ledger impacts), dilengkapi rekonsiliasi mandiri otomatis yang mendeteksi dan memperbaiki saldo melenceng tanpa modifikasi mutasi masa lalu.',
+      },
+      {
+        tag: 'bug',
+        tagLabel: 'Siklus Hidup Dompet',
+        title: 'Pencegahan Kebangkitan Dompet & Penghapusan Non-Destruktif',
+        description: 'Dompet terhapus atau terarsip diproteksi permanen dari kebangkitan otomatis (anti-resurrection) oleh fungsi lookup. Transaksi historis tetap mempertahankan nama dompet secara non-destruktif dengan indikator terhapus.',
+      },
+      {
+        tag: 'core',
+        tagLabel: 'Sinkronisasi Pembayaran',
+        title: 'Sinkronisasi Dua Arah Dompet & Metode Pembayaran',
+        description: 'Penghapusan atau penambahan dompet dan metode pembayaran kustom tersinkronisasi dua arah tanpa perulangan kreasi mutual (mutual creation loop) dan paritas validasi penuh pada updateWallet.',
+      },
+      {
+        tag: 'core',
+        tagLabel: 'Sanitasi & Tipe Data',
+        title: 'Sanitasi Numerik Ketat & Input Gating Multi-Transaksi',
+        description: 'Proteksi angka terhadap NaN, Infinity, dan pecahan desimal sen di seluruh form dan transfer. Smart Input dilengkapi pembatasan rollover tanggal 31 pada bulan pendek dan konfirmasi pemisahan multi-transaksi.',
+      },
+      {
+        tag: 'core',
+        tagLabel: 'Keamanan Kriptografi',
+        title: 'Pengerasan Keamanan Passcode PBKDF2 & WebAuthn',
+        description: 'Peningkatan hashing PIN App-Lock menggunakan PBKDF2 dengan salt acak dan 100.000 iterasi, verifikasi kriptografis signature WebAuthn, serta mekanisme rate limiting bertingkat terhadap brute-force.',
+      },
+      {
+        tag: 'core',
+        tagLabel: 'Ketahanan Penyimpanan',
+        title: 'Penyimpanan Atomik & Validasi Skema Mendalam',
+        description: 'Pemuatan data lokal kini menerapkan deep schema validation yang memangkas node rusak tanpa crash, mekanisme penulisan atomik write-then-replace, peringatan toast saat kuota penuh, serta persistensi preferensi notifikasi.',
+      },
+      {
+        tag: 'bug',
+        tagLabel: 'Kategori & Mutasi',
+        title: 'Penghapusan Kategori Aman & Pelindung State Undo',
+        description: 'Penghapusan kategori kustom mempertahankan label historis pada transaksi lama. Penekanan Undo terlindungi dari race condition delta dan double-undo, serta transfer antar-dompet identik diblokir.',
+      },
+      {
+        tag: 'feature',
+        tagLabel: 'Testing & Invarian',
+        title: 'Pengujian Komprehensif 25 Invarian Sistem (PBT)',
+        description: 'Verifikasi formal berbasis fast-check terhadap 25 invarian integritas sistem, pengujian angka ekstrem hingga Rp10 Miliar, serta audit kepatuhan keamanan data pribadi SK-001 (100% lulus).',
+      },
+    ],
+  },
+  {
+    version: 'v1.0.9',
+    date: '14 September 2026',
+    isLatest: false,
+    summary: 'Rilis Akbar Submenu Berlayar & Penyempurnaan Mobile: Navigasi stacking layer Tab Saku terintegrasi back-stack LIFO, relokasi Wawasan & Analisis ke Tab Rencana, kolom catatan eksplisit langsung di Catat Manual untuk semua tipe transaksi, reposisi tanggal pengeluaran di bawah kategori, format rupiah kalender adaptif bebas terpotong elipsis, dan guard rekonsiliasi saku aktif.',
+    items: [
+      {
+        tag: 'ux',
+        tagLabel: 'Navigasi Saku',
+        title: 'Submenu Berlayar Mandiri Bebas Accordion Sprawl',
+        description: 'Membuka submenu Tab Saku (Daftar Saku, Pindah Saldo, Kategori, Inbox) kini menyajikan layer/sheet mandiri berlayar dengan header jelas dan terdaftar penuh pada sistem tombol kembali (back-stack LIFO) tanpa memanjangkan halaman.',
+      },
+      {
+        tag: 'ux',
+        tagLabel: 'Catat Manual',
+        title: 'Kolom Catatan Eksplisit untuk Semua Tipe Transaksi',
+        description: 'Input Catatan (opsional) kini langsung tampil di alur form utama Catat Manual tanpa membuka accordion dan mendukung penuh transaksi pengeluaran, pemasukan, serta transfer antar-saku.',
+      },
+      {
+        tag: 'ux',
+        tagLabel: 'Beranda Ramping',
+        title: 'Relokasi Wawasan & Analisis ke Tab Rencana',
+        description: 'Bagian Wawasan & Analisis Lengkap (Cashflow Pintar, Skor Finansial, Mini Target Tabungan) dipindahkan ke Tab Rencana sebagai pusat evaluasi berkala, menjaga Beranda tetap ringan dan fokus pada pencatatan cepat.',
+      },
+      {
+        tag: 'ux',
+        tagLabel: 'Rekapan Transaksi',
+        title: 'Reposisi Tanggal Pencatatan Persis di Bawah Kategori',
+        description: 'Tanggal dan waktu transaksi pengeluaran kini diposisikan rapi di baris tersendiri tepat di bawah nama kategori, memberikan ruang lega bagi nominal angka tanpa tabrakan badge dompet atau split.',
+      },
+      {
+        tag: 'ux',
+        tagLabel: 'Kalender Bulanan',
+        title: 'Angka Rupiah Harian Bebas Terpotong (Zero Ellipsis)',
+        description: 'Tampilan kalender transaksi mengadopsi format rupiah adaptif ringkas (+1,5jt, -250rb) yang muat rapi dan terbaca jelas tanpa terpotong tanda elipsis (...) pada layar ponsel 390px.',
+      },
+      {
+        tag: 'feature',
+        tagLabel: 'Rekonsiliasi Saldo',
+        title: 'Guard Rekonsiliasi Dompet dengan Mutasi Bulan Berjalan',
+        description: 'Tombol rekonsiliasi saldo otomatis diproteksi nonaktif dengan banner informatif apabila dompet yang dipilih belum memiliki mutasi transaksi pada bulan kalender berjalan.',
+      },
+      {
+        tag: 'feature',
+        tagLabel: 'Split Transaksi',
+        title: 'Balanced Multi-Category Split Transactions',
+        description: 'Dukungan pembagian 1 transaksi belanja ke dalam beberapa kategori sekaligus dengan penjagaan ketat saldo selisih nol pada modal revisi transaksi.',
+      },
+      {
+        tag: 'feature',
+        tagLabel: 'Net Worth & Tutup Buku',
+        title: 'Pelacakan Kekayaan Bersih & Tutup Buku Bulanan',
+        description: 'Kalkulasi kekayaan bersih terpadu, penutupan buku akhir bulan dengan checklist pra-tutup, dan sinkronisasi widget Android.',
+      },
+    ],
+  },
+  {
+    version: 'v1.0.8',
+    date: '14 September 2026',
+    isLatest: false,
+    summary: 'Remediasi Final UX & Ergonomi: Aksesibilitas tanggal form manual, layout Beranda bebas tumpang tindih Smart Input, touch target Saku 40–44px, dan konfirmasi hapus aman.',
+    items: [
+      {
+        tag: 'ux',
+        tagLabel: 'Catat Manual',
+        title: 'Pemilih Tanggal Terbuka Langsung & Aksesibel',
+        description: 'Kontrol tanggal & waktu kini tampil langsung di area utama form Catat Manual tanpa harus membuka Detail Tambahan, lengkap dengan tombol cepat Hari Ini & Kemarin serta label aksesibel.',
+      },
+      {
+        tag: 'ux',
+        tagLabel: 'Beranda Bebas Overlap',
+        title: 'Layout Beranda Ramping & Zero Horizontal Scroll',
+        description: 'Teks tanggal header kini membungkus fleksibel tanpa terpotong di 390px. Kartu Budget (Jatah/hari & Sisa hari) berjarak aman di atas Smart Input tanpa tumpang tindih.',
+      },
+      {
+        tag: 'ux',
+        tagLabel: 'Ergonomi Saku',
+        title: 'Touch Target Tombol Saku 40–44px & Konfirmasi Hapus',
+        description: 'Tombol Rekonsiliasi, Edit, dan Hapus saku diperbesar menjadi 40×40px untuk kenyamanan ibu jari. Tombol Hapus dilengkapi konfirmasi dua langkah untuk mencegah penghapusan tanpa sengaja.',
+      },
+      {
+        tag: 'core',
+        tagLabel: 'Split Transaksi',
+        title: 'Verifikasi Ketat Alokasi Split pada Edit Transaksi',
+        description: 'Editor pembagian transaksi (split) kini terintegrasi penuh dan terverifikasi secara ketat pada modal edit transaksi.',
+      },
+    ],
+  },
+  {
     version: 'v1.0.7',
     date: '24 Agustus 2026',
+    isLatest: false,
     summary: 'Sprint Ergonomi & Sub Kategori: Quick Chips nominal, modal revisi transaksi bottom-sheet, horizontal subkategori carousel, smart subcategory NLP, dan drilldown rekapan.',
     items: [
       {

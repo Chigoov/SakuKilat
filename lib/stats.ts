@@ -1,12 +1,26 @@
 import type { Transaction } from './mock-data'
+import { toCalendarDateString } from './parser.ts'
+import { deserializeTransactionDate } from './storage.ts'
 
 function rupiah(n: number): string {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
     .format(n).replace(/\s+/g, ' ')
 }
 
-export function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+export function getTxTime(dateInput: unknown): number {
+  return parseTxDate(dateInput).getTime()
+}
+
+export function parseTxDate(dateInput: unknown): Date {
+  return deserializeTransactionDate(dateInput)
+}
+
+export function dayKey(d: unknown): string {
+  if (d instanceof Date) {
+    if (Number.isNaN(d.getTime())) return toCalendarDateString(new Date())
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  return toCalendarDateString(d as any)
 }
 
 export function isMoneyMove(t: Transaction): boolean {
@@ -54,10 +68,18 @@ export function categoryBreakdown(
   type: 'expense' | 'income' = 'expense'
 ): CategorySlice[] {
   const { start, end } = monthBounds(ref)
+  const startTime = start.getTime(), endTime = end.getTime()
   const map = new Map<string, number>()
   for (const t of transactions) {
-    if (isMoneyMove(t) || t.type !== type || t.date < start || t.date >= end) continue
-    map.set(t.category, (map.get(t.category) ?? 0) + t.amount)
+    const tTime = getTxTime(t.date)
+    if (isMoneyMove(t) || t.type !== type || tTime < startTime || tTime >= endTime) continue
+    if (t.splitItems && t.splitItems.length > 0) {
+      for (const split of t.splitItems) {
+        map.set(split.categoryId, (map.get(split.categoryId) ?? 0) + split.amount)
+      }
+    } else {
+      map.set(t.category, (map.get(t.category) ?? 0) + t.amount)
+    }
   }
   const total = Array.from(map.values()).reduce((s, v) => s + v, 0)
   return Array.from(map.entries())
@@ -71,15 +93,24 @@ export function rangeCategoryBreakdown(
   end: Date,
   type: 'expense' | 'income' = 'expense'
 ): CategorySlice[] {
+  const startTime = start.getTime(), endTime = end.getTime()
   const map = new Map<string, number>()
   for (const transaction of transactions) {
+    const tTime = getTxTime(transaction.date)
     if (
       isMoneyMove(transaction) ||
       transaction.type !== type ||
-      transaction.date < start ||
-      transaction.date >= end
+      tTime < startTime ||
+      tTime >= endTime
     ) continue
-    map.set(transaction.category, (map.get(transaction.category) ?? 0) + transaction.amount)
+
+    if (transaction.splitItems && transaction.splitItems.length > 0) {
+      for (const split of transaction.splitItems) {
+        map.set(split.categoryId, (map.get(split.categoryId) ?? 0) + split.amount)
+      }
+    } else {
+      map.set(transaction.category, (map.get(transaction.category) ?? 0) + transaction.amount)
+    }
   }
 
   const total = Array.from(map.values()).reduce((sum, value) => sum + value, 0)
@@ -115,15 +146,27 @@ export function categoryMonthlyComparison(
   const prevStart = new Date(ref.getFullYear(), ref.getMonth() - 1, 1)
   const histStart = new Date(ref.getFullYear(), ref.getMonth() - prevMonths, 1)
 
+  const curStartTime = curStart.getTime(), curEndTime = curEnd.getTime()
+  const prevStartTime = prevStart.getTime(), histStartTime = histStart.getTime()
+
   const cur = new Map<string, number>()
   const prev = new Map<string, number>()
   const hist = new Map<string, number>()
 
   for (const t of transactions) {
     if (isMoneyMove(t) || t.type !== type) continue
-    if (t.date >= curStart && t.date < curEnd) cur.set(t.category, (cur.get(t.category) ?? 0) + t.amount)
-    if (t.date >= prevStart && t.date < curStart) prev.set(t.category, (prev.get(t.category) ?? 0) + t.amount)
-    if (t.date >= histStart && t.date < curStart) hist.set(t.category, (hist.get(t.category) ?? 0) + t.amount)
+    const tTime = getTxTime(t.date)
+    if (t.splitItems && t.splitItems.length > 0) {
+      for (const split of t.splitItems) {
+        if (tTime >= curStartTime && tTime < curEndTime) cur.set(split.categoryId, (cur.get(split.categoryId) ?? 0) + split.amount)
+        if (tTime >= prevStartTime && tTime < curStartTime) prev.set(split.categoryId, (prev.get(split.categoryId) ?? 0) + split.amount)
+        if (tTime >= histStartTime && tTime < curStartTime) hist.set(split.categoryId, (hist.get(split.categoryId) ?? 0) + split.amount)
+      }
+    } else {
+      if (tTime >= curStartTime && tTime < curEndTime) cur.set(t.category, (cur.get(t.category) ?? 0) + t.amount)
+      if (tTime >= prevStartTime && tTime < curStartTime) prev.set(t.category, (prev.get(t.category) ?? 0) + t.amount)
+      if (tTime >= histStartTime && tTime < curStartTime) hist.set(t.category, (hist.get(t.category) ?? 0) + t.amount)
+    }
   }
 
   const categories = new Set<string>([...cur.keys(), ...prev.keys()])
@@ -160,9 +203,17 @@ export function dailyAggregates(transactions: Transaction[]): Map<string, DayAgg
 }
 
 export function transactionsForDay(transactions: Transaction[], key: string): Transaction[] {
+  const targetKey = typeof key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(key)
+    ? key
+    : dayKey(key)
+
   return transactions
-    .filter(t => dayKey(t.date) === key)
-    .sort((a, b) => b.date.getTime() - a.date.getTime())
+    .filter(t => dayKey(t.date) === targetKey)
+    .sort((a, b) => {
+      const timeA = parseTxDate(a.date).getTime()
+      const timeB = parseTxDate(b.date).getTime()
+      return timeB - timeA
+    })
 }
 
 export function transactionsForRange(
@@ -176,15 +227,31 @@ export function transactionsForRange(
   },
 ): Transaction[] {
   const includeMoneyMoves = filters?.includeMoneyMoves === true
+  const startTime = start.getTime()
+  const endTime = end.getTime()
+
   return transactions
     .filter((transaction) => {
       if (!includeMoneyMoves && isMoneyMove(transaction)) return false
-      if (transaction.date < start || transaction.date >= end) return false
+      const tTime = parseTxDate(transaction.date).getTime()
+      if (tTime < startTime || tTime >= endTime) return false
       if (filters?.type && transaction.type !== filters.type) return false
-      if (filters?.category && transaction.category !== filters.category) return false
+      if (filters?.category) {
+        if (transaction.splitItems && transaction.splitItems.length > 0) {
+          const inSplit = transaction.splitItems.some((s) => s.categoryId === filters.category)
+          const inParent = transaction.category === filters.category
+          if (!inSplit && !inParent) return false
+        } else if (transaction.category !== filters.category) {
+          return false
+        }
+      }
       return true
     })
-    .sort((left, right) => right.date.getTime() - left.date.getTime())
+    .sort((left, right) => {
+      const timeA = parseTxDate(left.date).getTime()
+      const timeB = parseTxDate(right.date).getTime()
+      return timeB - timeA
+    })
 }
 
 export interface SubcategorySlice {
@@ -200,21 +267,34 @@ export function subcategoryBreakdownForRange(
   category: string,
   type: 'expense' | 'income' = 'expense',
 ): SubcategorySlice[] {
+  const startTime = start.getTime(), endTime = end.getTime()
   const bucket = new Map<string, SubcategorySlice>()
   for (const transaction of transactions) {
+    const tTime = getTxTime(transaction.date)
     if (
       isMoneyMove(transaction) ||
       transaction.type !== type ||
-      transaction.category !== category ||
-      transaction.date < start ||
-      transaction.date >= end
+      tTime < startTime ||
+      tTime >= endTime
     ) continue
 
-    const label = transaction.subcategory?.trim() || 'Tanpa sub'
-    const current = bucket.get(label) ?? { label, total: 0, count: 0 }
-    current.total += transaction.amount
-    current.count += 1
-    bucket.set(label, current)
+    if (transaction.splitItems && transaction.splitItems.length > 0) {
+      for (const split of transaction.splitItems) {
+        if (split.categoryId === category) {
+          const label = split.subcategoryId?.trim() || 'Tanpa sub'
+          const current = bucket.get(label) ?? { label, total: 0, count: 0 }
+          current.total += split.amount
+          current.count += 1
+          bucket.set(label, current)
+        }
+      }
+    } else if (transaction.category === category) {
+      const label = transaction.subcategory?.trim() || 'Tanpa sub'
+      const current = bucket.get(label) ?? { label, total: 0, count: 0 }
+      current.total += transaction.amount
+      current.count += 1
+      bucket.set(label, current)
+    }
   }
 
   return Array.from(bucket.values()).sort((left, right) => right.total - left.total)
@@ -755,20 +835,36 @@ export function filterTransactions(
   filter: TransactionFilter,
 ): Transaction[] {
   const keywordLower = filter.keyword?.trim().toLowerCase() || ''
+  const startLimit = filter.startDate ? filter.startDate.getTime() : null
+  const endLimit = filter.endDate ? filter.endDate.getTime() : null
 
   return transactions.filter((t) => {
     if (!filter.includeMoneyMoves && isMoneyMove(t)) return false
-    if (filter.startDate && t.date < filter.startDate) return false
-    if (filter.endDate && t.date >= filter.endDate) return false
+    const tTime = getTxTime(t.date)
+    if (startLimit !== null && tTime < startLimit) return false
+    if (endLimit !== null && tTime >= endLimit) return false
     if (filter.type && t.type !== filter.type) return false
     if (filter.category) {
       const filterIsLainnya = filter.category === 'lainnya' || filter.category === 'income-lainnya' || filter.category === 'expense-lainnya'
-      const txIsLainnya = t.category === 'lainnya' || t.category === 'income-lainnya' || t.category === 'expense-lainnya'
-      if (filterIsLainnya ? !txIsLainnya : t.category !== filter.category) return false
+      if (t.splitItems && t.splitItems.length > 0) {
+        const matchesSplit = t.splitItems.some((s) => {
+          const splitIsLainnya = s.categoryId === 'lainnya' || s.categoryId === 'income-lainnya' || s.categoryId === 'expense-lainnya'
+          return filterIsLainnya ? splitIsLainnya : s.categoryId === filter.category
+        })
+        const txIsLainnya = t.category === 'lainnya' || t.category === 'income-lainnya' || t.category === 'expense-lainnya'
+        const matchesParent = filterIsLainnya ? txIsLainnya : t.category === filter.category
+        if (!matchesSplit && !matchesParent) return false
+      } else {
+        const txIsLainnya = t.category === 'lainnya' || t.category === 'income-lainnya' || t.category === 'expense-lainnya'
+        if (filterIsLainnya ? !txIsLainnya : t.category !== filter.category) return false
+      }
     }
     if (filter.amountMin != null && t.amount < filter.amountMin) return false
     if (filter.amountMax != null && t.amount > filter.amountMax) return false
     if (keywordLower) {
+      const splitKeywords = t.splitItems && t.splitItems.length > 0
+        ? t.splitItems.map((s) => `${s.categoryId} ${s.subcategoryId ?? ''} ${s.note ?? ''}`).join(' ')
+        : ''
       const haystack = [
         t.description,
         t.subcategory ?? '',
@@ -776,11 +872,12 @@ export function filterTransactions(
         t.category,
         t.paymentMethod ?? '',
         String(t.amount),
+        splitKeywords,
       ].join(' ').toLowerCase()
       if (!haystack.includes(keywordLower)) return false
     }
     return true
-  }).sort((a, b) => b.date.getTime() - a.date.getTime())
+  }).sort((a, b) => getTxTime(b.date) - getTxTime(a.date))
 }
 
 // -- Ringkasan Cashflow Pintar --------------------------------------------------
@@ -988,16 +1085,31 @@ export function categoryYearlyComparison(
   const prevStart = new Date(year - 1, 0, 1)
   const prevEnd = curStart
 
+  const curStartTime = curStart.getTime(), curEndTime = curEnd.getTime()
+  const prevStartTime = prevStart.getTime(), prevEndTime = prevEnd.getTime()
+
   const cur = new Map<string, number>()
   const prev = new Map<string, number>()
 
   for (const t of transactions) {
     if (isMoneyMove(t) || t.type !== type) continue
-    if (t.date >= curStart && t.date < curEnd) {
-      cur.set(t.category, (cur.get(t.category) ?? 0) + t.amount)
-    }
-    if (t.date >= prevStart && t.date < prevEnd) {
-      prev.set(t.category, (prev.get(t.category) ?? 0) + t.amount)
+    const tTime = getTxTime(t.date)
+    if (t.splitItems && t.splitItems.length > 0) {
+      for (const split of t.splitItems) {
+        if (tTime >= curStartTime && tTime < curEndTime) {
+          cur.set(split.categoryId, (cur.get(split.categoryId) ?? 0) + split.amount)
+        }
+        if (tTime >= prevStartTime && tTime < prevEndTime) {
+          prev.set(split.categoryId, (prev.get(split.categoryId) ?? 0) + split.amount)
+        }
+      }
+    } else {
+      if (tTime >= curStartTime && tTime < curEndTime) {
+        cur.set(t.category, (cur.get(t.category) ?? 0) + t.amount)
+      }
+      if (tTime >= prevStartTime && tTime < prevEndTime) {
+        prev.set(t.category, (prev.get(t.category) ?? 0) + t.amount)
+      }
     }
   }
 

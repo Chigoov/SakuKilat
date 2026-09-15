@@ -348,7 +348,7 @@ export const CategoryYearExplorer = memo(function CategoryYearExplorer({
                 <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--sk-text-dim)] mb-1">
                   Filter Subkategori
                 </div>
-                <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none no-scrollbar">
+                <div className="flex flex-wrap gap-1.5 pb-1" data-testid="year-explorer-subcategories">
                   <button
                     type="button"
                     onClick={() => setSelectedSubcategory('')}
